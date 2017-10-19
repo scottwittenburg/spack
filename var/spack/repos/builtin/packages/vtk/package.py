@@ -43,10 +43,11 @@ class Vtk(CMakePackage):
     # VTK7 defaults to OpenGL2 rendering backend
     variant('opengl2', default=True, description='Build with OpenGL2 instead of OpenGL as rendering backend')
     variant('python', default=False, description='Build the python modules')
+    variant('qt', default=False, description='Build with support for Qt')
 
     patch('gcc.patch', when='@6.1.0')
 
-    depends_on('qt')
+    depends_on('qt', when='+qt')
     depends_on('hdf5')
     depends_on('netcdf')
     depends_on('netcdf-cxx')
@@ -61,8 +62,6 @@ class Vtk(CMakePackage):
         spec = self.spec
 
         opengl_ver = 'OpenGL{0}'.format('2' if '+opengl2' in spec else '')
-        qt_ver = spec['qt'].version.up_to(1)
-        qt_bin = spec['qt'].prefix.bin
 
         cmake_args = std_cmake_args[:]
         cmake_args.extend([
@@ -81,17 +80,23 @@ class Vtk(CMakePackage):
             # Disable wrappers for other languages.
             '-DVTK_WRAP_JAVA=OFF',
             '-DVTK_WRAP_TCL=OFF',
-
-            # Enable Qt support here.
-            '-DVTK_QT_VERSION:STRING={0}'.format(qt_ver),
-            '-DQT_QMAKE_EXECUTABLE:PATH={0}/qmake'.format(qt_bin),
-            '-DVTK_Group_Qt:BOOL=ON',
         ])
+
+        if '+qt' in spec:
+            qt_ver = spec['+qt'].version.up_to(1)
+            qt_bin = spec['+qt'].prefix.bin
+
+            cmake_args.extend([
+                # Enable Qt support here.
+                '-DVTK_QT_VERSION:STRING={0}'.format(qt_ver),
+                '-DQT_QMAKE_EXECUTABLE:PATH={0}/qmake'.format(qt_bin),
+                '-DVTK_Group_Qt:BOOL=ON',
+            ])
 
         # NOTE: The following definitions are required in order to allow
         # VTK to build with qt~webkit versions (see the documentation for
         # more info: http://www.vtk.org/Wiki/VTK/Tutorials/QtSetup).
-        if '~webkit' in spec['qt']:
+        if '+qt' in spec and '~webkit' in spec['+qt']:
             cmake_args.extend([
                 '-DVTK_Group_Qt:BOOL=OFF',
                 '-DModule_vtkGUISupportQt:BOOL=ON',
