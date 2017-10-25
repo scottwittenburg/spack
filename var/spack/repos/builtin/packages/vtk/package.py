@@ -47,7 +47,7 @@ class Vtk(CMakePackage):
 
     patch('gcc.patch', when='@6.1.0')
 
-    depends_on('qt', when='+qt')
+    depends_on('qt+opengl', when='+qt')
     depends_on('hdf5')
     depends_on('netcdf')
     depends_on('netcdf-cxx')
@@ -82,9 +82,9 @@ class Vtk(CMakePackage):
             '-DVTK_WRAP_TCL=OFF',
         ])
 
-        if '+qt' in spec:
-            qt_ver = spec['+qt'].version.up_to(1)
-            qt_bin = spec['+qt'].prefix.bin
+        if 'qt' in spec:
+            qt_ver = spec['qt'].version.up_to(1)
+            qt_bin = spec['qt'].prefix.bin
 
             cmake_args.extend([
                 # Enable Qt support here.
@@ -96,7 +96,7 @@ class Vtk(CMakePackage):
         # NOTE: The following definitions are required in order to allow
         # VTK to build with qt~webkit versions (see the documentation for
         # more info: http://www.vtk.org/Wiki/VTK/Tutorials/QtSetup).
-        if '+qt' in spec and '~webkit' in spec['+qt']:
+        if 'qt' in spec and '~webkit' in spec['qt']:
             cmake_args.extend([
                 '-DVTK_Group_Qt:BOOL=OFF',
                 '-DModule_vtkGUISupportQt:BOOL=ON',
