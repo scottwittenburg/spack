@@ -23,6 +23,7 @@
 ##############################################################################
 
 from spack import *
+from spack.version import ver
 
 
 class Mesa(AutotoolsPackage):
