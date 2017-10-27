@@ -272,7 +272,7 @@ for dep in "${deps[@]}"; do
     # Prepend include directories
     if [[ -d $dep/include ]]; then
         if [[ $mode == cpp || $mode == cc || $mode == as || $mode == ccld ]]; then
-            args=("-I$dep/include" "${args[@]}")
+            args=("${args[@]}" "-I$dep/include")
         fi
     fi
 
