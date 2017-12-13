@@ -91,7 +91,7 @@ class Vtk(CMakePackage):
 
         opengl_ver = 'OpenGL{0}'.format('2' if '+opengl2' in spec else '')
 
-        cmake_args = std_cmake_args[:]
+        cmake_args = []
         cmake_args.extend([
             '-DBUILD_SHARED_LIBS=ON',
             '-DVTK_RENDERING_BACKEND:STRING={0}'.format(opengl_ver),
@@ -114,6 +114,11 @@ class Vtk(CMakePackage):
             '-DVTK_WRAP_JAVA=OFF',
             '-DVTK_WRAP_TCL=OFF',
         ])
+
+        if 'darwin' in spec.architecture:
+            cmake_args.extend([
+                '-DCMAKE_MACOSX_RPATH=ON'
+            ])
 
         if '+qt' in spec:
             qt_ver = spec['qt'].version.up_to(1)
@@ -141,16 +146,26 @@ class Vtk(CMakePackage):
             prefix = spec['mesa'].prefix
             osmesaIncludeDir = prefix.include
             osmesaLibrary = os.path.join(prefix.lib, 'libOSMesa.so')
+
+            useParam = 'VTK_USE_X'
+            if 'darwin' in spec.architecture:
+                useParam = 'VTK_USE_COCOA'
+
             cmake_args.extend([
-                '-DVTK_USE_X:BOOL=OFF',
+                '-D{0}:BOOL=OFF'.format(useParam),
                 '-DVTK_OPENGL_HAS_OSMESA:BOOL=ON',
                 '-DOSMESA_INCLUDE_DIR:PATH={0}'.format(osmesaIncludeDir),
                 '-DOSMESA_LIBRARY:FILEPATH={0}'.format(osmesaLibrary),
             ])
         else:
             prefix = spec['opengl'].prefix
+
             openglIncludeDir = prefix.include
             openglLibrary = os.path.join(prefix.lib, 'libGL.so')
+            if 'darwin' in spec.architecture:
+                openglIncludeDir = prefix
+                openglLibrary = prefix
+
             cmake_args.extend([
                 '-DOPENGL_INCLUDE_DIR:PATH={0}'.format(openglIncludeDir),
                 '-DOPENGL_gl_LIBRARY:FILEPATH={0}'.format(openglLibrary)
