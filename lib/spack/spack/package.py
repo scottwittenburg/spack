@@ -1314,7 +1314,7 @@ class PackageBase(with_metaclass(PackageMeta, PackageViewMixin, object)):
                 message = '{s.name}@{s.version} : marking the package explicit'
                 tty.msg(message.format(s=self))
 
-    def try_install_from_binary_cache(self, explicit):
+    def try_install_from_binary_cache(self, explicit, unsigned=False):
         tty.msg('Searching for binary cache of %s' % self.name)
         specs = binary_distribution.get_specs()
         binary_spec = spack.spec.Spec.from_dict(self.spec.to_dict())
@@ -1325,7 +1325,7 @@ class PackageBase(with_metaclass(PackageMeta, PackageViewMixin, object)):
         tarball = binary_distribution.download_tarball(binary_spec)
         binary_distribution.extract_tarball(
             binary_spec, tarball, allow_root=False,
-            unsigned=False, force=False)
+            unsigned=unsigned, force=False)
         spack.store.db.add(
             self.spec, spack.store.layout, explicit=explicit)
         return True
@@ -1423,7 +1423,7 @@ class PackageBase(with_metaclass(PackageMeta, PackageViewMixin, object)):
         tty.msg(colorize('@*{Installing} @*g{%s}' % self.name))
 
         if kwargs.get('use_cache', False):
-            if self.try_install_from_binary_cache(explicit):
+            if self.try_install_from_binary_cache(explicit, unsigned=True):
                 tty.msg('Successfully installed %s from binary cache'
                         % self.name)
                 print_pkg(self.prefix)
