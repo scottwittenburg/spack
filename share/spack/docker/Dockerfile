@@ -99,7 +99,7 @@ RUN apt-get -yqq update                                   \
   MASK [[ $DISTRO_VERSION == bionic ]]
   # [WORKAROUND]
   # https://bugs.launchpad.net/ubuntu/+source/lua-posix/+bug/1752082
-  RUN ln -s posix_c.so /usr/lib/x86_64-linux-gnu/lua/5.2/posix.so
+  RUN ln -s /usr/lib/x86_64-linux-gnu/lua/5.2/posix_c.so /usr/lib/x86_64-linux-gnu/lua/5.2/posix.so
   MASK POP
 
 RUN rm -rf /var/lib/apt/lists/*
