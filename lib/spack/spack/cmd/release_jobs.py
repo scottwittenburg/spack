@@ -24,12 +24,15 @@
 ##############################################################################
 import os
 
+import subprocess
 from jsonschema import validate
 from six import iteritems
 
 import llnl.util.tty as tty
 
 from spack.dependency import all_deptypes
+from spack.spec import Spec
+from spack.paths import spack_root
 from spack.error import SpackError
 from spack.schema.os_container_mapping import schema
 from spack.util.spec_set import CombinatorialSpecSet
@@ -68,6 +71,78 @@ def setup_parser(subparser):
     subparser.add_argument(
         '-p', '--print-summary', action='store_true', default=False,
         help="Print summary of staged jobs to standard output")
+
+    subparser.add_argument(
+        '--spec-deps', default=None,
+        help="The spec for which you want container-generated deps")
+
+
+def get_deps_using_container(spec, container_info, deps):
+    image = container_info['image']
+
+    cmd_to_run = [
+        'docker', 'run', '--rm',
+        '-v', '{0}:/home/scott/spack'.format(spack_root),
+        '--entrypoint', '/home/scott/spackcommand/spack-container-command.sh',
+        '-t', str(image),
+        'spack', 'release-jobs', '--spec-deps', str(spec),
+    ]
+
+    print('Running command:')
+    print(' '.join(cmd_to_run))
+    proc = subprocess.Popen(cmd_to_run,
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+    proc.wait()
+    out = proc.stdout.read()
+
+    print('Results of running command in container:')
+    print(out)
+
+
+def containerized_stage_spec_jobs(spec_set, containers):
+    def remove_satisfied_deps(deps, satisfied_list):
+        new_deps = {}
+
+        for key, value in iteritems(deps):
+            new_value = set([v for v in value if v not in satisfied_list])
+            if new_value:
+                new_deps[key] = new_value
+
+        return new_deps
+
+    deps = {}
+
+    for spec in spec_set:
+        for osname in containers:
+            container_info = containers[osname]
+            if 'compilers' in container_info:
+                foundOne = False
+                for item in container_info['compilers']:
+                    if spec.compiler.satisfies(item['name']):
+                        get_deps_using_container(spec, container_info, deps)
+                        foundOne = True
+                if not foundOne:
+                    print('no compiler in {0} satisfied {1}'.format(osname, spec.compiler))
+
+    # dependencies = deps
+    # unstaged = set(spec_labels.keys())
+    # stages = []
+
+    # while deps:
+    #     depends_on = set(deps.keys())
+    #     next_stage = unstaged.difference(depends_on)
+    #     stages.append(next_stage)
+    #     unstaged.difference_update(next_stage)
+    #     deps = remove_satisfied_deps(deps, next_stage)
+
+    # if unstaged:
+    #     stages.append(unstaged.copy())
+
+    # return spec_labels, dependencies, stages
+
+    return {}, {}, []
 
 
 def stage_spec_jobs(spec_set):
@@ -140,6 +215,41 @@ def print_staging_summary(spec_labels, dependencies, stages):
         stageIndex += 1
 
 
+def dump_spec_deps(spec):
+    deptype = all_deptypes
+    spec_labels = {}
+    deps = {}
+
+    def key_label(s):
+        return s.dag_hash(), "%s/%s" % (s.name, s.dag_hash(7))
+
+    def add_dep(s, d):
+        if s == d:
+            return
+        if s not in deps:
+            deps[s] = set()
+        deps[s].add(d)
+
+    spec.concretize()
+
+    rkey, rlabel = key_label(spec)
+
+    for s in spec.traverse(deptype=deptype):
+        if not s.concrete:
+            s.concretize()
+        skey, slabel = key_label(s)
+        spec_labels[slabel] = s
+        add_dep(rlabel, slabel)
+
+        for d in s.dependencies(deptype=deptype):
+            dkey, dlabel = key_label(d)
+            add_dep(slabel, dlabel)
+
+    for dep_key in deps:
+        for depends in deps[dep_key]:
+            print('{0} -> {1}'.format(dep_key, depends))
+
+
 def release_jobs(parser, args):
     share_path = os.path.join('.', 'share', 'spack', 'docker')
     os_container_mapping_path = os.path.join(
@@ -151,6 +261,20 @@ def release_jobs(parser, args):
     validate(os_container_mapping, schema)
 
     containers = os_container_mapping['containers']
+
+    if args.spec_deps:
+        # look at the compiler listed on the spec and try to find a
+        # container info which claims it supports that compiler
+        s = Spec(args.spec_deps)
+        dump_spec_deps(s)
+        # for osname in containers:
+        #     container_info = containers[osname]
+        #     if 'compilers' in container_info:
+        #         for item in container_info['compilers']:
+        #             if s.compiler.satisfies(item['name']):
+        #                 generate_container_deps(s, container_info)
+
+        return
 
     release_specs_path = args.spec_set
     if not release_specs_path:
@@ -165,7 +289,9 @@ def release_jobs(parser, args):
 
     cdash_url = args.cdash_url
 
-    spec_labels, dependencies, stages = stage_spec_jobs(release_spec_set)
+    # spec_labels, dependencies, stages = stage_spec_jobs(release_spec_set)
+    spec_labels, dependencies, stages = containerized_stage_spec_jobs(
+        release_spec_set, containers)
 
     if args.print_summary:
         print_staging_summary(spec_labels, dependencies, stages)
@@ -228,10 +354,20 @@ def release_jobs(parser, args):
                     'dependencies': job_dependencies,
                 }
 
-                if 'find_compilers' in container_info:
-                    job_vars = job_object['variables']
-                    job_vars['SPACK_FIND_COMPILER_PATHS'] = ';'.join(
-                        container_info['find_compilers'])
+                # If we see 'compilers' in the container iformation, it's a
+                # filter for the compilers this container can handle, else we
+                # assume it can handle any compiler
+                if 'compilers' in container_info:
+                    do_job = False
+                    for item in container_info['compilers']:
+                        if pkg_compiler.satisfies(item['name']):
+                            do_job = True
+                            if 'path' in item:
+                                job_vars = job_object['variables']
+                                job_vars['SPACK_FIND_COMPILER_PATHS'] = ';'.join(
+                                    item['path'])
+                else:
+                    do_job = True
 
                 if args.shared_runner_tag:
                     job_object['tags'] = [args.shared_runner_tag]
@@ -239,8 +375,9 @@ def release_jobs(parser, args):
                 if args.signing_key:
                     job_object['variables']['SIGN_KEY_HASH'] = args.signing_key
 
-                output_object[job_name] = job_object
-                job_count += 1
+                if do_job:
+                    output_object[job_name] = job_object
+                    job_count += 1
 
         stage += 1
 
