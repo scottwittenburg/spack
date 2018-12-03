@@ -235,110 +235,43 @@ set -x
 spack gpg list --trusted
 spack gpg list --signing
 
-# Finally, we can check the spec we have been tasked with build against
-# the built binary on the remote mirror to see if it needs to be rebuilt
-spack -d buildcache check --spec-yaml "${SPEC_YAML_PATH}" --mirror-url "${MIRROR_URL}" --no-index
+# Configure mirror
+# spack mirror add local_artifact_mirror "file://${LOCAL_MIRROR}"
+spack mirror add remote_binary_mirror ${MIRROR_URL}
 
-if [[ $? -ne 0 ]]; then
-    # Configure mirror
-    spack mirror add local_artifact_mirror "file://${LOCAL_MIRROR}"
+JOB_CDASH_ID="NONE"
 
-    JOB_CDASH_ID="NONE"
+# Install package, using the buildcache from the local mirror to
+# satisfy dependencies.
+BUILD_ID_LINE=`spack -d -k install --use-cache --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${JOB_SPEC_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "Experimental" -f "${SPEC_YAML_PATH}" | grep "buildSummary\\.php"`
+check_error $? "spack install"
 
-    # Install package, using the buildcache from the local mirror to
-    # satisfy dependencies.
-    BUILD_ID_LINE=`spack -d -k install --use-cache --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${JOB_SPEC_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "Experimental" -f "${SPEC_YAML_PATH}" | grep "buildSummary\\.php"`
-    check_error $? "spack install"
+# By parsing the output of the "spack install" command, we can get the
+# buildid generated for us by CDash
+JOB_CDASH_ID=$(extract_build_id "${BUILD_ID_LINE}")
 
-    # By parsing the output of the "spack install" command, we can get the
-    # buildid generated for us by CDash
-    JOB_CDASH_ID=$(extract_build_id "${BUILD_ID_LINE}")
-
-    BUILD_ID_ARG=""
-    if [ "${JOB_CDASH_ID}" != "NONE" ]; then
-        echo "Found build id for ${JOB_SPEC_NAME} from 'spack install' output: ${JOB_CDASH_ID}"
-        BUILD_ID_ARG="--cdash-build-id \"${JOB_CDASH_ID}\""
-    else
-        echo "Unable to find build id in install output, install probably failed."
-        exit 1
-    fi
-
-    # Create buildcache entry for this package.  We should eventually change
-    # this to read the spec from the yaml file, but it seems unlikely there
-    # will be a spec that matches the name which is NOT the same as represented
-    # in the yaml file
-    spack -d buildcache create --spec-yaml "${SPEC_YAML_PATH}" -a -f -d "${LOCAL_MIRROR}" ${BUILD_ID_ARG}
-    check_error $? "spack buildcache create"
-
-    # TODO: Now push buildcache entry to remote mirror, something like:
-    # "spack buildcache put <mirror> <spec>", when that subcommand
-    # is implemented
-    spack -d upload-s3 spec --base-dir "${LOCAL_MIRROR}" --spec-yaml "${SPEC_YAML_PATH}"
-    check_error $? "spack upload-s3 spec"
+BUILD_ID_ARG=""
+if [ "${JOB_CDASH_ID}" != "NONE" ]; then
+    echo "Found build id for ${JOB_SPEC_NAME} from 'spack install' output: ${JOB_CDASH_ID}"
+    BUILD_ID_ARG="--cdash-build-id \"${JOB_CDASH_ID}\""
 else
-    echo "spec ${JOB_SPEC_NAME} is already up to date on remote mirror, downloading it"
-
-    # Configure remote mirror so we can download buildcache entry
-    spack mirror add remote_binary_mirror ${MIRROR_URL}
-
-    # Now download it
-    spack -d buildcache download --spec-yaml "${SPEC_YAML_PATH}" --path "${BUILD_CACHE_DIR}/"
-    check_error $? "spack buildcache download"
-fi
-
-# Now, whether we had to build the spec or download it pre-built, we should have
-# the cdash build id file sitting in place as well.  We use it to link this job to
-# the jobs it depends on in CDash.
-JOB_CDASH_ID_FILE="${BUILD_CACHE_DIR}/${JOB_BUILD_CACHE_ENTRY_NAME}.cdashid"
-
-if [ -f "${JOB_CDASH_ID_FILE}" ]; then
-    JOB_CDASH_BUILD_ID=$(<${JOB_CDASH_ID_FILE})
-
-    if [ "${JOB_CDASH_BUILD_ID}" == "NONE" ]; then
-        echo "ERROR: unable to read this jobs id from ${JOB_CDASH_ID_FILE}"
-        exit 1
-    fi
-
-    # Now get CDash ids for dependencies and "relate" each dependency build
-    # with this jobs build
-    # IFS=';' read -ra DEPS <<< "${DEPENDENCIES}"
-    # for i in "${DEPS[@]}"; do
-    for DEP_PKG_NAME in "${JOB_DEPS_PKG_NAMES[@]}"; do
-        echo "Getting cdash id for dependency --> ${i} <--"
-        # DEP_SPEC_YAML_DIR=$(mktemp -d)
-        DEP_SPEC_YAML_PATH="${SPEC_DIR}/${DEP_PKG_NAME}.yaml"
-        # DEP_SPEC_NAME=$( gen_full_spec "${DEP_SPEC_YAML_PATH}" "${i}" )
-        # echo "dependency spec name = ${DEP_SPEC_NAME}"
-        # echo "dependency spec name = ${DEP_SPEC_NAME}, spec yaml saved to ${DEP_SPEC_YAML_PATH}"
-        echo "dependency spec name = ${DEP_PKG_NAME}, spec yaml saved to ${DEP_SPEC_YAML_PATH}"
-        # echo "dependency spec yaml contents:"
-        # cat ${DEP_SPEC_YAML_PATH}
-        DEP_JOB_BUILDCACHE_NAME=`spack -d buildcache get-buildcache-name --spec-yaml "${DEP_SPEC_YAML_PATH}"`
-
-        if [[ $? -eq 0 ]]; then
-            DEP_JOB_ID_FILE="${BUILD_CACHE_DIR}/${DEP_JOB_BUILDCACHE_NAME}.cdashid"
-            echo "DEP_JOB_ID_FILE path = ${DEP_JOB_ID_FILE}"
-
-            if [ -f "${DEP_JOB_ID_FILE}" ]; then
-                DEP_JOB_CDASH_BUILD_ID=$(<${DEP_JOB_ID_FILE})
-                echo "File ${DEP_JOB_ID_FILE} contained value ${DEP_JOB_CDASH_BUILD_ID}"
-                echo "Relating builds -> ${JOB_SPEC_NAME} (buildid=${JOB_CDASH_BUILD_ID}) depends on ${DEP_PKG_NAME} (buildid=${DEP_JOB_CDASH_BUILD_ID})"
-                relateBuildsPostBody="$(get_relate_builds_post_data "Spack" ${JOB_CDASH_BUILD_ID} ${DEP_JOB_CDASH_BUILD_ID})"
-                relateBuildsResult=`curl "${DEP_JOB_RELATEBUILDS_URL}" -H "Content-Type: application/json" -H "Accept: application/json" -d "${relateBuildsPostBody}"`
-                echo "Result of curl request: ${relateBuildsResult}"
-            else
-                echo "ERROR: Did not find expected .cdashid file for dependency: ${DEP_JOB_ID_FILE}"
-                exit 1
-            fi
-        else
-            echo "ERROR: Unable to get buildcache entry name for ${DEP_SPEC_NAME}"
-            exit 1
-        fi
-    done
-else
-    echo "ERROR: Did not find expected .cdashid file ${JOB_CDASH_ID_FILE}"
+    echo "Unable to find build id in install output, install probably failed."
     exit 1
 fi
+
+# Create buildcache entry for this package.  We should eventually change
+# this to read the spec from the yaml file, but it seems unlikely there
+# will be a spec that matches the name which is NOT the same as represented
+# in the yaml file
+spack -d buildcache create --spec-yaml "${SPEC_YAML_PATH}" -a -f -d "${LOCAL_MIRROR}" ${BUILD_ID_ARG}
+check_error $? "spack buildcache create"
+
+# TODO: Now push buildcache entry to remote mirror, something like:
+# "spack buildcache put <mirror> <spec>", when that subcommand
+# is implemented
+spack -d upload-s3 spec --base-dir "${LOCAL_MIRROR}" --spec-yaml "${SPEC_YAML_PATH}"
+check_error $? "spack upload-s3 spec"
+
 
 # Show the size of the buildcache and a list of what's in it, directly
 # in the gitlab log output
