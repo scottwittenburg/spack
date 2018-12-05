@@ -241,7 +241,7 @@ spack mirror add remote_binary_mirror ${MIRROR_URL}
 
 # Install package, using the buildcache from the local mirror to
 # satisfy dependencies.
-spack -d -k install --use-cache --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${JOB_SPEC_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "Experimental" -f "${SPEC_YAML_PATH}"
+spack -d -k install --use-cache -f "${SPEC_YAML_PATH}"
 
 # Create buildcache entry for this package.  We should eventually change
 # this to read the spec from the yaml file, but it seems unlikely there
