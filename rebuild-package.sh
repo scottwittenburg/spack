@@ -239,25 +239,9 @@ spack gpg list --signing
 # spack mirror add local_artifact_mirror "file://${LOCAL_MIRROR}"
 spack mirror add remote_binary_mirror ${MIRROR_URL}
 
-JOB_CDASH_ID="NONE"
-
 # Install package, using the buildcache from the local mirror to
 # satisfy dependencies.
-BUILD_ID_LINE=`spack -d -k install --use-cache --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${JOB_SPEC_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "Experimental" -f "${SPEC_YAML_PATH}" | grep "buildSummary\\.php"`
-check_error $? "spack install"
-
-# By parsing the output of the "spack install" command, we can get the
-# buildid generated for us by CDash
-JOB_CDASH_ID=$(extract_build_id "${BUILD_ID_LINE}")
-
-BUILD_ID_ARG=""
-if [ "${JOB_CDASH_ID}" != "NONE" ]; then
-    echo "Found build id for ${JOB_SPEC_NAME} from 'spack install' output: ${JOB_CDASH_ID}"
-    BUILD_ID_ARG="--cdash-build-id \"${JOB_CDASH_ID}\""
-else
-    echo "Unable to find build id in install output, install probably failed."
-    exit 1
-fi
+spack -d -k install --use-cache --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${JOB_SPEC_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "Experimental" -f "${SPEC_YAML_PATH}"
 
 # Create buildcache entry for this package.  We should eventually change
 # this to read the spec from the yaml file, but it seems unlikely there
