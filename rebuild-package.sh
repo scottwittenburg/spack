@@ -336,11 +336,12 @@ main() {
         echo "dependency spec name = ${DEP_PKG_NAME}," \
              "spec yaml saved to ${DEP_SPEC_YAML_PATH}"
 
-        local com='DEP_JOB_BUILDCACHE_NAME="$('
-        com="${com}"' spack -d buildcache get-buildcache-name'
-        com="${com}"' --spec-yaml "${DEP_SPEC_YAML_PATH}" )"'
+        DEP_JOB_BUILDCACHE_NAME="$(
+            spack -d buildcache get-buildcache-name \
+                --spec-yaml "${DEP_SPEC_YAML_PATH}" )"
 
-        log_command ":Get build cache entry ($DEP_SPEC_NAME)" eval "$com"
+        log_command ":Check build cache entry ($DEP_SPEC_NAME)" \
+            eval 'echo "$DEP_JOB_BUILDCACHE_NAME"'
 
         DEP_JOB_ID_FILE="${BUILD_CACHE_DIR}/${DEP_JOB_BUILDCACHE_NAME}"
         DEP_JOB_ID_FILE="${DEP_JOB_ID_FILE}.cdashid"
