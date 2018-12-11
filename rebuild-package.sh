@@ -357,9 +357,9 @@ main() {
         (buildid=${JOB_CDASH_BUILD_ID}) depends on ${DEP_PKG_NAME}
         (buildid=${DEP_JOB_CDASH_BUILD_ID})"
 
-        local post_body='{"project":"Spack","relationship":"depends on"'
-        post_body="${post_body}"'"buildid":'"$JOB_CDASH_BUILD_ID"'
-        post_body="${post_body}"'"relatedid":'"$DEP_JOB_CDASH_BUILD_ID"'
+        local post_body='{"project":"Spack","relationship":"depends on",'
+        post_body="${post_body}"'"buildid":'"${JOB_CDASH_BUILD_ID},"
+        post_body="${post_body}"'"relatedid":'$DEP_JOB_CDASH_BUILD_ID'}'
 
         log_command ':Post dependency info to CDash' \
             curl "${DEP_JOB_RELATEBUILDS_URL}"       \
