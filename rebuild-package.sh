@@ -20,11 +20,9 @@
 ### MIRROR_URL
 ###
 
-shopt -s expand_aliases
-
+### Variables ##################################################################
 export FORCE_UNSAFE_CONFIGURE=1
 
-# TEMP_DIR="$( mktemp -d )"
 TEMP_DIR="${CI_PROJECT_DIR}/jobs_scratch_dir"
 
 JOB_LOG_DIR="${TEMP_DIR}/logs"
@@ -40,87 +38,134 @@ declare -a JOB_DEPS_PKG_NAMES
 export SPACK_ROOT=${CI_PROJECT_DIR}
 export PATH="${SPACK_BIN_DIR}:${PATH}"
 export GNUPGHOME="${CURRENT_WORKING_DIR}/opt/spack/gpg"
+################################################################################
 
-mkdir -p ${JOB_LOG_DIR}
-mkdir -p ${SPEC_DIR}
-
-cleanup() {
-    set +x
-
-    if [ -z "$exit_code" ] ; then
-
-        exit_code=$1
-        if [ -z "$exit_code" ] ; then
-            exit_code=0
-        fi
-
-        restore_io
-
-        if [ "$( type -t finalize )" '=' 'function' ] ; then
-            finalize "$JOB_LOG_DIR/cdash_log.txt"
-        fi
-
-        # We can clean these out later on, once we have a good sense for
-        # how the logging infrastructure is working
-        # rm -rf "$JOB_LOG_DIR"
-    fi
-
-    \exit $exit_code
-}
-
-alias exit='cleanup'
-
-begin_logging() {
-    trap "cleanup 1; \\exit \$exit_code" INT TERM QUIT
-    trap "cleanup 0; \\exit \$exit_code" EXIT
-
-    rm -rf "$JOB_LOG_DIR/cdash_log.txt"
-
-    # NOTE: Here, some redirects are set up
-    exec 3>&1 # fd 3 is now a dup of stdout
-    exec 4>&2 # fd 4 is now a dup of stderr
-
-    # stdout and stderr are joined and redirected to the log
-    exec &> "$JOB_LOG_DIR/cdash_log.txt"
-
-    set -x
-}
-
-restore_io() {
-    exec  >&-
-    exec 2>&-
-
-    exec  >&3
-    exec 2>&4
-
-    exec 3>&-
-    exec 4>&-
-}
-
-finalize() {
-    # If you define a finalize function:
-    #  - it will always be called at the very end of the script
-    #  - the log file will be passed in as the first argument, and
-    #  - the code in this function will not be logged.
-    echo "The full log file is located at $1"
+### Functions ##################################################################
+report_to_cdash() {
+    echo "The full log file is located at $JOB_LOG_DIR/cdash_log.txt"
     # TODO: send this log data to cdash!
 }
 
-check_error()
-{
-    local last_exit_code=$1
-    local last_cmd=$2
-    if [[ ${last_exit_code} -ne 0 ]]; then
-        echo "${last_cmd} exited with code ${last_exit_code}"
-        echo "TERMINATING JOB"
-        exit 1
-    else
-        echo "${last_cmd} completed successfully"
+log_command() {
+    mkfifo "$TEMP_DIR/code.fifo"
+    eval "exec 9<>$TEMP_DIR/code.fifo"
+    unlink "$TEMP_DIR/code.fifo"
+
+    local DASHES='--------------------'
+    DASHES="${DASHES}${DASHES}${DASHES}${DASHES}"
+
+    echo "$DASHES"
+
+    local arg0="$1"
+    if [ "${arg0::1}" '=' ':' ] ; then
+        local comment="$1" ; shift
+        echo "(${comment:1})"
     fi
+
+    local line="RUN:"
+    local token
+    local first=1
+    for token in "$@" ; do
+        if [[ "$token" =~ ' ' ]] ; then
+            token="\"$token\""
+        fi
+
+        local n="${#line}"
+        if [ "$n" -gt '0' ] ; then
+            n="$(( n + ${#token} ))"
+        fi
+
+        if [ "$n" -gt 72 ] ; then
+            if [ "$first" '=' '1' ] ; then
+                first=0
+            else
+                echo ' \'
+            fi
+
+            if [ "${#line}" -gt 72 ] ; then
+                local frag
+                local rem
+
+                rem="$line"
+
+                line=""
+                local last=0
+                while true ; do
+                    frag="${rem/ */ }" ; rem="${rem:${#frag}}"
+
+                    local m="${#line}"
+                    if [ "$m" -gt 14 ] ; then
+                        m="$(( m + ${#frag} ))"
+                    fi
+
+                    while [ "$m" -gt 68 ] ; do
+                        local portion="${line:68}"
+                        line="${line::68}"
+                        echo "${line}..."
+                        line="              ${portion}"
+                        m="$(( ${#line} + ${#frag} ))"
+                    done
+
+                    if [ "$last" '=' '0' ] ; then
+                        line="${line}${frag}"
+                    fi
+
+                    if [ "$last" '=' '0' ] ; then
+                        if [ -z "$rem" ] ; then
+                            last=1
+                        fi
+                        continue
+                    fi
+
+                    echo -n "$line"
+                    break
+                done
+            else
+                echo -n "$line"
+            fi
+            line='    '
+        fi
+        line="${line} ${token}"
+    done
+
+    if [ -n "$line" ] ; then
+        if [ "$first" '!=' '1' ] ; then
+            echo ' \'
+        fi
+        echo -n "$line"
+    fi
+    echo
+
+    echo "$DASHES"
+
+    (
+      (
+        (
+          (
+            (
+              (
+                "$@"
+                echo $? >&9
+              ) || true
+            ) | sed 's/^/   | /g'
+          ) 3>&2 2>&1 >&3
+        ) | sed 's/^/  >> /g'
+      ) 3>&2 2>&1 >&3
+    )
+
+    local res
+    read -u 9 res
+
+    echo "$DASHES"
+    echo "exit code: $res"
+    echo "$DASHES"
+
+    exec 9<&-
+
+    return $res
 }
 
-extract_build_id()
-{
+extract_build_id() {
     LINES_TO_SEARCH=$1
     regex="buildSummary\.php\?buildid=([[:digit:]]+)"
     SINGLE_LINE_OUTPUT=$(echo ${LINES_TO_SEARCH} | tr -d '\n')
@@ -132,42 +177,14 @@ extract_build_id()
     fi
 }
 
-get_relate_builds_post_data()
-{
-  cat <<EOF
-{
-  "project": "${1}",
-  "buildid": ${2},
-  "relatedid": ${3},
-  "relationship": "depends on"
-}
-EOF
-}
+main() {
+    set -e
 
-# gen_full_spec() {
-#     yaml_path=$1
-
-#     read -ra PARTSARRAY <<< "$2"
-#     pkgName="${PARTSARRAY[0]}"
-#     pkgVersion="${PARTSARRAY[1]}"
-#     compiler="${PARTSARRAY[2]}"
-#     osarch="${PARTSARRAY[3]}"
-
-#     dep_spec_name="${pkgName}@${pkgVersion}%${compiler} arch=${osarch}"
-#     root_spec_name="${ROOT_SPEC} arch=${osarch}"
-
-#     spack buildcache save-yaml --spec "${pkgName}" --root-spec "${root_spec_name}" --yaml-path "${yaml_path}"
-
-#     echo "${pkgName}@${pkgVersion}%${compiler} arch=${osarch}"
-# }
-
-gen_full_specs_for_job_and_deps() {
-
-    read -ra PARTSARRAY <<< "${CI_JOB_NAME}"
-    local pkgName="${PARTSARRAY[0]}"
-    local pkgVersion="${PARTSARRAY[1]}"
-    local compiler="${PARTSARRAY[2]}"
-    local osarch="${PARTSARRAY[3]}"
+    local tokens=($CI_JOB_NAME)
+    local pkgName="${tokens[0]}"
+    local pkgVersion="${tokens[1]}"
+    local compiler="${tokens[2]}"
+    local osarch="${tokens[3]}"
 
     JOB_SPEC_NAME="${pkgName}@${pkgVersion}%${compiler} arch=${osarch}"
     JOB_PKG_NAME="${pkgName}"
@@ -175,177 +192,208 @@ gen_full_specs_for_job_and_deps() {
     local root_spec_name="${ROOT_SPEC} arch=${osarch}"
     local spec_names_to_save="${pkgName}"
 
-    IFS=';' read -ra DEPS <<< "${DEPENDENCIES}"
-    for i in "${DEPS[@]}"; do
-        read -ra PARTSARRAY <<< "${i}"
-        pkgName="${PARTSARRAY[0]}"
+    _old_ifs="$IFS" ; IFS=';'
+    local deps=(${DEPENDENCIES})
+    IFS="$_old_ifs"
+
+    for dep in "${deps[@]}"; do
+        tokens=(${dep})
+        pkgName="${tokens[0]}"
         spec_names_to_save="${spec_names_to_save} ${pkgName}"
         JOB_DEPS_PKG_NAMES+=("${pkgName}")
     done
 
-    spack -d buildcache save-yaml --specs "${spec_names_to_save}" --root-spec "${root_spec_name}" --yaml-dir "${SPEC_DIR}"
-}
+    log_command                             \
+        spack -d buildcache save-yaml       \
+            --specs "${spec_names_to_save}" \
+            --root-spec "${root_spec_name}" \
+            --yaml-dir "${SPEC_DIR}"
 
-begin_logging
+    echo
+    echo "Building package ${JOB_SPEC_NAME}, ${HASH}, ${MIRROR_URL}"
+    echo
 
-# SPEC_YAML_PATH="${SPEC_DIR}/spec.yaml"
-# JOB_SPEC_NAME=$( gen_full_spec "${SPEC_YAML_PATH}" "${CI_JOB_NAME}" )
+    log_command ':Show compilers' spack compilers
+    log_command ':Compiler Configuration' \
+        cat ~/.spack/linux/compilers.yaml
+    log_command ':Ensure build cache directory' \
+        mkdir -p "${BUILD_CACHE_DIR}"
 
-gen_full_specs_for_job_and_deps
+    # Get buildcache name so we can write a CDash build id file in the right
+    # place.  If we're unable to get the buildcache name, we may have
+    # encountered a problem concretizing the spec, or some other issue that will
+    # eventually cause the job to fail.
+    JOB_BUILD_CACHE_ENTRY_NAME="$(
+        spack buildcache get-buildcache-name \
+            --spec-yaml "${SPEC_YAML_PATH}" )"
 
-echo "Building package ${JOB_SPEC_NAME}, ${HASH}, ${MIRROR_URL}"
+    log_command ':Initialize GPG' spack gpg list
 
-# echo "Saved full spec yaml to ${SPEC_YAML_PATH}"
-# echo "Saved full spec yaml to ${SPEC_YAML_PATH}, contents:"
-# cat ${SPEC_YAML_PATH}
+    (
 
-# Finally, list the compilers spack knows about
-spack compilers
+        # make sure we don't leak the key!
+        set +x
+        echo ${SPACK_SIGNING_KEY} | base64 --decode
 
-# Show the compiler details
-echo "Compiler Configurations:"
-cat ~/.spack/linux/compilers.yaml
+    # discard stderr output, just in case!
+    ) 2>/dev/null \
+    | log_command ':Import Signing Key' gpg2 --import
 
-# Make the build_cache directory if it doesn't exist
-mkdir -p "${BUILD_CACHE_DIR}"
+    # ultimately trust all keys in the keyring
+    # (there should only be one, anyway)
+    gpg --export-ownertrust                         \
+        | sed 's/\([A-F0-9]\{40\}\):[1-5]:/\1:5:/g' \
+        | log_command gpg --import-ownertrust
 
-# Get buildcache name so we can write a CDash build id file in the right place.
-# If we're unable to get the buildcache name, we may have encountered a problem
-# concretizing the spec, or some other issue that will eventually cause the job
-# to fail.
-JOB_BUILD_CACHE_ENTRY_NAME=`spack -d buildcache get-buildcache-name --spec-yaml "${SPEC_YAML_PATH}"`
-if [[ $? -ne 0 ]]; then
-    echo "ERROR, unable to get buildcache entry name for job ${CI_JOB_NAME} (spec: ${JOB_SPEC_NAME})"
-    exit 1
-fi
+    log_command spack gpg list --trusted
+    log_command spack gpg list --signing
 
-# This should create the directory we referred to as GNUPGHOME earlier
-spack gpg list
+    if log_command ':Check remote mirror'           \
+            spack -d buildcache check               \
+            --spec-yaml "${SPEC_YAML_PATH}"         \
+            --mirror-url "${MIRROR_URL}" --no-index
+    then
+        echo
+        echo "Already up-to-date: ${JOB_SPEC_NAME}"
+        echo
 
-# Importing the secret key using gpg2 directly should allow to
-# sign and verify both
-set +x
-KEY_IMPORT_RESULT=`echo ${SPACK_SIGNING_KEY} | base64 --decode | gpg2 --import`
-check_error $? "gpg2 --import"
-set -x
+        log_command ':Configure remote mirror' \
+            spack mirror add remote_binary_mirror ${MIRROR_URL}
 
-# This line doesn't seem to add any extra trust levels
-# echo ${SPACK_SIGNING_KEY} | base64 --decode | spack gpg trust /dev/stdin
-
-spack gpg list --trusted
-spack gpg list --signing
-
-# Finally, we can check the spec we have been tasked with build against
-# the built binary on the remote mirror to see if it needs to be rebuilt
-spack -d buildcache check --spec-yaml "${SPEC_YAML_PATH}" --mirror-url "${MIRROR_URL}" --no-index
-
-if [[ $? -ne 0 ]]; then
-    # Configure mirror
-    spack mirror add local_artifact_mirror "file://${LOCAL_MIRROR}"
-
-    JOB_CDASH_ID="NONE"
-
-    # Install package, using the buildcache from the local mirror to
-    # satisfy dependencies.
-    BUILD_ID_LINE=`spack -d -k install --use-cache --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${JOB_SPEC_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "Experimental" -f "${SPEC_YAML_PATH}" | grep "buildSummary\\.php"`
-    check_error $? "spack install"
-
-    # By parsing the output of the "spack install" command, we can get the
-    # buildid generated for us by CDash
-    JOB_CDASH_ID=$(extract_build_id "${BUILD_ID_LINE}")
-
-    BUILD_ID_ARG=""
-    if [ "${JOB_CDASH_ID}" != "NONE" ]; then
-        echo "Found build id for ${JOB_SPEC_NAME} from 'spack install' output: ${JOB_CDASH_ID}"
-        BUILD_ID_ARG="--cdash-build-id \"${JOB_CDASH_ID}\""
+        log_command ':Download from remote mirror' \
+            spack -d buildcache download           \
+                --spec-yaml "${SPEC_YAML_PATH}"    \
+                --path "${BUILD_CACHE_DIR}/"
     else
-        echo "Unable to find build id in install output, install probably failed."
-        exit 1
+        echo
+        echo "Needs build: ${JOB_SPEC_NAME}"
+        echo
+
+        log_command ':Configure local mirror' \
+            spack mirror add local_artifact_mirror "file://${LOCAL_MIRROR}"
+
+        JOB_CDASH_ID="NONE"
+
+        # Install package, using the buildcache from the local mirror to
+        # satisfy dependencies.
+
+        log_command ':Build & Install package'           \
+            spack -d -k install                          \
+                --use-cache                              \
+                --cdash-upload-url "${CDASH_UPLOAD_URL}" \
+                --cdash-build "${JOB_SPEC_NAME}"         \
+                --cdash-site "Spack AWS Gitlab Instance" \
+                --cdash-track "Experimental"             \
+                -f "${SPEC_YAML_PATH}"                   \
+        | tee >( grep -h "buildSummary\\.php" > "$TEMP_DIR/build-id-line.txt" )
+
+        BUILD_ID_LINE="$( head -n 1 "$TEMP_DIR/build-id-line.txt" )"
+
+        # By parsing the output of the "spack install" command, we can get the
+        # buildid generated for us by CDash
+        JOB_CDASH_ID=$(extract_build_id "${BUILD_ID_LINE}")
+
+        log_command ':Check CDash ID' \
+            eval '[ -n "$JOB_CDASH_ID" ] && echo "$JOB_CDASH_ID"'
+
+        # Create buildcache entry for this package.  We should eventually change
+        # this to read the spec from the yaml file, but it seems unlikely there
+        # will be a spec that matches the name which is NOT the same as
+        # represented in the yaml file
+        log_command ':Create build cache entry'       \
+            spack -d buildcache create                \
+                --spec-yaml "${SPEC_YAML_PATH}" -a -f \
+                -d "${LOCAL_MIRROR}"                  \
+                --cdash-build-id "${JOB_CDASH_ID}"
+
+        # TODO: Now push buildcache entry to remote mirror, something like:
+        # "spack buildcache put <mirror> <spec>", when that subcommand
+        # is implemented
+        log_command ':Upload build cache entry' \
+            spack -d upload-s3 spec             \
+                --base-dir "${LOCAL_MIRROR}"    \
+                --spec-yaml "${SPEC_YAML_PATH}"
     fi
 
-    # Create buildcache entry for this package.  We should eventually change
-    # this to read the spec from the yaml file, but it seems unlikely there
-    # will be a spec that matches the name which is NOT the same as represented
-    # in the yaml file
-    spack -d buildcache create --spec-yaml "${SPEC_YAML_PATH}" -a -f -d "${LOCAL_MIRROR}" ${BUILD_ID_ARG}
-    check_error $? "spack buildcache create"
+    # Now, whether we had to build the spec or download it pre-built, we should
+    # have the cdash build id file sitting in place as well.  We use it to link
+    # this job to the jobs it depends on in CDash.
+    JOB_CDASH_ID_FILE="${BUILD_CACHE_DIR}/${JOB_BUILD_CACHE_ENTRY_NAME}.cdashid"
 
-    # TODO: Now push buildcache entry to remote mirror, something like:
-    # "spack buildcache put <mirror> <spec>", when that subcommand
-    # is implemented
-    spack -d upload-s3 spec --base-dir "${LOCAL_MIRROR}" --spec-yaml "${SPEC_YAML_PATH}"
-    check_error $? "spack upload-s3 spec"
-else
-    echo "spec ${JOB_SPEC_NAME} is already up to date on remote mirror, downloading it"
+    log_command ':Check CDash ID File' \
+        eval '[ -f "${JOB_CDASH_ID_FILE}" ]'
 
-    # Configure remote mirror so we can download buildcache entry
-    spack mirror add remote_binary_mirror ${MIRROR_URL}
-
-    # Now download it
-    spack -d buildcache download --spec-yaml "${SPEC_YAML_PATH}" --path "${BUILD_CACHE_DIR}/"
-    check_error $? "spack buildcache download"
-fi
-
-# Now, whether we had to build the spec or download it pre-built, we should have
-# the cdash build id file sitting in place as well.  We use it to link this job to
-# the jobs it depends on in CDash.
-JOB_CDASH_ID_FILE="${BUILD_CACHE_DIR}/${JOB_BUILD_CACHE_ENTRY_NAME}.cdashid"
-
-if [ -f "${JOB_CDASH_ID_FILE}" ]; then
     JOB_CDASH_BUILD_ID=$(<${JOB_CDASH_ID_FILE})
-
-    if [ "${JOB_CDASH_BUILD_ID}" == "NONE" ]; then
-        echo "ERROR: unable to read this jobs id from ${JOB_CDASH_ID_FILE}"
-        exit 1
-    fi
+    log_command ':Check CDash ID' \
+        eval '[ "${JOB_CDASH_BUILD_ID}" '"'!='"' "NONE" ]'
 
     # Now get CDash ids for dependencies and "relate" each dependency build
     # with this jobs build
-    # IFS=';' read -ra DEPS <<< "${DEPENDENCIES}"
-    # for i in "${DEPS[@]}"; do
     for DEP_PKG_NAME in "${JOB_DEPS_PKG_NAMES[@]}"; do
-        echo "Getting cdash id for dependency --> ${i} <--"
-        # DEP_SPEC_YAML_DIR=$(mktemp -d)
+        echo "Getting cdash id for dependency --> ${DEP_PKG_NAME} <--"
         DEP_SPEC_YAML_PATH="${SPEC_DIR}/${DEP_PKG_NAME}.yaml"
-        # DEP_SPEC_NAME=$( gen_full_spec "${DEP_SPEC_YAML_PATH}" "${i}" )
-        # echo "dependency spec name = ${DEP_SPEC_NAME}"
-        # echo "dependency spec name = ${DEP_SPEC_NAME}, spec yaml saved to ${DEP_SPEC_YAML_PATH}"
-        echo "dependency spec name = ${DEP_PKG_NAME}, spec yaml saved to ${DEP_SPEC_YAML_PATH}"
-        # echo "dependency spec yaml contents:"
-        # cat ${DEP_SPEC_YAML_PATH}
-        DEP_JOB_BUILDCACHE_NAME=`spack -d buildcache get-buildcache-name --spec-yaml "${DEP_SPEC_YAML_PATH}"`
 
-        if [[ $? -eq 0 ]]; then
-            DEP_JOB_ID_FILE="${BUILD_CACHE_DIR}/${DEP_JOB_BUILDCACHE_NAME}.cdashid"
-            echo "DEP_JOB_ID_FILE path = ${DEP_JOB_ID_FILE}"
+        echo "dependency spec name = ${DEP_PKG_NAME}," \
+             "spec yaml saved to ${DEP_SPEC_YAML_PATH}"
 
-            if [ -f "${DEP_JOB_ID_FILE}" ]; then
-                DEP_JOB_CDASH_BUILD_ID=$(<${DEP_JOB_ID_FILE})
-                echo "File ${DEP_JOB_ID_FILE} contained value ${DEP_JOB_CDASH_BUILD_ID}"
-                echo "Relating builds -> ${JOB_SPEC_NAME} (buildid=${JOB_CDASH_BUILD_ID}) depends on ${DEP_PKG_NAME} (buildid=${DEP_JOB_CDASH_BUILD_ID})"
-                relateBuildsPostBody="$(get_relate_builds_post_data "Spack" ${JOB_CDASH_BUILD_ID} ${DEP_JOB_CDASH_BUILD_ID})"
-                relateBuildsResult=`curl "${DEP_JOB_RELATEBUILDS_URL}" -H "Content-Type: application/json" -H "Accept: application/json" -d "${relateBuildsPostBody}"`
-                echo "Result of curl request: ${relateBuildsResult}"
-            else
-                echo "ERROR: Did not find expected .cdashid file for dependency: ${DEP_JOB_ID_FILE}"
-                exit 1
-            fi
-        else
-            echo "ERROR: Unable to get buildcache entry name for ${DEP_SPEC_NAME}"
-            exit 1
-        fi
+        local com='DEP_JOB_BUILDCACHE_NAME="$('
+        com="${com}"' spack -d buildcache get-buildcache-name'
+        com="${com}"' --spec-yaml "${DEP_SPEC_YAML_PATH}" )"'
+
+        log_command ":Get build cache entry ($DEP_SPEC_NAME)" eval "$com"
+
+        DEP_JOB_ID_FILE="${BUILD_CACHE_DIR}/${DEP_JOB_BUILDCACHE_NAME}"
+        DEP_JOB_ID_FILE="${DEP_JOB_ID_FILE}.cdashid"
+
+        log_command ":Check cdashid file ($DEP_SPEC_NAME)" \
+            [ -f "${DEP_JOB_ID_FILE}" ]
+
+        DEP_JOB_CDASH_BUILD_ID=$(<${DEP_JOB_ID_FILE})
+        echo "File ${DEP_JOB_ID_FILE} contained value
+        ${DEP_JOB_CDASH_BUILD_ID}"
+
+        echo "Relating builds -> ${JOB_SPEC_NAME}
+        (buildid=${JOB_CDASH_BUILD_ID}) depends on ${DEP_PKG_NAME}
+        (buildid=${DEP_JOB_CDASH_BUILD_ID})"
+
+        local post_body='{"project":"Spack","relationship":"depends on"'
+        post_body="${post_body}"'"buildid":'"$JOB_CDASH_BUILD_ID"'
+        post_body="${post_body}"'"relatedid":'"$DEP_JOB_CDASH_BUILD_ID"'
+
+        log_command ':Post dependency info to CDash' \
+            curl "${DEP_JOB_RELATEBUILDS_URL}"       \
+            -H "Content-Type: application/json"      \
+            -H "Accept: application/json"            \
+            -d "$post_body"
     done
+}
+
+_finalized=0
+finalize() {
+    if [ "$_finalized" '=' '1' ] ; then
+        return
+    fi
+    report_to_cdash
+    local res="$?"
+    if [ "$res" '=' '0' ] ; then
+        _finalized=1
+    fi
+
+    return $res
+}
+
+################################################################################
+
+trap "finalize ; exit" INT TERM QUIT EXIT
+mkdir -p ${JOB_LOG_DIR}
+mkdir -p ${SPEC_DIR}
+
+redirect=1
+if [ "$redirect" '=' '1' ] ; then
+    main &> "$JOB_LOG_DIR/cdash_log.txt"
 else
-    echo "ERROR: Did not find expected .cdashid file ${JOB_CDASH_ID_FILE}"
-    exit 1
+    main
 fi
 
-# Show the size of the buildcache and a list of what's in it, directly
-# in the gitlab log output
-(
-    restore_io
-    du -sh ${BUILD_CACHE_DIR}
-    find ${BUILD_CACHE_DIR} -maxdepth 3 -type d -ls
-)
-
-echo "This line should be logged"
+du -sh ${BUILD_CACHE_DIR}
+find ${BUILD_CACHE_DIR} -maxdepth 3 -type d -ls
