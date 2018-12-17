@@ -6,14 +6,18 @@
 import os
 import errno
 import re
+import ssl
 import tarfile
 import shutil
 import platform
 import tempfile
 import hashlib
+import traceback
 from contextlib import closing
 
-import ruamel.yaml as yaml
+import json
+
+from six.moves.urllib.error import URLError
 
 import llnl.util.tty as tty
 from llnl.util.filesystem import mkdirp, install_tree, get_filetype
@@ -22,10 +26,17 @@ import spack.cmd
 import spack.fetch_strategy as fs
 import spack.util.gpg as gpg_util
 import spack.relocate as relocate
+import spack.util.spack_yaml as syaml
+from spack.spec import Spec
 from spack.stage import Stage
 from spack.util.gpg import Gpg
-from spack.util.web import spider
+from spack.util.web import spider, read_from_url
 from spack.util.executable import ProcessError
+
+
+_build_cache_relative_path = 'build_cache'
+_meta_yaml_regex = re.compile(
+    '[\d\.]+-([\w\d\-]+)-([\w\d\.]+)-([\w\d]{32})\.spec\.yaml$')
 
 
 class NoOverwriteException(Exception):
@@ -91,6 +102,14 @@ def has_gnupg2():
         return False
 
 
+def build_cache_relative_path():
+    return _build_cache_relative_path
+
+
+def build_cache_directory(prefix):
+    return os.path.join(prefix, build_cache_relative_path())
+
+
 def buildinfo_file_name(prefix):
     """
     Filename of the binary package meta-data file
@@ -106,7 +125,7 @@ def read_buildinfo_file(prefix):
     filename = buildinfo_file_name(prefix)
     with open(filename, 'r') as inputfile:
         content = inputfile.read()
-        buildinfo = yaml.load(content)
+        buildinfo = syaml.load(content)
     return buildinfo
 
 
@@ -157,7 +176,7 @@ def write_buildinfo_file(prefix, workdir, rel=False):
     buildinfo['relocate_binaries'] = binary_to_relocate
     filename = buildinfo_file_name(workdir)
     with open(filename, 'w') as outfile:
-        outfile.write(yaml.dump(buildinfo, default_flow_style=True))
+        outfile.write(syaml.dump(buildinfo, default_flow_style=True))
 
 
 def tarball_directory_name(spec):
@@ -230,35 +249,51 @@ def sign_tarball(key, force, specfile_path):
     Gpg.sign(key, specfile_path, '%s.asc' % specfile_path)
 
 
-def generate_index(outdir, indexfile_path):
-    f = open(indexfile_path, 'w')
+def generate_html_index(path_list, output_path):
+    f = open(output_path, 'w')
     header = """<html>\n
 <head>\n</head>\n
 <list>\n"""
     footer = "</list>\n</html>\n"
-    paths = os.listdir(outdir + '/build_cache')
     f.write(header)
-    for path in paths:
+    for path in path_list:
         rel = os.path.basename(path)
         f.write('<li><a href="%s"> %s</a>\n' % (rel, rel))
     f.write(footer)
     f.close()
 
 
+def generate_package_index(build_cache_dir):
+    yaml_list = os.listdir(build_cache_dir)
+    path_list = [os.path.join(build_cache_dir, l) for l in yaml_list]
+
+    index_html_path_tmp = os.path.join(build_cache_dir, 'index.html.tmp')
+    index_html_path = os.path.join(build_cache_dir, 'index.html')
+
+    generate_html_index(path_list, index_html_path_tmp)
+    shutil.move(index_html_path_tmp, index_html_path)
+
+
 def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
-                  allow_root=False, key=None):
+                  allow_root=False, key=None, regenerate_index=False,
+                  cdash_build_id=None):
     """
     Build a tarball from given spec and put it into the directory structure
     used at the mirror (following <tarball_directory_name>).
     """
+    if not spec.concrete:
+        raise ValueError('spec must be concrete to build tarball')
+
     # set up some paths
+    build_cache_dir = build_cache_directory(outdir)
+
     tarfile_name = tarball_name(spec, '.tar.gz')
-    tarfile_dir = os.path.join(outdir, "build_cache",
+    tarfile_dir = os.path.join(build_cache_dir,
                                tarball_directory_name(spec))
     tarfile_path = os.path.join(tarfile_dir, tarfile_name)
     mkdirp(tarfile_dir)
     spackfile_path = os.path.join(
-        outdir, "build_cache", tarball_path_name(spec, '.spack'))
+        build_cache_dir, tarball_path_name(spec, '.spack'))
     if os.path.exists(spackfile_path):
         if force:
             os.remove(spackfile_path)
@@ -270,8 +305,8 @@ def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
     spec_file = os.path.join(spec.prefix, ".spack", "spec.yaml")
     specfile_name = tarball_name(spec, '.spec.yaml')
     specfile_path = os.path.realpath(
-        os.path.join(outdir, "build_cache", specfile_name))
-    indexfile_path = os.path.join(outdir, "build_cache", "index.html")
+        os.path.join(build_cache_dir, specfile_name))
+
     if os.path.exists(specfile_path):
         if force:
             os.remove(specfile_path)
@@ -316,7 +351,7 @@ def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
     spec_dict = {}
     with open(spec_file, 'r') as inputfile:
         content = inputfile.read()
-        spec_dict = yaml.load(content)
+        spec_dict = syaml.load(content)
     bchecksum = {}
     bchecksum['hash_algorithm'] = 'sha256'
     bchecksum['hash'] = checksum
@@ -327,8 +362,24 @@ def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
     buildinfo['relative_prefix'] = os.path.relpath(
         spec.prefix, spack.store.layout.root)
     spec_dict['buildinfo'] = buildinfo
+    spec_dict['full_hash'] = spec.full_hash()
+
+    # print('The full_hash ({0}) of {1} will be written into {2}'.format(
+    #     spec_dict['full_hash'], spec.name, specfile_path))
+    # print(spec.tree())
+
     with open(specfile_path, 'w') as outfile:
-        outfile.write(yaml.dump(spec_dict))
+        outfile.write(syaml.dump(spec_dict))
+
+    # Write the .cdashid file if we were asked to do so
+    if cdash_build_id:
+        cdashidfile_name = tarball_name(spec, '.cdashid')
+        cdashidfile_path = os.path.realpath(
+            os.path.join(build_cache_dir, cdashidfile_name))
+        if not os.path.exists(cdashidfile_path):
+            with open(cdashidfile_path, 'w') as outfile:
+                outfile.write('{0}\n'.format(cdash_build_id))
+
     # sign the tarball and spec file with gpg
     if not unsigned:
         sign_tarball(key, force, specfile_path)
@@ -346,9 +397,9 @@ def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
         os.remove('%s.asc' % specfile_path)
 
     # create an index.html for the build_cache directory so specs can be found
-    if os.path.exists(indexfile_path):
-        os.remove(indexfile_path)
-    generate_index(outdir, indexfile_path)
+    if regenerate_index:
+        generate_package_index(build_cache_dir)
+
     return None
 
 
@@ -363,7 +414,7 @@ def download_tarball(spec):
                 "download of pre-compiled packages.")
     tarball = tarball_path_name(spec, '.spack')
     for key in mirrors:
-        url = mirrors[key] + "/build_cache/" + tarball
+        url = mirrors[key] + "/" + _build_cache_relative_path + "/" + tarball
         # stage the tarball into standard place
         stage = Stage(url, name="build_cache", keep=True)
         try:
@@ -473,7 +524,7 @@ def extract_tarball(spec, filename, allow_root=False, unsigned=False,
     spec_dict = {}
     with open(specfile_path, 'r') as inputfile:
         content = inputfile.read()
-        spec_dict = yaml.load(content)
+        spec_dict = syaml.load(content)
     bchecksum = spec_dict['binary_cache_checksum']
 
     # if the checksums don't match don't install
@@ -574,7 +625,7 @@ def get_specs(force=False):
                 # read the spec from the build cache file. All specs
                 # in build caches are concrete (as they are built) so
                 # we need to mark this spec concrete on read-in.
-                spec = spack.spec.Spec.from_yaml(f)
+                spec = Spec.from_yaml(f)
                 spec._mark_concrete()
                 _cached_specs.add(spec)
 
@@ -624,3 +675,146 @@ def get_keys(install=False, trust=False, force=False):
                 else:
                     tty.msg('Will not add this key to trusted keys.'
                             'Use -t to install all downloaded keys')
+
+
+def needs_rebuild(spec, mirror_url):
+    if not spec.concrete:
+        raise ValueError('spec must be concrete to check against mirror')
+
+    pkg_name = spec.name
+    pkg_version = spec.version
+
+    pkg_hash = spec.dag_hash()
+    pkg_full_hash = spec.full_hash()
+
+    # tty.msg('Checking {0}-{1}'.format(pkg_name, pkg_version))
+    tty.msg('Checking {0}-{1}, dag_hash = {2}, full_hash = {3}'.format(
+        pkg_name, pkg_version, pkg_hash, pkg_full_hash))
+    print(spec.tree())
+
+    # retrieve the .spec.yaml and look there instead
+    build_cache_dir = build_cache_directory(mirror_url)
+    spec_yaml_file_name = tarball_name(spec, '.spec.yaml')
+    file_path = os.path.join(build_cache_dir, spec_yaml_file_name)
+
+    try:
+        yaml_contents = read_from_url(file_path)
+    except URLError as e:
+        tty.debug(e)
+
+        if hasattr(e, 'reason') and isinstance(e.reason, ssl.SSLError):
+            tty.warn("Spack was unable to fetch url list due to a "
+                     "certificate verification problem. You can try "
+                     "running spack -k, which will not check SSL "
+                     "certificates. Use this at your own risk.")
+
+        return True
+
+    except Exception as e:
+        tty.warn("Error in needs_rebuild: %s:%s" % (type(e), e),
+                 traceback.format_exc())
+        return True
+
+    if not yaml_contents:
+        tty.warn('reading {0} returned nothing, rebuilding {1}'.format(
+            file_path, spec.short_spec))
+        return True
+
+    spec_yaml = syaml.load(yaml_contents)
+
+    # If either the full_hash didn't exist in the .spec.yaml file, or it
+    # did, but didn't match the one we computed locally, then we should
+    # just rebuild.  This can be simplified once the dag_hash and the
+    # full_hash become the same thing.
+    if ('full_hash' not in spec_yaml or
+        spec_yaml['full_hash'] != pkg_full_hash):
+            if 'full_hash' in spec_yaml:
+                tty.msg('hashes did not match, remote = {0}, local = {1}'.format(
+                    spec_yaml['full_hash'], pkg_full_hash))
+            else:
+                tty.msg('full_hash missing from remote spec.yaml')
+            print(spec.tree())
+            return True
+
+    return False
+
+
+def check_specs_against_mirrors(mirrors, specs, output_file=None):
+    rebuilds = {}
+    for mirror in mirrors.keys():
+        mirror_url = mirrors[mirror]
+        tty.msg('Checking for built specs at %s' % mirror_url)
+
+        rebuild_list = []
+
+        for spec in specs:
+            if needs_rebuild(spec, mirror_url):
+                rebuild_list.append({
+                    'short_spec': spec.short_spec,
+                    'hash': spec.dag_hash()
+                })
+
+        if rebuild_list:
+            rebuilds[mirror_url] = {
+                'mirrorName': mirror,
+                'mirrorUrl': mirror_url,
+                'rebuildSpecs': rebuild_list
+            }
+
+    if output_file:
+        with open(output_file, 'w') as outf:
+            outf.write(json.dumps(rebuilds))
+
+    return 1 if rebuilds else 0
+
+
+def download_buildcache_entry(spec, path):
+    if not spec.concrete:
+        raise ValueError('spec must be concrete to download buildcache entry')
+
+    mirrors = spack.config.get('mirrors')
+    if len(mirrors) == 0:
+        tty.die("Please add a spack mirror to allow " +
+                "download of buildcache entries.")
+
+    tarfile_name = tarball_name(spec, '.spack')
+    specfile_name = tarball_name(spec, '.spec.yaml')
+    cdashidfile_name = tarball_name(spec, '.cdashid')
+    tarball_dir_name = tarball_directory_name(spec)
+    tarball_path_name = os.path.join(tarball_dir_name, tarfile_name)
+
+    local_tarball_path = os.path.join(path, tarball_dir_name)
+    mkdirp(local_tarball_path)
+
+    for key in mirrors:
+        mirror_root = mirrors[key] + "/" + _build_cache_relative_path
+        tarball_url = mirror_root + "/" + tarball_path_name
+        stage = Stage(tarball_url, name="build_cache",
+                      path=local_tarball_path, keep=True)
+        try:
+            stage.fetch()
+
+            specfile_url = mirror_root + "/" + specfile_name
+            stage2 = Stage(specfile_url, name="build_cache", path=path, keep=True)
+            try:
+                stage2.fetch()
+
+                # Since we got the .spec.yaml file successfully, we're going
+                # to break and not try any more mirrors.  Before we do though,
+                # we'll try to fetch a .cdashid file associated with the
+                # buildcache entry.  If we don't get one, it's not any kind of
+                # error, as buildcache entries are not required to have them.
+                cdashidfile_url = mirror_root + "/" + cdashidfile_name
+                stage3 = Stage(cdashidfile_url, name="build_cache",
+                               path=path, keep=True)
+                try:
+                    stage3.fetch()
+                except:
+                    tty.msg('No .cdashid file associated with {0}'.format(
+                        specfile_name))
+
+                break
+            except fs.FetchError:
+                continue
+        except fs.FetchError:
+            continue
