@@ -1,0 +1,1794 @@
+adol-c develop gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [m4 1.4.18 gcc@5.5.0 linux-centos7-x86_64, autoconf 2.69 gcc@5.5.0
+      linux-centos7-x86_64, automake 1.16.1 gcc@5.5.0 linux-centos7-x86_64, libtool
+      2.4.6 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-7
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: m4 1.4.18 gcc@5.5.0
+      linux-centos7-x86_64;autoconf 2.69 gcc@5.5.0 linux-centos7-x86_64;automake 1.16.1
+      gcc@5.5.0 linux-centos7-x86_64;libtool 2.4.6 gcc@5.5.0 linux-centos7-x86_64,
+    HASH: ckjfnel3n5gaewonzvdinyoznhxbg2nc, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+adol-c develop gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [m4 1.4.18 gcc@5.5.0 linux-ubuntu18.04-x86_64, autoconf 2.69 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, automake 1.16.1 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    libtool 2.4.6 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-7
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: m4 1.4.18 gcc@5.5.0
+      linux-ubuntu18.04-x86_64;autoconf 2.69 gcc@5.5.0 linux-ubuntu18.04-x86_64;automake
+      1.16.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;libtool 2.4.6 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: ckjfnel3n5gaewonzvdinyoznhxbg2nc, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+alquimia develop gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [petsc 3.10.2 gcc@5.5.0 linux-centos7-x86_64, cmake 3.12.3 gcc@5.5.0
+      linux-centos7-x86_64, openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64, hdf5 1.10.4
+      gcc@5.5.0 linux-centos7-x86_64, pflotran develop gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-15
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: petsc 3.10.2
+      gcc@5.5.0 linux-centos7-x86_64;cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64;openmpi
+      3.1.2 gcc@5.5.0 linux-centos7-x86_64;hdf5 1.10.4 gcc@5.5.0 linux-centos7-x86_64;pflotran
+      develop gcc@5.5.0 linux-centos7-x86_64, HASH: qzgktu3a7llkjq7kwrsaxcshmt62hfwx,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+alquimia develop gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [petsc 3.10.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, cmake 3.12.3 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    hdf5 1.10.4 gcc@5.5.0 linux-ubuntu18.04-x86_64, pflotran develop gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-15
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: petsc 3.10.2
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;openmpi
+      3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;hdf5 1.10.4 gcc@5.5.0 linux-ubuntu18.04-x86_64;pflotran
+      develop gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: qzgktu3a7llkjq7kwrsaxcshmt62hfwx,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+amrex 18.10.1 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [python 2.7.15 gcc@5.5.0 linux-centos7-x86_64, openmpi 3.1.2 gcc@5.5.0
+      linux-centos7-x86_64, cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: python 2.7.15
+      gcc@5.5.0 linux-centos7-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64;cmake
+      3.12.3 gcc@5.5.0 linux-centos7-x86_64, HASH: ssjnehpzhvihk2k5f5gvajvmx45qseoh,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+amrex 18.10.1 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [python 2.7.15 gcc@5.5.0 linux-ubuntu18.04-x86_64, openmpi 3.1.2 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: python 2.7.15
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;cmake
+      3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: ssjnehpzhvihk2k5f5gvajvmx45qseoh,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+arpack-ng 3.6.3 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64, openblas 0.3.3 gcc@5.5.0
+      linux-centos7-x86_64, cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openmpi 3.1.2
+      gcc@5.5.0 linux-centos7-x86_64;openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64;cmake
+      3.12.3 gcc@5.5.0 linux-centos7-x86_64, HASH: taxlnojpnyvzn6xrfwct445eaix3qfia,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+arpack-ng 3.6.3 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, openblas 0.3.3
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openmpi 3.1.2
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;cmake
+      3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: taxlnojpnyvzn6xrfwct445eaix3qfia,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+autoconf 2.69 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [m4 1.4.18 gcc@5.5.0 linux-centos7-x86_64, perl 5.26.2 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-5
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: m4 1.4.18 gcc@5.5.0
+      linux-centos7-x86_64;perl 5.26.2 gcc@5.5.0 linux-centos7-x86_64, HASH: wg7dhe66ybdn4r5bmpobjqxothk26ha2,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+autoconf 2.69 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [m4 1.4.18 gcc@5.5.0 linux-ubuntu18.04-x86_64, perl 5.26.2 gcc@5.5.0
+      linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-5
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: m4 1.4.18 gcc@5.5.0
+      linux-ubuntu18.04-x86_64;perl 5.26.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: wg7dhe66ybdn4r5bmpobjqxothk26ha2,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+automake 1.16.1 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [perl 5.26.2 gcc@5.5.0 linux-centos7-x86_64, autoconf 2.69 gcc@5.5.0
+      linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-6
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: perl 5.26.2
+      gcc@5.5.0 linux-centos7-x86_64;autoconf 2.69 gcc@5.5.0 linux-centos7-x86_64,
+    HASH: tw2rquxrwgt4xx5judyxif6j4o33scv7, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+automake 1.16.1 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [perl 5.26.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, autoconf 2.69 gcc@5.5.0
+      linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-6
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: perl 5.26.2
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;autoconf 2.69 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: tw2rquxrwgt4xx5judyxif6j4o33scv7, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+boost 1.68.0 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64, bzip2 1.0.6 gcc@5.5.0
+      linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-2
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: zlib 1.2.11
+      gcc@5.5.0 linux-centos7-x86_64;bzip2 1.0.6 gcc@5.5.0 linux-centos7-x86_64, HASH: zv2vmjh7tiyaqbwrqmux5ama7rgar7d5,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+boost 1.68.0 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64, bzip2 1.0.6 gcc@5.5.0
+      linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-2
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: zlib 1.2.11
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;bzip2 1.0.6 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: zv2vmjh7tiyaqbwrqmux5ama7rgar7d5, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+bzip2 1.0.6 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [diffutils 3.6 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-1
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: diffutils 3.6
+      gcc@5.5.0 linux-centos7-x86_64, HASH: vju2tnmaidqvbqxq46ckasbi5qlqojdr, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+bzip2 1.0.6 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [diffutils 3.6 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-1
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: diffutils 3.6
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: vju2tnmaidqvbqxq46ckasbi5qlqojdr,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openssl 1.0.2o gcc@5.5.0 linux-centos7-x86_64, ncurses 6.1 gcc@5.5.0
+      linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-6
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openssl 1.0.2o
+      gcc@5.5.0 linux-centos7-x86_64;ncurses 6.1 gcc@5.5.0 linux-centos7-x86_64, HASH: gzsnfsg6uwdqgbcj5boxlssccb5xbwvd,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openssl 1.0.2o gcc@5.5.0 linux-ubuntu18.04-x86_64, ncurses 6.1 gcc@5.5.0
+      linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-6
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openssl 1.0.2o
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;ncurses 6.1 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: gzsnfsg6uwdqgbcj5boxlssccb5xbwvd, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+dealii 9.0.1 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [intel-tbb 2019 gcc@5.5.0 linux-centos7-x86_64, trilinos 12.14.0-rc1
+      gcc@5.5.0 linux-centos7-x86_64, openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64,
+    openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64, nanoflann 1.2.3 gcc@5.5.0 linux-centos7-x86_64,
+    adol-c develop gcc@5.5.0 linux-centos7-x86_64, boost 1.68.0 gcc@5.5.0 linux-centos7-x86_64,
+    oce 0.18.3 gcc@5.5.0 linux-centos7-x86_64, cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64,
+    suite-sparse 5.3.0 gcc@5.5.0 linux-centos7-x86_64, p4est 2.0 gcc@5.5.0 linux-centos7-x86_64,
+    metis 5.1.0 gcc@5.5.0 linux-centos7-x86_64, hdf5 1.10.4 gcc@5.5.0 linux-centos7-x86_64,
+    muparser 2.2.5 gcc@5.5.0 linux-centos7-x86_64, petsc 3.10.2 gcc@5.5.0 linux-centos7-x86_64,
+    sundials 3.2.1 gcc@5.5.0 linux-centos7-x86_64, gsl 2.5 gcc@5.5.0 linux-centos7-x86_64,
+    arpack-ng 3.6.3 gcc@5.5.0 linux-centos7-x86_64, netlib-scalapack 2.0.2 gcc@5.5.0
+      linux-centos7-x86_64, zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-14
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: intel-tbb 2019
+      gcc@5.5.0 linux-centos7-x86_64;trilinos 12.14.0-rc1 gcc@5.5.0 linux-centos7-x86_64;openmpi
+      3.1.2 gcc@5.5.0 linux-centos7-x86_64;openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64;nanoflann
+      1.2.3 gcc@5.5.0 linux-centos7-x86_64;adol-c develop gcc@5.5.0 linux-centos7-x86_64;boost
+      1.68.0 gcc@5.5.0 linux-centos7-x86_64;oce 0.18.3 gcc@5.5.0 linux-centos7-x86_64;cmake
+      3.12.3 gcc@5.5.0 linux-centos7-x86_64;suite-sparse 5.3.0 gcc@5.5.0 linux-centos7-x86_64;p4est
+      2.0 gcc@5.5.0 linux-centos7-x86_64;metis 5.1.0 gcc@5.5.0 linux-centos7-x86_64;hdf5
+      1.10.4 gcc@5.5.0 linux-centos7-x86_64;muparser 2.2.5 gcc@5.5.0 linux-centos7-x86_64;petsc
+      3.10.2 gcc@5.5.0 linux-centos7-x86_64;sundials 3.2.1 gcc@5.5.0 linux-centos7-x86_64;gsl
+      2.5 gcc@5.5.0 linux-centos7-x86_64;arpack-ng 3.6.3 gcc@5.5.0 linux-centos7-x86_64;netlib-scalapack
+      2.0.2 gcc@5.5.0 linux-centos7-x86_64;zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64,
+    HASH: qgvzxpolmbvt3ks4noanf42pjtomyuqf, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+dealii 9.0.1 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [intel-tbb 2019 gcc@5.5.0 linux-ubuntu18.04-x86_64, trilinos 12.14.0-rc1
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, nanoflann 1.2.3 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    adol-c develop gcc@5.5.0 linux-ubuntu18.04-x86_64, boost 1.68.0 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    oce 0.18.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    suite-sparse 5.3.0 gcc@5.5.0 linux-ubuntu18.04-x86_64, p4est 2.0 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    metis 5.1.0 gcc@5.5.0 linux-ubuntu18.04-x86_64, hdf5 1.10.4 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    muparser 2.2.5 gcc@5.5.0 linux-ubuntu18.04-x86_64, petsc 3.10.2 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    sundials 3.2.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, gsl 2.5 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    arpack-ng 3.6.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, netlib-scalapack 2.0.2 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-14
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: intel-tbb 2019
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;trilinos 12.14.0-rc1 gcc@5.5.0 linux-ubuntu18.04-x86_64;openmpi
+      3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;nanoflann
+      1.2.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;adol-c develop gcc@5.5.0 linux-ubuntu18.04-x86_64;boost
+      1.68.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;oce 0.18.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;cmake
+      3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;suite-sparse 5.3.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;p4est
+      2.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;metis 5.1.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;hdf5
+      1.10.4 gcc@5.5.0 linux-ubuntu18.04-x86_64;muparser 2.2.5 gcc@5.5.0 linux-ubuntu18.04-x86_64;petsc
+      3.10.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;sundials 3.2.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;gsl
+      2.5 gcc@5.5.0 linux-ubuntu18.04-x86_64;arpack-ng 3.6.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;netlib-scalapack
+      2.0.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: qgvzxpolmbvt3ks4noanf42pjtomyuqf, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+diffutils 3.6 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: 2nongbcaqrbmuwdc77xosmnswlepykjt,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+diffutils 3.6 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: 2nongbcaqrbmuwdc77xosmnswlepykjt,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+gdbm 1.14.1 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [readline 7.0 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-3
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: readline 7.0
+      gcc@5.5.0 linux-centos7-x86_64, HASH: jgc7ty2cr6xs4hgoexun46h2nuqdu5r4, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+gdbm 1.14.1 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [readline 7.0 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-3
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: readline 7.0
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: jgc7ty2cr6xs4hgoexun46h2nuqdu5r4,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+glm 0.9.7.1 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-7
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-centos7-x86_64, HASH: 2cjgvi5rbijhrex4ydqwnyk5w5ue7dho, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+glm 0.9.7.1 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-7
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: 2cjgvi5rbijhrex4ydqwnyk5w5ue7dho,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+gsl 2.5 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: cm533wzhgo25slsq57zv4uj4va5fyc6y,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+gsl 2.5 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: cm533wzhgo25slsq57zv4uj4va5fyc6y,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+hdf5 1.10.4 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [numactl 2.0.11 gcc@5.5.0 linux-centos7-x86_64, openmpi 3.1.2 gcc@5.5.0
+      linux-centos7-x86_64, zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: numactl 2.0.11
+      gcc@5.5.0 linux-centos7-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64;zlib
+      1.2.11 gcc@5.5.0 linux-centos7-x86_64, HASH: vb6zvql7mwzrgmhyg3yl3blkz2eozj5n,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+hdf5 1.10.4 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [numactl 2.0.11 gcc@5.5.0 linux-ubuntu18.04-x86_64, openmpi 3.1.2
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: numactl 2.0.11
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;zlib
+      1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: vb6zvql7mwzrgmhyg3yl3blkz2eozj5n,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+hwloc 1.11.9 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [libxml2 2.9.8 gcc@5.5.0 linux-centos7-x86_64, numactl 2.0.11 gcc@5.5.0
+      linux-centos7-x86_64, pkgconf 1.4.2 gcc@5.5.0 linux-centos7-x86_64, libpciaccess
+      0.13.5 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-8
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: libxml2 2.9.8
+      gcc@5.5.0 linux-centos7-x86_64;numactl 2.0.11 gcc@5.5.0 linux-centos7-x86_64;pkgconf
+      1.4.2 gcc@5.5.0 linux-centos7-x86_64;libpciaccess 0.13.5 gcc@5.5.0 linux-centos7-x86_64,
+    HASH: nto3sjzo2jbt7nj6eyz3tjul4hmn2dvx, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+hwloc 1.11.9 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [libxml2 2.9.8 gcc@5.5.0 linux-ubuntu18.04-x86_64, numactl 2.0.11
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, pkgconf 1.4.2 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    libpciaccess 0.13.5 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-8
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: libxml2 2.9.8
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;numactl 2.0.11 gcc@5.5.0 linux-ubuntu18.04-x86_64;pkgconf
+      1.4.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;libpciaccess 0.13.5 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: nto3sjzo2jbt7nj6eyz3tjul4hmn2dvx, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+hypre 2.15.1 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64, openblas 0.3.3 gcc@5.5.0
+      linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openmpi 3.1.2
+      gcc@5.5.0 linux-centos7-x86_64;openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64,
+    HASH: 5nh7mnyuwoxu3jq2fdzwrncxfyjuoqtq, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+hypre 2.15.1 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, openblas 0.3.3
+      gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openmpi 3.1.2
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: 5nh7mnyuwoxu3jq2fdzwrncxfyjuoqtq, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+intel-tbb 2019 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-7
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-centos7-x86_64, HASH: 5nouhba2j4qlsnoz2wksz3tcbnynjsrh, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+intel-tbb 2019 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-7
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: 5nouhba2j4qlsnoz2wksz3tcbnynjsrh,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+libpciaccess 0.13.5 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [util-macros 1.19.1 gcc@5.5.0 linux-centos7-x86_64, libtool 2.4.6
+      gcc@5.5.0 linux-centos7-x86_64, pkgconf 1.4.2 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-3
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: util-macros
+      1.19.1 gcc@5.5.0 linux-centos7-x86_64;libtool 2.4.6 gcc@5.5.0 linux-centos7-x86_64;pkgconf
+      1.4.2 gcc@5.5.0 linux-centos7-x86_64, HASH: 6qnqhzzsghays2x4cjajpod6f6tt4cqb,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+libpciaccess 0.13.5 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [util-macros 1.19.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, libtool 2.4.6
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, pkgconf 1.4.2 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-3
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: util-macros
+      1.19.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;libtool 2.4.6 gcc@5.5.0 linux-ubuntu18.04-x86_64;pkgconf
+      1.4.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: 6qnqhzzsghays2x4cjajpod6f6tt4cqb,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+libsigsegv 2.11 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: 4rqjbcuh3cwabud7ba2eff4arppcqfrr,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+libsigsegv 2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: 4rqjbcuh3cwabud7ba2eff4arppcqfrr,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+libtool 2.4.6 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [m4 1.4.18 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-2
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: m4 1.4.18 gcc@5.5.0
+      linux-centos7-x86_64, HASH: d6izdfwiicolefh2de755ontg7isjuu5, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+libtool 2.4.6 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [m4 1.4.18 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-2
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: m4 1.4.18 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, HASH: d6izdfwiicolefh2de755ontg7isjuu5, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+libxml2 2.9.8 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [xz 5.2.4 gcc@5.5.0 linux-centos7-x86_64, pkgconf 1.4.2 gcc@5.5.0
+      linux-centos7-x86_64, zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-1
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: xz 5.2.4 gcc@5.5.0
+      linux-centos7-x86_64;pkgconf 1.4.2 gcc@5.5.0 linux-centos7-x86_64;zlib 1.2.11
+      gcc@5.5.0 linux-centos7-x86_64, HASH: 37zbhtnxg47tozupapnqbjnsq7ohiddn, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+libxml2 2.9.8 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [xz 5.2.4 gcc@5.5.0 linux-ubuntu18.04-x86_64, pkgconf 1.4.2 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-1
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: xz 5.2.4 gcc@5.5.0
+      linux-ubuntu18.04-x86_64;pkgconf 1.4.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;zlib
+      1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: 37zbhtnxg47tozupapnqbjnsq7ohiddn,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+m4 1.4.18 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [libsigsegv 2.11 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-1
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: libsigsegv 2.11
+      gcc@5.5.0 linux-centos7-x86_64, HASH: sonqdnbb75wjjqjskjmw336tdtnrpydl, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+m4 1.4.18 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [libsigsegv 2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-1
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: libsigsegv 2.11
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: sonqdnbb75wjjqjskjmw336tdtnrpydl,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+matio 1.5.9 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [hdf5 1.10.4 gcc@5.5.0 linux-centos7-x86_64, zlib 1.2.11 gcc@5.5.0
+      linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-11
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: hdf5 1.10.4
+      gcc@5.5.0 linux-centos7-x86_64;zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64, HASH: 4r74xsxdpv4xyzwn6rqbiont6hevfwbv,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+matio 1.5.9 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [hdf5 1.10.4 gcc@5.5.0 linux-ubuntu18.04-x86_64, zlib 1.2.11 gcc@5.5.0
+      linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-11
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: hdf5 1.10.4
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: 4r74xsxdpv4xyzwn6rqbiont6hevfwbv, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+metis 5.1.0 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-7
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-centos7-x86_64, HASH: tw3hspazfjst2cw44othk7dy6iovqzy5, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+metis 5.1.0 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-7
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: tw3hspazfjst2cw44othk7dy6iovqzy5,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+mfem develop gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [hypre 2.15.1 gcc@5.5.0 linux-centos7-x86_64, metis 5.1.0 gcc@5.5.0
+      linux-centos7-x86_64, superlu-dist develop gcc@5.5.0 linux-centos7-x86_64, openmpi
+      3.1.2 gcc@5.5.0 linux-centos7-x86_64, petsc 3.10.2 gcc@5.5.0 linux-centos7-x86_64,
+    sundials 3.2.1 gcc@5.5.0 linux-centos7-x86_64, zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-14
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: hypre 2.15.1
+      gcc@5.5.0 linux-centos7-x86_64;metis 5.1.0 gcc@5.5.0 linux-centos7-x86_64;superlu-dist
+      develop gcc@5.5.0 linux-centos7-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64;petsc
+      3.10.2 gcc@5.5.0 linux-centos7-x86_64;sundials 3.2.1 gcc@5.5.0 linux-centos7-x86_64;zlib
+      1.2.11 gcc@5.5.0 linux-centos7-x86_64, HASH: mhteyskmeovwlp2772gpnmlnjxo4bml7,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+mfem develop gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [hypre 2.15.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, metis 5.1.0 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, superlu-dist develop gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, petsc 3.10.2 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    sundials 3.2.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-14
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: hypre 2.15.1
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;metis 5.1.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;superlu-dist
+      develop gcc@5.5.0 linux-ubuntu18.04-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;petsc
+      3.10.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;sundials 3.2.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;zlib
+      1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: mhteyskmeovwlp2772gpnmlnjxo4bml7,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+muparser 2.2.5 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: j6mcxfeeycallrc7fe4soiyfrjwk6z3c,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+muparser 2.2.5 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: j6mcxfeeycallrc7fe4soiyfrjwk6z3c,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+nanoflann 1.2.3 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-7
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-centos7-x86_64, HASH: hwshklhha2nqjtow4vrxvke45pxngenw, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+nanoflann 1.2.3 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-7
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: hwshklhha2nqjtow4vrxvke45pxngenw,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+ncurses 6.1 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [pkgconf 1.4.2 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-1
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: pkgconf 1.4.2
+      gcc@5.5.0 linux-centos7-x86_64, HASH: ujosx5mhaxcsmexqolilp6e3lr5ggmwm, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+ncurses 6.1 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [pkgconf 1.4.2 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-1
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: pkgconf 1.4.2
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: ujosx5mhaxcsmexqolilp6e3lr5ggmwm,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+netcdf 4.6.1 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [hdf5 1.10.4 gcc@5.5.0 linux-centos7-x86_64, m4 1.4.18 gcc@5.5.0 linux-centos7-x86_64,
+    openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64, zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-11
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: hdf5 1.10.4
+      gcc@5.5.0 linux-centos7-x86_64;m4 1.4.18 gcc@5.5.0 linux-centos7-x86_64;openmpi
+      3.1.2 gcc@5.5.0 linux-centos7-x86_64;zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64,
+    HASH: mfn64pd4lkz4qrzzolufa7nsv2hs4fcv, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+netcdf 4.6.1 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [hdf5 1.10.4 gcc@5.5.0 linux-ubuntu18.04-x86_64, m4 1.4.18 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-11
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: hdf5 1.10.4
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;m4 1.4.18 gcc@5.5.0 linux-ubuntu18.04-x86_64;openmpi
+      3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: mfn64pd4lkz4qrzzolufa7nsv2hs4fcv, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+netlib-scalapack 2.0.2 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64, openmpi 3.1.2 gcc@5.5.0
+      linux-centos7-x86_64, openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-centos7-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64;openblas
+      0.3.3 gcc@5.5.0 linux-centos7-x86_64, HASH: xoy4fqmehzcz2a46rw24ir5bsknti66f,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+netlib-scalapack 2.0.2 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, openmpi 3.1.2 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;openblas
+      0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: xoy4fqmehzcz2a46rw24ir5bsknti66f,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+numactl 2.0.11 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [automake 1.16.1 gcc@5.5.0 linux-centos7-x86_64, libtool 2.4.6 gcc@5.5.0
+      linux-centos7-x86_64, autoconf 2.69 gcc@5.5.0 linux-centos7-x86_64, m4 1.4.18
+      gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-7
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: automake 1.16.1
+      gcc@5.5.0 linux-centos7-x86_64;libtool 2.4.6 gcc@5.5.0 linux-centos7-x86_64;autoconf
+      2.69 gcc@5.5.0 linux-centos7-x86_64;m4 1.4.18 gcc@5.5.0 linux-centos7-x86_64,
+    HASH: t74ondrfv5w3r4x7re3gdoyvol54rfbd, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+numactl 2.0.11 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [automake 1.16.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, libtool 2.4.6
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, autoconf 2.69 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    m4 1.4.18 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-7
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: automake 1.16.1
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;libtool 2.4.6 gcc@5.5.0 linux-ubuntu18.04-x86_64;autoconf
+      2.69 gcc@5.5.0 linux-ubuntu18.04-x86_64;m4 1.4.18 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: t74ondrfv5w3r4x7re3gdoyvol54rfbd, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+oce 0.18.3 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [intel-tbb 2019 gcc@5.5.0 linux-centos7-x86_64, cmake 3.12.3 gcc@5.5.0
+      linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-8
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: intel-tbb 2019
+      gcc@5.5.0 linux-centos7-x86_64;cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64,
+    HASH: jhh3ukayrrwat7slt7kzgl3vnos5zmii, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+oce 0.18.3 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [intel-tbb 2019 gcc@5.5.0 linux-ubuntu18.04-x86_64, cmake 3.12.3 gcc@5.5.0
+      linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-8
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: intel-tbb 2019
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: jhh3ukayrrwat7slt7kzgl3vnos5zmii, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+omega-h 9.19.1 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64, zlib 1.2.11 gcc@5.5.0
+      linux-centos7-x86_64, cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openmpi 3.1.2
+      gcc@5.5.0 linux-centos7-x86_64;zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64;cmake
+      3.12.3 gcc@5.5.0 linux-centos7-x86_64, HASH: icaxb4lxqhzvmaja6mpgpqwkkv5c3hvz,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+omega-h 9.19.1 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, zlib 1.2.11 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openmpi 3.1.2
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64;cmake
+      3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: icaxb4lxqhzvmaja6mpgpqwkkv5c3hvz,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: 5lpprqxquyd44myhaq4qnzwyodniqddd,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: 5lpprqxquyd44myhaq4qnzwyodniqddd,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [hwloc 1.11.9 gcc@5.5.0 linux-centos7-x86_64, numactl 2.0.11 gcc@5.5.0
+      linux-centos7-x86_64, zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-9
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: hwloc 1.11.9
+      gcc@5.5.0 linux-centos7-x86_64;numactl 2.0.11 gcc@5.5.0 linux-centos7-x86_64;zlib
+      1.2.11 gcc@5.5.0 linux-centos7-x86_64, HASH: qa4woxr6uowl5vzgbcfnc4vdthlx7wns,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [hwloc 1.11.9 gcc@5.5.0 linux-ubuntu18.04-x86_64, numactl 2.0.11 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-9
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: hwloc 1.11.9
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;numactl 2.0.11 gcc@5.5.0 linux-ubuntu18.04-x86_64;zlib
+      1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: qa4woxr6uowl5vzgbcfnc4vdthlx7wns,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+openssl 1.0.2o gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [perl 5.26.2 gcc@5.5.0 linux-centos7-x86_64, zlib 1.2.11 gcc@5.5.0
+      linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-5
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: perl 5.26.2
+      gcc@5.5.0 linux-centos7-x86_64;zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64, HASH: vkbjcm3tkjcqy6xwpkyxkaqulryko4p5,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+openssl 1.0.2o gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [perl 5.26.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, zlib 1.2.11 gcc@5.5.0
+      linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-5
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: perl 5.26.2
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: vkbjcm3tkjcqy6xwpkyxkaqulryko4p5, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+p4est 2.0 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64, zlib 1.2.11 gcc@5.5.0
+      linux-centos7-x86_64, libtool 2.4.6 gcc@5.5.0 linux-centos7-x86_64, autoconf
+      2.69 gcc@5.5.0 linux-centos7-x86_64, automake 1.16.1 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openmpi 3.1.2
+      gcc@5.5.0 linux-centos7-x86_64;zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64;libtool
+      2.4.6 gcc@5.5.0 linux-centos7-x86_64;autoconf 2.69 gcc@5.5.0 linux-centos7-x86_64;automake
+      1.16.1 gcc@5.5.0 linux-centos7-x86_64, HASH: n4pfluoom5ti7jl6tndrcnoiqcocopse,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+p4est 2.0 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, zlib 1.2.11 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, libtool 2.4.6 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    autoconf 2.69 gcc@5.5.0 linux-ubuntu18.04-x86_64, automake 1.16.1 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openmpi 3.1.2
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64;libtool
+      2.4.6 gcc@5.5.0 linux-ubuntu18.04-x86_64;autoconf 2.69 gcc@5.5.0 linux-ubuntu18.04-x86_64;automake
+      1.16.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: n4pfluoom5ti7jl6tndrcnoiqcocopse,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+parmetis 4.0.3 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64, metis 5.1.0 gcc@5.5.0
+      linux-centos7-x86_64, cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openmpi 3.1.2
+      gcc@5.5.0 linux-centos7-x86_64;metis 5.1.0 gcc@5.5.0 linux-centos7-x86_64;cmake
+      3.12.3 gcc@5.5.0 linux-centos7-x86_64, HASH: 73mmsa7y742pewpwi3bjpaysljgbpbdk,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+parmetis 4.0.3 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, metis 5.1.0 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openmpi 3.1.2
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;metis 5.1.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;cmake
+      3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: 73mmsa7y742pewpwi3bjpaysljgbpbdk,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+perl 5.26.2 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [gdbm 1.14.1 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-4
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: gdbm 1.14.1
+      gcc@5.5.0 linux-centos7-x86_64, HASH: b5lz7wq3z5r2n2jkmavfpg7lmtvzp3rw, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+perl 5.26.2 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [gdbm 1.14.1 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-4
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: gdbm 1.14.1
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: b5lz7wq3z5r2n2jkmavfpg7lmtvzp3rw,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+petsc 3.10.2 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [metis 5.1.0 gcc@5.5.0 linux-centos7-x86_64, parmetis 4.0.3 gcc@5.5.0
+      linux-centos7-x86_64, superlu-dist develop gcc@5.5.0 linux-centos7-x86_64, trilinos
+      12.14.0-rc1 gcc@5.5.0 linux-centos7-x86_64, python 2.7.15 gcc@5.5.0 linux-centos7-x86_64,
+    hdf5 1.10.4 gcc@5.5.0 linux-centos7-x86_64, openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64,
+    openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64, zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64,
+    hypre 2.15.1 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-13
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: metis 5.1.0
+      gcc@5.5.0 linux-centos7-x86_64;parmetis 4.0.3 gcc@5.5.0 linux-centos7-x86_64;superlu-dist
+      develop gcc@5.5.0 linux-centos7-x86_64;trilinos 12.14.0-rc1 gcc@5.5.0 linux-centos7-x86_64;python
+      2.7.15 gcc@5.5.0 linux-centos7-x86_64;hdf5 1.10.4 gcc@5.5.0 linux-centos7-x86_64;openmpi
+      3.1.2 gcc@5.5.0 linux-centos7-x86_64;openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64;zlib
+      1.2.11 gcc@5.5.0 linux-centos7-x86_64;hypre 2.15.1 gcc@5.5.0 linux-centos7-x86_64,
+    HASH: bung5xrwqgtqqbmdxztzi5xihydmpm3d, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+petsc 3.10.2 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [metis 5.1.0 gcc@5.5.0 linux-ubuntu18.04-x86_64, parmetis 4.0.3 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, superlu-dist develop gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    trilinos 12.14.0-rc1 gcc@5.5.0 linux-ubuntu18.04-x86_64, python 2.7.15 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, hdf5 1.10.4 gcc@5.5.0 linux-ubuntu18.04-x86_64, openmpi
+      3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64, hypre 2.15.1 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-13
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: metis 5.1.0
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;parmetis 4.0.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;superlu-dist
+      develop gcc@5.5.0 linux-ubuntu18.04-x86_64;trilinos 12.14.0-rc1 gcc@5.5.0 linux-ubuntu18.04-x86_64;python
+      2.7.15 gcc@5.5.0 linux-ubuntu18.04-x86_64;hdf5 1.10.4 gcc@5.5.0 linux-ubuntu18.04-x86_64;openmpi
+      3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;zlib
+      1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64;hypre 2.15.1 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: bung5xrwqgtqqbmdxztzi5xihydmpm3d, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+pflotran develop gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64, hdf5 1.10.4 gcc@5.5.0
+      linux-centos7-x86_64, petsc 3.10.2 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-14
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openmpi 3.1.2
+      gcc@5.5.0 linux-centos7-x86_64;hdf5 1.10.4 gcc@5.5.0 linux-centos7-x86_64;petsc
+      3.10.2 gcc@5.5.0 linux-centos7-x86_64, HASH: m6duc7supxaea5rsrdcnorpfmt643obg,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+pflotran develop gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, hdf5 1.10.4 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, petsc 3.10.2 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-14
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openmpi 3.1.2
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;hdf5 1.10.4 gcc@5.5.0 linux-ubuntu18.04-x86_64;petsc
+      3.10.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: m6duc7supxaea5rsrdcnorpfmt643obg,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+phist 1.7.3 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [trilinos 12.14.0-rc1 gcc@5.5.0 linux-centos7-x86_64, cmake 3.12.3
+      gcc@5.5.0 linux-centos7-x86_64, openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64,
+    openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-13
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: trilinos 12.14.0-rc1
+      gcc@5.5.0 linux-centos7-x86_64;cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64;openmpi
+      3.1.2 gcc@5.5.0 linux-centos7-x86_64;openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64,
+    HASH: hr2wpkwdcuzzfr3rmwu6kebmmy63fzp7, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+phist 1.7.3 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [trilinos 12.14.0-rc1 gcc@5.5.0 linux-ubuntu18.04-x86_64, cmake 3.12.3
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-13
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: trilinos 12.14.0-rc1
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;openmpi
+      3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: hr2wpkwdcuzzfr3rmwu6kebmmy63fzp7, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+pkgconf 1.4.2 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: anpbzvj3zviueqtnjmxw4pm3cyitmm72,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+pkgconf 1.4.2 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: anpbzvj3zviueqtnjmxw4pm3cyitmm72,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+pumi 2.2.0 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64, cmake 3.12.3 gcc@5.5.0
+      linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openmpi 3.1.2
+      gcc@5.5.0 linux-centos7-x86_64;cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64,
+    HASH: yco57v3wftrtu6xrsyswre62eektptpk, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+pumi 2.2.0 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, cmake 3.12.3 gcc@5.5.0
+      linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-10
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openmpi 3.1.2
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: yco57v3wftrtu6xrsyswre62eektptpk, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+python 2.7.15 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [sqlite 3.23.1 gcc@5.5.0 linux-centos7-x86_64, readline 7.0 gcc@5.5.0
+      linux-centos7-x86_64, openssl 1.0.2o gcc@5.5.0 linux-centos7-x86_64, pkgconf
+      1.4.2 gcc@5.5.0 linux-centos7-x86_64, gdbm 1.14.1 gcc@5.5.0 linux-centos7-x86_64,
+    ncurses 6.1 gcc@5.5.0 linux-centos7-x86_64, zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64,
+    bzip2 1.0.6 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-6
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: sqlite 3.23.1
+      gcc@5.5.0 linux-centos7-x86_64;readline 7.0 gcc@5.5.0 linux-centos7-x86_64;openssl
+      1.0.2o gcc@5.5.0 linux-centos7-x86_64;pkgconf 1.4.2 gcc@5.5.0 linux-centos7-x86_64;gdbm
+      1.14.1 gcc@5.5.0 linux-centos7-x86_64;ncurses 6.1 gcc@5.5.0 linux-centos7-x86_64;zlib
+      1.2.11 gcc@5.5.0 linux-centos7-x86_64;bzip2 1.0.6 gcc@5.5.0 linux-centos7-x86_64,
+    HASH: ri4ruvxsvc3puy253zd7jzk4zfijoolx, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+python 2.7.15 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [sqlite 3.23.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, readline 7.0 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, openssl 1.0.2o gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    pkgconf 1.4.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, gdbm 1.14.1 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    ncurses 6.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    bzip2 1.0.6 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-6
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: sqlite 3.23.1
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;readline 7.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;openssl
+      1.0.2o gcc@5.5.0 linux-ubuntu18.04-x86_64;pkgconf 1.4.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;gdbm
+      1.14.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;ncurses 6.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;zlib
+      1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64;bzip2 1.0.6 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: ri4ruvxsvc3puy253zd7jzk4zfijoolx, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+readline 7.0 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [ncurses 6.1 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-2
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: ncurses 6.1
+      gcc@5.5.0 linux-centos7-x86_64, HASH: bt477o424c2np6cdgqabo5aqdoq35jqe, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+readline 7.0 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [ncurses 6.1 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-2
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: ncurses 6.1
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: bt477o424c2np6cdgqabo5aqdoq35jqe,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+rebuild-index:
+  image: scottwittenburg/spack_builder_centos_7
+  script: ./rebuild-index.sh
+  stage: stage-rebuild-index
+  tags: [spack-k8s]
+  variables: {MIRROR_URL: 'https://mirror.spack.io'}
+slepc 3.10.1 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [python 2.7.15 gcc@5.5.0 linux-centos7-x86_64, arpack-ng 3.6.3 gcc@5.5.0
+      linux-centos7-x86_64, petsc 3.10.2 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-14
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: python 2.7.15
+      gcc@5.5.0 linux-centos7-x86_64;arpack-ng 3.6.3 gcc@5.5.0 linux-centos7-x86_64;petsc
+      3.10.2 gcc@5.5.0 linux-centos7-x86_64, HASH: vadmq2tzkthhaoa7ky24xmxiea67nvja,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+slepc 3.10.1 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [python 2.7.15 gcc@5.5.0 linux-ubuntu18.04-x86_64, arpack-ng 3.6.3
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, petsc 3.10.2 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-14
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: python 2.7.15
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;arpack-ng 3.6.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;petsc
+      3.10.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: vadmq2tzkthhaoa7ky24xmxiea67nvja,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+sqlite 3.23.1 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [readline 7.0 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-3
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: readline 7.0
+      gcc@5.5.0 linux-centos7-x86_64, HASH: qwstykwh2axrlszdgjobccgu2me5yc7y, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+sqlite 3.23.1 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [readline 7.0 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-3
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: readline 7.0
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: qwstykwh2axrlszdgjobccgu2me5yc7y,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+stages: [stage-0, stage-1, stage-2, stage-3, stage-4, stage-5, stage-6, stage-7, stage-8,
+  stage-9, stage-10, stage-11, stage-12, stage-13, stage-14, stage-15, stage-16, stage-rebuild-index]
+strumpack 3.1.1 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64, openmpi 3.1.2 gcc@5.5.0
+      linux-centos7-x86_64, metis 5.1.0 gcc@5.5.0 linux-centos7-x86_64, netlib-scalapack
+      2.0.2 gcc@5.5.0 linux-centos7-x86_64, cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-11
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openblas 0.3.3
+      gcc@5.5.0 linux-centos7-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64;metis
+      5.1.0 gcc@5.5.0 linux-centos7-x86_64;netlib-scalapack 2.0.2 gcc@5.5.0 linux-centos7-x86_64;cmake
+      3.12.3 gcc@5.5.0 linux-centos7-x86_64, HASH: 7wigdlzxxs6cqukyivx27qa6ohnzrb4r,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+strumpack 3.1.1 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, openmpi 3.1.2
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, metis 5.1.0 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    netlib-scalapack 2.0.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, cmake 3.12.3 gcc@5.5.0
+      linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-11
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: openblas 0.3.3
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;metis
+      5.1.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;netlib-scalapack 2.0.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;cmake
+      3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: 7wigdlzxxs6cqukyivx27qa6ohnzrb4r,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+suite-sparse 5.3.0 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [metis 5.1.0 gcc@5.5.0 linux-centos7-x86_64, cmake 3.12.3 gcc@5.5.0
+      linux-centos7-x86_64, openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-8
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: metis 5.1.0
+      gcc@5.5.0 linux-centos7-x86_64;cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64;openblas
+      0.3.3 gcc@5.5.0 linux-centos7-x86_64, HASH: khmf3hcu42lkhhm6p7rffzdb7ml3tob6,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+suite-sparse 5.3.0 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [metis 5.1.0 gcc@5.5.0 linux-ubuntu18.04-x86_64, cmake 3.12.3 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-8
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: metis 5.1.0
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;openblas
+      0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: khmf3hcu42lkhhm6p7rffzdb7ml3tob6,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+sundials 3.2.1 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [hypre 2.15.1 gcc@5.5.0 linux-centos7-x86_64, openmpi 3.1.2 gcc@5.5.0
+      linux-centos7-x86_64, cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-11
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: hypre 2.15.1
+      gcc@5.5.0 linux-centos7-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64;cmake
+      3.12.3 gcc@5.5.0 linux-centos7-x86_64, HASH: s2dwfjvrb2bg2gu74og533uvuw7lklz2,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+sundials 3.2.1 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [hypre 2.15.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, openmpi 3.1.2 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-11
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: hypre 2.15.1
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;cmake
+      3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: s2dwfjvrb2bg2gu74og533uvuw7lklz2,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+superlu-dist develop gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64, openmpi 3.1.2 gcc@5.5.0
+      linux-centos7-x86_64, metis 5.1.0 gcc@5.5.0 linux-centos7-x86_64, openblas 0.3.3
+      gcc@5.5.0 linux-centos7-x86_64, parmetis 4.0.3 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-11
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-centos7-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64;metis
+      5.1.0 gcc@5.5.0 linux-centos7-x86_64;openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64;parmetis
+      4.0.3 gcc@5.5.0 linux-centos7-x86_64, HASH: ij44eyqnqmaadzeisf6el5fb2dedhis4,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+superlu-dist develop gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, openmpi 3.1.2 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, metis 5.1.0 gcc@5.5.0 linux-ubuntu18.04-x86_64, openblas
+      0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, parmetis 4.0.3 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-11
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;metis
+      5.1.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;parmetis
+      4.0.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: ij44eyqnqmaadzeisf6el5fb2dedhis4,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+tasmanian 6.0 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64, openblas 0.3.3 gcc@5.5.0
+      linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-7
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-centos7-x86_64;openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64,
+    HASH: veky6sehddtjcv4u67pnlnhqgluz6fyp, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+tasmanian 6.0 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, openblas 0.3.3 gcc@5.5.0
+      linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-7
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: veky6sehddtjcv4u67pnlnhqgluz6fyp, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+trilinos 12.14.0-rc1 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64, metis 5.1.0 gcc@5.5.0
+      linux-centos7-x86_64, parmetis 4.0.3 gcc@5.5.0 linux-centos7-x86_64, superlu-dist
+      develop gcc@5.5.0 linux-centos7-x86_64, matio 1.5.9 gcc@5.5.0 linux-centos7-x86_64,
+    netcdf 4.6.1 gcc@5.5.0 linux-centos7-x86_64, glm 0.9.7.1 gcc@5.5.0 linux-centos7-x86_64,
+    hdf5 1.10.4 gcc@5.5.0 linux-centos7-x86_64, boost 1.68.0 gcc@5.5.0 linux-centos7-x86_64,
+    openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64, openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64,
+    hypre 2.15.1 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-12
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-centos7-x86_64;metis 5.1.0 gcc@5.5.0 linux-centos7-x86_64;parmetis
+      4.0.3 gcc@5.5.0 linux-centos7-x86_64;superlu-dist develop gcc@5.5.0 linux-centos7-x86_64;matio
+      1.5.9 gcc@5.5.0 linux-centos7-x86_64;netcdf 4.6.1 gcc@5.5.0 linux-centos7-x86_64;glm
+      0.9.7.1 gcc@5.5.0 linux-centos7-x86_64;hdf5 1.10.4 gcc@5.5.0 linux-centos7-x86_64;boost
+      1.68.0 gcc@5.5.0 linux-centos7-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-centos7-x86_64;openblas
+      0.3.3 gcc@5.5.0 linux-centos7-x86_64;hypre 2.15.1 gcc@5.5.0 linux-centos7-x86_64,
+    HASH: nkurtf3rxienu3f7y6wnzzabcurbgrou, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+trilinos 12.14.0-rc1 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, metis 5.1.0 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, parmetis 4.0.3 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    superlu-dist develop gcc@5.5.0 linux-ubuntu18.04-x86_64, matio 1.5.9 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, netcdf 4.6.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, glm
+      0.9.7.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, hdf5 1.10.4 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    boost 1.68.0 gcc@5.5.0 linux-ubuntu18.04-x86_64, openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, hypre 2.15.1 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-12
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: cmake 3.12.3
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;metis 5.1.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;parmetis
+      4.0.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;superlu-dist develop gcc@5.5.0 linux-ubuntu18.04-x86_64;matio
+      1.5.9 gcc@5.5.0 linux-ubuntu18.04-x86_64;netcdf 4.6.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;glm
+      0.9.7.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;hdf5 1.10.4 gcc@5.5.0 linux-ubuntu18.04-x86_64;boost
+      1.68.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;openblas
+      0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;hypre 2.15.1 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    HASH: nkurtf3rxienu3f7y6wnzzabcurbgrou, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+util-macros 1.19.1 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: kqw4gfpdexyhvyslncpgmmkjqzivo7zl,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+util-macros 1.19.1 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: kqw4gfpdexyhvyslncpgmmkjqzivo7zl,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+xsdk 0.4.0 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [libtool 2.4.6 gcc@5.5.0 linux-centos7-x86_64, nanoflann 1.2.3 gcc@5.5.0
+      linux-centos7-x86_64, adol-c develop gcc@5.5.0 linux-centos7-x86_64, libpciaccess
+      0.13.5 gcc@5.5.0 linux-centos7-x86_64, superlu-dist develop gcc@5.5.0 linux-centos7-x86_64,
+    dealii 9.0.1 gcc@5.5.0 linux-centos7-x86_64, netcdf 4.6.1 gcc@5.5.0 linux-centos7-x86_64,
+    gdbm 1.14.1 gcc@5.5.0 linux-centos7-x86_64, python 2.7.15 gcc@5.5.0 linux-centos7-x86_64,
+    autoconf 2.69 gcc@5.5.0 linux-centos7-x86_64, mfem develop gcc@5.5.0 linux-centos7-x86_64,
+    phist 1.7.3 gcc@5.5.0 linux-centos7-x86_64, libxml2 2.9.8 gcc@5.5.0 linux-centos7-x86_64,
+    zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64, hypre 2.15.1 gcc@5.5.0 linux-centos7-x86_64,
+    cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64, numactl 2.0.11 gcc@5.5.0 linux-centos7-x86_64,
+    netlib-scalapack 2.0.2 gcc@5.5.0 linux-centos7-x86_64, openmpi 3.1.2 gcc@5.5.0
+      linux-centos7-x86_64, diffutils 3.6 gcc@5.5.0 linux-centos7-x86_64, gsl 2.5
+      gcc@5.5.0 linux-centos7-x86_64, boost 1.68.0 gcc@5.5.0 linux-centos7-x86_64,
+    intel-tbb 2019 gcc@5.5.0 linux-centos7-x86_64, sqlite 3.23.1 gcc@5.5.0 linux-centos7-x86_64,
+    perl 5.26.2 gcc@5.5.0 linux-centos7-x86_64, bzip2 1.0.6 gcc@5.5.0 linux-centos7-x86_64,
+    pflotran develop gcc@5.5.0 linux-centos7-x86_64, omega-h 9.19.1 gcc@5.5.0 linux-centos7-x86_64,
+    trilinos 12.14.0-rc1 gcc@5.5.0 linux-centos7-x86_64, suite-sparse 5.3.0 gcc@5.5.0
+      linux-centos7-x86_64, automake 1.16.1 gcc@5.5.0 linux-centos7-x86_64, matio
+      1.5.9 gcc@5.5.0 linux-centos7-x86_64, sundials 3.2.1 gcc@5.5.0 linux-centos7-x86_64,
+    openssl 1.0.2o gcc@5.5.0 linux-centos7-x86_64, amrex 18.10.1 gcc@5.5.0 linux-centos7-x86_64,
+    glm 0.9.7.1 gcc@5.5.0 linux-centos7-x86_64, xz 5.2.4 gcc@5.5.0 linux-centos7-x86_64,
+    pkgconf 1.4.2 gcc@5.5.0 linux-centos7-x86_64, ncurses 6.1 gcc@5.5.0 linux-centos7-x86_64,
+    muparser 2.2.5 gcc@5.5.0 linux-centos7-x86_64, pumi 2.2.0 gcc@5.5.0 linux-centos7-x86_64,
+    metis 5.1.0 gcc@5.5.0 linux-centos7-x86_64, m4 1.4.18 gcc@5.5.0 linux-centos7-x86_64,
+    oce 0.18.3 gcc@5.5.0 linux-centos7-x86_64, readline 7.0 gcc@5.5.0 linux-centos7-x86_64,
+    parmetis 4.0.3 gcc@5.5.0 linux-centos7-x86_64, arpack-ng 3.6.3 gcc@5.5.0 linux-centos7-x86_64,
+    p4est 2.0 gcc@5.5.0 linux-centos7-x86_64, strumpack 3.1.1 gcc@5.5.0 linux-centos7-x86_64,
+    hwloc 1.11.9 gcc@5.5.0 linux-centos7-x86_64, hdf5 1.10.4 gcc@5.5.0 linux-centos7-x86_64,
+    slepc 3.10.1 gcc@5.5.0 linux-centos7-x86_64, petsc 3.10.2 gcc@5.5.0 linux-centos7-x86_64,
+    util-macros 1.19.1 gcc@5.5.0 linux-centos7-x86_64, tasmanian 6.0 gcc@5.5.0 linux-centos7-x86_64,
+    openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64, alquimia develop gcc@5.5.0 linux-centos7-x86_64,
+    libsigsegv 2.11 gcc@5.5.0 linux-centos7-x86_64]
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-16
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: libtool 2.4.6
+      gcc@5.5.0 linux-centos7-x86_64;nanoflann 1.2.3 gcc@5.5.0 linux-centos7-x86_64;adol-c
+      develop gcc@5.5.0 linux-centos7-x86_64;libpciaccess 0.13.5 gcc@5.5.0 linux-centos7-x86_64;superlu-dist
+      develop gcc@5.5.0 linux-centos7-x86_64;dealii 9.0.1 gcc@5.5.0 linux-centos7-x86_64;netcdf
+      4.6.1 gcc@5.5.0 linux-centos7-x86_64;gdbm 1.14.1 gcc@5.5.0 linux-centos7-x86_64;python
+      2.7.15 gcc@5.5.0 linux-centos7-x86_64;autoconf 2.69 gcc@5.5.0 linux-centos7-x86_64;mfem
+      develop gcc@5.5.0 linux-centos7-x86_64;phist 1.7.3 gcc@5.5.0 linux-centos7-x86_64;libxml2
+      2.9.8 gcc@5.5.0 linux-centos7-x86_64;zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64;hypre
+      2.15.1 gcc@5.5.0 linux-centos7-x86_64;cmake 3.12.3 gcc@5.5.0 linux-centos7-x86_64;numactl
+      2.0.11 gcc@5.5.0 linux-centos7-x86_64;netlib-scalapack 2.0.2 gcc@5.5.0 linux-centos7-x86_64;openmpi
+      3.1.2 gcc@5.5.0 linux-centos7-x86_64;diffutils 3.6 gcc@5.5.0 linux-centos7-x86_64;gsl
+      2.5 gcc@5.5.0 linux-centos7-x86_64;boost 1.68.0 gcc@5.5.0 linux-centos7-x86_64;intel-tbb
+      2019 gcc@5.5.0 linux-centos7-x86_64;sqlite 3.23.1 gcc@5.5.0 linux-centos7-x86_64;perl
+      5.26.2 gcc@5.5.0 linux-centos7-x86_64;bzip2 1.0.6 gcc@5.5.0 linux-centos7-x86_64;pflotran
+      develop gcc@5.5.0 linux-centos7-x86_64;omega-h 9.19.1 gcc@5.5.0 linux-centos7-x86_64;trilinos
+      12.14.0-rc1 gcc@5.5.0 linux-centos7-x86_64;suite-sparse 5.3.0 gcc@5.5.0 linux-centos7-x86_64;automake
+      1.16.1 gcc@5.5.0 linux-centos7-x86_64;matio 1.5.9 gcc@5.5.0 linux-centos7-x86_64;sundials
+      3.2.1 gcc@5.5.0 linux-centos7-x86_64;openssl 1.0.2o gcc@5.5.0 linux-centos7-x86_64;amrex
+      18.10.1 gcc@5.5.0 linux-centos7-x86_64;glm 0.9.7.1 gcc@5.5.0 linux-centos7-x86_64;xz
+      5.2.4 gcc@5.5.0 linux-centos7-x86_64;pkgconf 1.4.2 gcc@5.5.0 linux-centos7-x86_64;ncurses
+      6.1 gcc@5.5.0 linux-centos7-x86_64;muparser 2.2.5 gcc@5.5.0 linux-centos7-x86_64;pumi
+      2.2.0 gcc@5.5.0 linux-centos7-x86_64;metis 5.1.0 gcc@5.5.0 linux-centos7-x86_64;m4
+      1.4.18 gcc@5.5.0 linux-centos7-x86_64;oce 0.18.3 gcc@5.5.0 linux-centos7-x86_64;readline
+      7.0 gcc@5.5.0 linux-centos7-x86_64;parmetis 4.0.3 gcc@5.5.0 linux-centos7-x86_64;arpack-ng
+      3.6.3 gcc@5.5.0 linux-centos7-x86_64;p4est 2.0 gcc@5.5.0 linux-centos7-x86_64;strumpack
+      3.1.1 gcc@5.5.0 linux-centos7-x86_64;hwloc 1.11.9 gcc@5.5.0 linux-centos7-x86_64;hdf5
+      1.10.4 gcc@5.5.0 linux-centos7-x86_64;slepc 3.10.1 gcc@5.5.0 linux-centos7-x86_64;petsc
+      3.10.2 gcc@5.5.0 linux-centos7-x86_64;util-macros 1.19.1 gcc@5.5.0 linux-centos7-x86_64;tasmanian
+      6.0 gcc@5.5.0 linux-centos7-x86_64;openblas 0.3.3 gcc@5.5.0 linux-centos7-x86_64;alquimia
+      develop gcc@5.5.0 linux-centos7-x86_64;libsigsegv 2.11 gcc@5.5.0 linux-centos7-x86_64,
+    HASH: rrykli6w7ynhoe33gzbwzxjbidzgkzxs, MIRROR_URL: 'https://mirror.spack.io',
+    ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+xsdk 0.4.0 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: [libtool 2.4.6 gcc@5.5.0 linux-ubuntu18.04-x86_64, nanoflann 1.2.3
+      gcc@5.5.0 linux-ubuntu18.04-x86_64, adol-c develop gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    libpciaccess 0.13.5 gcc@5.5.0 linux-ubuntu18.04-x86_64, superlu-dist develop gcc@5.5.0
+      linux-ubuntu18.04-x86_64, dealii 9.0.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, netcdf
+      4.6.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, gdbm 1.14.1 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    python 2.7.15 gcc@5.5.0 linux-ubuntu18.04-x86_64, autoconf 2.69 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    mfem develop gcc@5.5.0 linux-ubuntu18.04-x86_64, phist 1.7.3 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    libxml2 2.9.8 gcc@5.5.0 linux-ubuntu18.04-x86_64, zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    hypre 2.15.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    numactl 2.0.11 gcc@5.5.0 linux-ubuntu18.04-x86_64, netlib-scalapack 2.0.2 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, openmpi 3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    diffutils 3.6 gcc@5.5.0 linux-ubuntu18.04-x86_64, gsl 2.5 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    boost 1.68.0 gcc@5.5.0 linux-ubuntu18.04-x86_64, intel-tbb 2019 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    sqlite 3.23.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, perl 5.26.2 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    bzip2 1.0.6 gcc@5.5.0 linux-ubuntu18.04-x86_64, pflotran develop gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    omega-h 9.19.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, trilinos 12.14.0-rc1 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, suite-sparse 5.3.0 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    automake 1.16.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, matio 1.5.9 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    sundials 3.2.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, openssl 1.0.2o gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    amrex 18.10.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, glm 0.9.7.1 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    xz 5.2.4 gcc@5.5.0 linux-ubuntu18.04-x86_64, pkgconf 1.4.2 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    ncurses 6.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, muparser 2.2.5 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    pumi 2.2.0 gcc@5.5.0 linux-ubuntu18.04-x86_64, metis 5.1.0 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    m4 1.4.18 gcc@5.5.0 linux-ubuntu18.04-x86_64, oce 0.18.3 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    readline 7.0 gcc@5.5.0 linux-ubuntu18.04-x86_64, parmetis 4.0.3 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    arpack-ng 3.6.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, p4est 2.0 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    strumpack 3.1.1 gcc@5.5.0 linux-ubuntu18.04-x86_64, hwloc 1.11.9 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    hdf5 1.10.4 gcc@5.5.0 linux-ubuntu18.04-x86_64, slepc 3.10.1 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    petsc 3.10.2 gcc@5.5.0 linux-ubuntu18.04-x86_64, util-macros 1.19.1 gcc@5.5.0
+      linux-ubuntu18.04-x86_64, tasmanian 6.0 gcc@5.5.0 linux-ubuntu18.04-x86_64,
+    openblas 0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64, alquimia develop gcc@5.5.0
+      linux-ubuntu18.04-x86_64, libsigsegv 2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64]
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-16
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: libtool 2.4.6
+      gcc@5.5.0 linux-ubuntu18.04-x86_64;nanoflann 1.2.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;adol-c
+      develop gcc@5.5.0 linux-ubuntu18.04-x86_64;libpciaccess 0.13.5 gcc@5.5.0 linux-ubuntu18.04-x86_64;superlu-dist
+      develop gcc@5.5.0 linux-ubuntu18.04-x86_64;dealii 9.0.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;netcdf
+      4.6.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;gdbm 1.14.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;python
+      2.7.15 gcc@5.5.0 linux-ubuntu18.04-x86_64;autoconf 2.69 gcc@5.5.0 linux-ubuntu18.04-x86_64;mfem
+      develop gcc@5.5.0 linux-ubuntu18.04-x86_64;phist 1.7.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;libxml2
+      2.9.8 gcc@5.5.0 linux-ubuntu18.04-x86_64;zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64;hypre
+      2.15.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;cmake 3.12.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;numactl
+      2.0.11 gcc@5.5.0 linux-ubuntu18.04-x86_64;netlib-scalapack 2.0.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;openmpi
+      3.1.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;diffutils 3.6 gcc@5.5.0 linux-ubuntu18.04-x86_64;gsl
+      2.5 gcc@5.5.0 linux-ubuntu18.04-x86_64;boost 1.68.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;intel-tbb
+      2019 gcc@5.5.0 linux-ubuntu18.04-x86_64;sqlite 3.23.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;perl
+      5.26.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;bzip2 1.0.6 gcc@5.5.0 linux-ubuntu18.04-x86_64;pflotran
+      develop gcc@5.5.0 linux-ubuntu18.04-x86_64;omega-h 9.19.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;trilinos
+      12.14.0-rc1 gcc@5.5.0 linux-ubuntu18.04-x86_64;suite-sparse 5.3.0 gcc@5.5.0
+      linux-ubuntu18.04-x86_64;automake 1.16.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;matio
+      1.5.9 gcc@5.5.0 linux-ubuntu18.04-x86_64;sundials 3.2.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;openssl
+      1.0.2o gcc@5.5.0 linux-ubuntu18.04-x86_64;amrex 18.10.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;glm
+      0.9.7.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;xz 5.2.4 gcc@5.5.0 linux-ubuntu18.04-x86_64;pkgconf
+      1.4.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;ncurses 6.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;muparser
+      2.2.5 gcc@5.5.0 linux-ubuntu18.04-x86_64;pumi 2.2.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;metis
+      5.1.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;m4 1.4.18 gcc@5.5.0 linux-ubuntu18.04-x86_64;oce
+      0.18.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;readline 7.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;parmetis
+      4.0.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;arpack-ng 3.6.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;p4est
+      2.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;strumpack 3.1.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;hwloc
+      1.11.9 gcc@5.5.0 linux-ubuntu18.04-x86_64;hdf5 1.10.4 gcc@5.5.0 linux-ubuntu18.04-x86_64;slepc
+      3.10.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;petsc 3.10.2 gcc@5.5.0 linux-ubuntu18.04-x86_64;util-macros
+      1.19.1 gcc@5.5.0 linux-ubuntu18.04-x86_64;tasmanian 6.0 gcc@5.5.0 linux-ubuntu18.04-x86_64;openblas
+      0.3.3 gcc@5.5.0 linux-ubuntu18.04-x86_64;alquimia develop gcc@5.5.0 linux-ubuntu18.04-x86_64;libsigsegv
+      2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64, HASH: rrykli6w7ynhoe33gzbwzxjbidzgkzxs,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+xz 5.2.4 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: ipu726czz5ryhtqnt3tk3eo3kstnv7oh,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+xz 5.2.4 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: ipu726czz5ryhtqnt3tk3eo3kstnv7oh,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+zlib 1.2.11 gcc@5.5.0 linux-centos7-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_centos_7
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: gig2d7tun2eycsifgldt4qixlzjy7ii2,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
+zlib 1.2.11 gcc@5.5.0 linux-ubuntu18.04-x86_64:
+  artifacts:
+    paths: [local_mirror/build_cache, jobs_scratch_dir]
+    when: always
+  dependencies: []
+  image: scottwittenburg/spack_builder_ubuntu_18.04
+  script: [./rebuild-package.sh]
+  stage: stage-0
+  tags: [spack-k8s]
+  variables: {CDASH_BASE_URL: 'https://cdash.spack.io', DEPENDENCIES: '', HASH: gig2d7tun2eycsifgldt4qixlzjy7ii2,
+    MIRROR_URL: 'https://mirror.spack.io', ROOT_SPEC: xsdk@0.4.0%gcc@5.5.0}
