@@ -3,8 +3,12 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
+import argparse
+import json
 import os
 import re
+import shutil
+import tempfile
 
 import subprocess
 from jsonschema import validate
@@ -14,26 +18,16 @@ import llnl.util.tty as tty
 
 from spack.architecture import sys_type
 from spack.dependency import all_deptypes
-from spack.spec import Spec
+from spack.spec import Spec, CompilerSpec
 from spack.paths import spack_root
 from spack.error import SpackError
 from spack.schema.os_container_mapping import schema
-from spack.util.spec_set import CombinatorialSpecSet
+from spack.spec_set import CombinatorialSpecSet
 import spack.util.spack_yaml as syaml
 
 description = "generate release build set as .gitlab-ci.yml"
 section = "build"
 level = "long"
-
-
-CMD_ERROR_OUTPUT_REGEX = re.compile(
-    r'==>\s+Error:\s+(.+)<BEGIN_SPACK_COMMAND_OUTPUT>',
-    re.MULTILINE | re.DOTALL)
-IGNORE_SURROUND_REGEX = re.compile(
-    r'<BEGIN_SPACK_COMMAND_OUTPUT>(.+)<END_SPACK_COMMAND_OUTPUT>',
-    re.MULTILINE | re.DOTALL)
-DEP_LINE_REGEX = re.compile(r'^([^\s]+) -> (.+)$', re.MULTILINE)
-SPEC_LINE_REGEX = re.compile(r'^label: ([^,]+), spec: (.+)$', re.MULTILINE)
 
 
 def setup_parser(subparser):
@@ -42,7 +36,7 @@ def setup_parser(subparser):
         help="path to release spec-set yaml file")
 
     subparser.add_argument(
-        '-m', '--mirror-url', default='http://172.17.0.1:8081/',
+        '-m', '--mirror-url', default='https://mirror.spack.io',
         help="url of binary mirror where builds should be pushed")
 
     subparser.add_argument(
@@ -66,14 +60,23 @@ def setup_parser(subparser):
         help="Print summary of staged jobs to standard output")
 
     subparser.add_argument(
-        '--spec-deps', default=None,
-        help="The spec for which you want container-generated deps")
-
-    subparser.add_argument(
         '--this-machine-only', action='store_true', default=False,
         help="Use only the current machine to concretize specs, " +
         "instead of iterating over items in os-container-mapping.yaml " +
         "and using docker run")
+
+    subparser.add_argument(
+        '--specs-deps-output', default='/dev/stdout',
+        help="A file path to which spec deps should be written.  This " +
+             "argument is generally for internal use, and should not be " +
+             "provided by end-users under normal conditions.")
+
+    subparser.add_argument(
+        'specs', nargs=argparse.REMAINDER,
+        help="These positional arguments are generally for internal use.  " +
+             "The --spec-set argument should be used to identify a yaml " +
+             "file describing the set of release specs to include in the "+
+             ".gitlab-ci.yml file.")
 
 
 def get_job_name(spec, osarch):
@@ -88,65 +91,109 @@ def get_spec_string(spec):
     return '{0}@{1}%{2}'.format(spec.name, spec.version, spec.compiler)
 
 
-def get_deps_using_container(spec, deps, spec_labels, image):
+def _add_dependency(spec_label, dep_label, deps):
+    if spec_label == dep_label:
+        return
+    if spec_label not in deps:
+        deps[spec_label] = set()
+    deps[spec_label].add(dep_label)
+
+
+def get_deps_using_container(specs, image):
     image_home_dir = '/home/spackuser'
     repo_mount_location = '{0}/spack'.format(image_home_dir)
-    entry_point = '{0}/spackcommand/spack-container-command.sh'.format(
-        image_home_dir)
+    temp_dir = tempfile.mkdtemp(dir='/tmp')
 
-    cmd_to_run = [
+    # The paths this module will see (from outside the container)
+    temp_file = os.path.join(temp_dir, 'spec_deps.json')
+    temp_err = os.path.join(temp_dir, 'std_err.log')
+
+    # The paths the bash_command will see inside the container
+    json_output = '/work/spec_deps.json'
+    std_error = '/work/std_err.log'
+
+    specs_arg = ' '.join([str(spec) for spec in specs])
+
+    bash_command = " ".join(["source {0}/share/spack/setup-env.sh ;",
+                             "spack release-jobs",
+                             "--specs-deps-output {1}",
+                             "{2}",
+                             "2> {3}"]).format(
+        repo_mount_location, json_output, specs_arg, std_error)
+
+    docker_cmd_to_run = [
         'docker', 'run', '--rm',
         '-v', '{0}:{1}'.format(spack_root, repo_mount_location),
-        '--entrypoint', entry_point,
+        '-v', '{0}:{1}'.format(temp_dir, '/work'),
+        '--entrypoint', 'bash',
         '-t', str(image),
-        '{0}/bin'.format(repo_mount_location),
-        'spack', 'release-jobs', '--spec-deps', str(spec),
+        '-c',
+        bash_command,
     ]
 
-    def add_dep(s, d):
-        if s == d:
-            return
-        if s not in deps:
-            deps[s] = set()
-        deps[s].add(d)
+    tty.debug('Running subprocess command:')
+    tty.debug(' '.join(docker_cmd_to_run))
 
-    tty.msg('Running subprocess command:')
-    print(' '.join(cmd_to_run))
-    proc = subprocess.Popen(cmd_to_run,
-                            stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
+    # Docker is going to merge the stdout/stderr from the script and write it
+    # all to the stdout of the running container.  For this reason, we won't
+    # pipe any stdout/stderr from the docker command, but rather write the
+    # output we care about to a file in a mounted directory.  Similarly, any
+    # errors from running the spack command inside the container are redirected
+    # to another file in the mounted directory.
+    proc = subprocess.Popen(docker_cmd_to_run)
     proc.wait()
 
-    out = proc.stdout.read()
-    if out:
-        m = CMD_ERROR_OUTPUT_REGEX.search(out)
-        if m:
-            tty.error('Encountered spack error running command in container:')
-            print(m.group(1))
+    # Check for errors from spack command
+    if os.path.exists(temp_err) and os.path.getsize(temp_err) > 0:
+        # Spack wrote something to stderr inside the container
+        tty.error('Encountered spack error running command in container:')
+        with open(temp_err, 'r') as err:
+            tty.error(err.read())
 
-        m1 = IGNORE_SURROUND_REGEX.search(out)
-        specs_and_deps = m1.group(1).strip()
-        if specs_and_deps:
-            spec_label_tuples = SPEC_LINE_REGEX.findall(specs_and_deps)
+        # If spack wrote anything to stderr, we'll assume the command didn't
+        # work.  In that case, we just clean up and return early.
+        # shutil.rmtree(temp_dir)
+        # return None
 
-            for label, spec_str in spec_label_tuples:
-                spec_labels[label.strip()] = {
-                    'spec': Spec(spec_str.strip()),
-                    'rootSpec': spec,
-                }
+    spec_deps_obj = {}
 
-            dep_tuples = DEP_LINE_REGEX.findall(specs_and_deps)
+    try:
+        # Finally, try to read/parse the output we really care about: the
+        # specs and dependency edges for the provided spec, as it was
+        # concretized in the appropriate container.
+        with open(temp_file, 'r') as fd:
+            spec_deps_obj = json.loads(fd.read())
 
-            for s, d in dep_tuples:
-                add_dep(s.strip(), d.strip())
+    except ValueError as val_err:
+        tty.error('Failed to read json object from spec-deps output file:')
+        tty.error(str(val_err))
+    except IOError as io_err:
+        tty.error('Problem reading from spec-deps json output file:')
+        tty.error(str(io_err))
+    finally:
+        shutil.rmtree(temp_dir)
+
+    return spec_deps_obj
 
 
-def get_spec_dependencies(spec, deps, spec_labels, image=None):
+def get_spec_dependencies(specs, deps, spec_labels, image=None):
     if image:
-        get_deps_using_container(spec, deps, spec_labels, image)
+        spec_deps_obj = get_deps_using_container(specs, image)
     else:
-        compute_spec_deps(spec, deps, spec_labels)
+        spec_deps_obj = compute_spec_deps(specs)
+
+    if spec_deps_obj:
+        dependencies = spec_deps_obj['dependencies']
+        specs = spec_deps_obj['specs']
+
+        for entry in specs:
+            spec_labels[entry['label']] = {
+                'spec': Spec(entry['spec']),
+                'rootSpec': entry['root_spec'],
+            }
+
+        for entry in dependencies:
+            _add_dependency(entry['spec'], entry['depends'], deps)
 
 
 def stage_spec_jobs(spec_set, containers, current_system=None):
@@ -164,24 +211,43 @@ def stage_spec_jobs(spec_set, containers, current_system=None):
     spec_labels = {}
 
     if current_system:
+        if current_system not in containers:
+            error_msg = ' '.join(['Current system ({0}) does not appear in',
+                                  'os_container_mapping.yaml, ignoring',
+                                  'request']).format(
+                current_system)
+            raise SpackError(error_msg)
         os_names = [current_system]
     else:
         os_names = [name for name in containers]
 
+    container_specs = {name: {'image': None, 'specs': []} for name in os_names}
+
+    # Collect together all the specs that should be concretized in each
+    # container so they can all be done at once, avoiding the need to
+    # run the docker container for each spec separately.
     for spec in spec_set:
         for osname in os_names:
             container_info = containers[osname]
             image = None if current_system else container_info['image']
+            if image:
+                container_specs[osname]['image'] = image
             if 'compilers' in container_info:
-                found_one = False
+                found_at_least_one = False
                 for item in container_info['compilers']:
-                    if spec.compiler.satisfies(item['name']):
-                        get_spec_dependencies(
-                            spec, deps, spec_labels, image)
-                        found_one = True
-                if not found_one:
-                    print('no compiler in {0} satisfied {1}'.format(
+                    container_compiler_spec = CompilerSpec(item['name'])
+                    if spec.compiler == container_compiler_spec:
+                        container_specs[osname]['specs'].append(spec)
+                        found_at_least_one = True
+                if not found_at_least_one:
+                    tty.warn('No compiler in {0} satisfied {1}'.format(
                         osname, spec.compiler))
+
+    for osname in container_specs:
+        if container_specs[osname]['specs']:
+            image = container_specs[osname]['image']
+            specs = container_specs[osname]['specs']
+            get_spec_dependencies(specs, deps, spec_labels, image)
 
     dependencies = deps
     unstaged = set(spec_labels.keys())
@@ -216,48 +282,59 @@ def print_staging_summary(spec_labels, dependencies, stages):
         stage_index += 1
 
 
-def compute_spec_deps(spec, deps, spec_labels, write_to_stdout=False):
+def compute_spec_deps(spec_list, stream_like=None):
     deptype = all_deptypes
-    spec_labels_internal = {}
+    spec_labels = {}
+
+    specs = []
+    dependencies = []
 
     def key_label(s):
         return s.dag_hash(), "%s/%s" % (s.name, s.dag_hash(7))
 
-    def add_dep(s, d):
-        if s == d:
-            return
-        if s not in deps:
-            deps[s] = set()
-        deps[s].add(d)
-
-    spec.concretize()
-
-    rkey, rlabel = key_label(spec)
-
-    for s in spec.traverse(deptype=deptype):
-        if not s.concrete:
-            s.concretize()
-        skey, slabel = key_label(s)
-        spec_labels_internal[slabel] = s
-        add_dep(rlabel, slabel)
-
-        for d in s.dependencies(deptype=deptype):
-            dkey, dlabel = key_label(d)
-            add_dep(slabel, dlabel)
-
-    for label in spec_labels_internal:
-        s = spec_labels_internal[label]
-        spec_labels[label] = {
+    def append_dep(s, d):
+        dependencies.append({
             'spec': s,
-            'rootSpec': spec,
-        }
-        if write_to_stdout:
-            print('label: {0}, spec: {1}'.format(label, get_spec_string(s)))
+            'depends': d,
+        })
 
-    if write_to_stdout:
-        for dep_key in deps:
-            for depends in deps[dep_key]:
-                print('{0} -> {1}'.format(dep_key, depends))
+    for spec in spec_list:
+        spec.concretize()
+
+        root_spec = get_spec_string(spec)
+
+        rkey, rlabel = key_label(spec)
+
+        for s in spec.traverse(deptype=deptype):
+            if not s.concrete:
+                s.concretize()
+            skey, slabel = key_label(s)
+            spec_labels[slabel] = {
+                'spec': get_spec_string(s),
+                'root': root_spec,
+            }
+            append_dep(rlabel, slabel)
+
+            for d in s.dependencies(deptype=deptype):
+                dkey, dlabel = key_label(d)
+                append_dep(slabel, dlabel)
+
+    for l, d in spec_labels.items():
+        specs.append({
+            'label': l,
+            'spec': d['spec'],
+            'root_spec': d['root'],
+        })
+
+    deps_json_obj = {
+        'specs': specs,
+        'dependencies': dependencies,
+    }
+
+    if stream_like:
+        stream_like.write(json.dumps(deps_json_obj))
+
+    return deps_json_obj
 
 
 def release_jobs(parser, args):
@@ -272,10 +349,12 @@ def release_jobs(parser, args):
 
     containers = os_container_mapping['containers']
 
-    if args.spec_deps:
-        # Just print out the spec labels and all dependency edges
-        s = Spec(args.spec_deps)
-        compute_spec_deps(s, {}, {}, True)
+    if args.specs:
+        # Just print out the spec labels and all dependency edges in
+        # a json format.
+        spec_list = [Spec(s) for s in args.specs]
+        with open(args.specs_deps_output, 'w') as out:
+            compute_spec_deps(spec_list, out)
         return
 
     this_machine_only = args.this_machine_only
@@ -325,7 +404,7 @@ def release_jobs(parser, args):
             container_info = containers[osname]
             build_image = container_info['image']
 
-            job_scripts = ['./rebuild-package.sh']
+            job_scripts = ['./bin/rebuild-package.sh']
 
             if 'setup_script' in container_info:
                 job_scripts.insert(
@@ -344,7 +423,7 @@ def release_jobs(parser, args):
                     'CDASH_BASE_URL': cdash_url,
                     'HASH': pkg_hash,
                     'DEPENDENCIES': ';'.join(job_dependencies),
-                    'ROOT_SPEC': get_spec_string(root_spec),
+                    'ROOT_SPEC': str(root_spec),
                 },
                 'script': job_scripts,
                 'image': build_image,
@@ -364,7 +443,8 @@ def release_jobs(parser, args):
             if 'compilers' in container_info:
                 do_job = False
                 for item in container_info['compilers']:
-                    if pkg_compiler.satisfies(item['name']):
+                    container_compiler_spec = CompilerSpec(item['name'])
+                    if pkg_compiler == container_compiler_spec:
                         do_job = True
             else:
                 do_job = True
@@ -392,7 +472,7 @@ def release_jobs(parser, args):
             'MIRROR_URL': mirror_url,
         },
         'image': build_image,
-        'script': './rebuild-index.sh',
+        'script': './bin/rebuild-index.sh',
     }
 
     if args.shared_runner_tag:

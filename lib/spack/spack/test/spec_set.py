@@ -7,7 +7,7 @@ import pytest
 
 from spack.spec import Spec
 from jsonschema import ValidationError
-from spack.util.spec_set import CombinatorialSpecSet
+from spack.spec_set import CombinatorialSpecSet
 
 
 pytestmark = pytest.mark.usefixtures('config')

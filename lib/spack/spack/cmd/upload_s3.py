@@ -14,12 +14,13 @@ try:
     import boto3
     import botocore
     have_boto3_support = True
-except Exception:
+except ImportError:
     have_boto3_support = False
 
 import llnl.util.tty as tty
 
 from spack.error import SpackError
+import spack.tengine as template_engine
 from spack.spec import Spec
 
 
@@ -66,8 +67,6 @@ def get_s3_session(endpoint_url):
         raise SpackError('boto3 module not available')
 
     session = boto3.Session()
-    # print('you provided a url: {0}'.format(args.endpoint_url))
-    # s3 = session.resource('s3', endpoint_url=args.endpoint_url)
     s3 = session.resource('s3')
 
     bucket_names = []
@@ -125,17 +124,21 @@ def update_index(args):
             print(m.group(1))
             continue
 
-    contents = '<html>\n  <head>\n  </head>\n  <list>\n'
+    index_data = {
+        'top_level_keys': top_level_keys,
+    }
 
-    for bucket_key in top_level_keys:
-        contents += '    <li><a href="{0}"> {0}</a>\n'.format(bucket_key)
+    env = template_engine.make_environment()
+    template_dir = 'misc'
+    index_template = os.path.join(template_dir, 'buildcache_index.html')
+    t = env.get_template(index_template)
+    contents = t.render(index_data)
 
-    contents += '  </list>\n</html>\n'
     index_key = os.path.join(build_cache_dir, 'index.html')
 
-    print('Generated index:')
-    print(contents)
-    print('Pushing it to {0} -> {1}'.format(bucket_name, index_key))
+    tty.debug('Generated index:')
+    tty.debug(contents)
+    tty.debug('Pushing it to {0} -> {1}'.format(bucket_name, index_key))
 
     s3_obj = s3.Object(bucket_name, index_key)
     s3_obj.put(Body=contents, ACL='public-read')

@@ -280,8 +280,7 @@ def generate_package_index(build_cache_dir):
 
 
 def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
-                  allow_root=False, key=None, regenerate_index=False,
-                  cdash_build_id=None):
+                  allow_root=False, key=None, regenerate_index=False):
     """
     Build a tarball from given spec and put it into the directory structure
     used at the mirror (following <tarball_directory_name>).
@@ -367,21 +366,12 @@ def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
     spec_dict['buildinfo'] = buildinfo
     spec_dict['full_hash'] = spec.full_hash()
 
-    # print('The full_hash ({0}) of {1} will be written into {2}'.format(
-    #     spec_dict['full_hash'], spec.name, specfile_path))
-    # print(spec.tree())
+    tty.debug('The full_hash ({0}) of {1} will be written into {2}'.format(
+        spec_dict['full_hash'], spec.name, specfile_path))
+    tty.debug(spec.tree())
 
     with open(specfile_path, 'w') as outfile:
         outfile.write(syaml.dump(spec_dict))
-
-    # Write the .cdashid file if we were asked to do so
-    if cdash_build_id:
-        cdashidfile_name = tarball_name(spec, '.cdashid')
-        cdashidfile_path = os.path.realpath(
-            os.path.join(build_cache_dir, cdashidfile_name))
-        if not os.path.exists(cdashidfile_path):
-            with open(cdashidfile_path, 'w') as outfile:
-                outfile.write('{0}\n'.format(cdash_build_id))
 
     # sign the tarball and spec file with gpg
     if not unsigned:
@@ -708,10 +698,9 @@ def needs_rebuild(spec, mirror_url):
     pkg_hash = spec.dag_hash()
     pkg_full_hash = spec.full_hash()
 
-    # tty.msg('Checking {0}-{1}'.format(pkg_name, pkg_version))
-    tty.msg('Checking {0}-{1}, dag_hash = {2}, full_hash = {3}'.format(
+    tty.debug('Checking {0}-{1}, dag_hash = {2}, full_hash = {3}'.format(
         pkg_name, pkg_version, pkg_hash, pkg_full_hash))
-    print(spec.tree())
+    tty.debug(spec.tree())
 
     # retrieve the .spec.yaml and look there instead
     build_cache_dir = build_cache_directory(mirror_url)
@@ -720,20 +709,10 @@ def needs_rebuild(spec, mirror_url):
 
     try:
         yaml_contents = read_from_url(file_path)
-    except URLError as e:
-        tty.debug(e)
-
-        if hasattr(e, 'reason') and isinstance(e.reason, ssl.SSLError):
-            tty.warn("Spack was unable to fetch url list due to a "
-                     "certificate verification problem. You can try "
-                     "running spack -k, which will not check SSL "
-                     "certificates. Use this at your own risk.")
-
-        return True
-
     except Exception as e:
-        tty.warn("Error in needs_rebuild: %s:%s" % (type(e), e),
-                 traceback.format_exc())
+        tty.warn(' '.join(["Caught exception reading from url ({0}) in",
+                 "needs_rebuild, package will be rebuilt: %s:%s"]).format(
+            file_path, type(e), e), traceback.format_exc())
         return True
 
     if not yaml_contents:
@@ -749,12 +728,12 @@ def needs_rebuild(spec, mirror_url):
     # full_hash become the same thing.
     if ('full_hash' not in spec_yaml or
         spec_yaml['full_hash'] != pkg_full_hash):
+            tty.msg(spec.tree())
             if 'full_hash' in spec_yaml:
                 tty.msg('hash mismatch, remote = {0}, local = {1}'.format(
                     spec_yaml['full_hash'], pkg_full_hash))
             else:
                 tty.msg('full_hash missing from remote spec.yaml')
-            print(spec.tree())
             return True
 
     return False
@@ -762,8 +741,7 @@ def needs_rebuild(spec, mirror_url):
 
 def check_specs_against_mirrors(mirrors, specs, output_file=None):
     rebuilds = {}
-    for mirror in mirrors.keys():
-        mirror_url = mirrors[mirror]
+    for mirror_name, mirror_url in mirrors.items():
         tty.msg('Checking for built specs at %s' % mirror_url)
 
         rebuild_list = []
@@ -777,7 +755,7 @@ def check_specs_against_mirrors(mirrors, specs, output_file=None):
 
         if rebuild_list:
             rebuilds[mirror_url] = {
-                'mirrorName': mirror,
+                'mirrorName': mirror_name,
                 'mirrorUrl': mirror_url,
                 'rebuildSpecs': rebuild_list
             }
@@ -789,54 +767,38 @@ def check_specs_against_mirrors(mirrors, specs, output_file=None):
     return 1 if rebuilds else 0
 
 
-def download_buildcache_entry(spec, path):
-    if not spec.concrete:
-        raise ValueError('spec must be concrete to download buildcache entry')
+def _download_buildcache_entry(mirror_root, descriptions):
+    for description in descriptions:
+        url = os.path.join(mirror_root, description['url'])
+        path = description['path']
+        fail_if_missing = not description['required']
 
+        mkdirp(path)
+
+        stage = Stage(url, name="build_cache", path=path, keep=True)
+
+        try:
+            stage.fetch()
+        except fs.FetchError:
+            if fail_if_missing:
+                tty.error('Failed to download required url {0}'.format(url))
+                return False
+
+    return True
+
+
+def download_buildcache_entry(file_descriptions):
     mirrors = spack.config.get('mirrors')
     if len(mirrors) == 0:
         tty.die("Please add a spack mirror to allow " +
                 "download of buildcache entries.")
 
-    tarfile_name = tarball_name(spec, '.spack')
-    specfile_name = tarball_name(spec, '.spec.yaml')
-    cdashidfile_name = tarball_name(spec, '.cdashid')
-    tarball_dir_name = tarball_directory_name(spec)
-    tarball_path_name = os.path.join(tarball_dir_name, tarfile_name)
-
-    local_tarball_path = os.path.join(path, tarball_dir_name)
-    mkdirp(local_tarball_path)
-
     for key in mirrors:
-        mirror_root = mirrors[key] + "/" + _build_cache_relative_path
-        tarball_url = mirror_root + "/" + tarball_path_name
-        stage = Stage(tarball_url, name="build_cache",
-                      path=local_tarball_path, keep=True)
-        try:
-            stage.fetch()
+        mirror_root = os.path.join(mirrors[key], _build_cache_relative_path)
 
-            specfile_url = mirror_root + "/" + specfile_name
-            stage2 = Stage(specfile_url, name="build_cache",
-                           path=path, keep=True)
-            try:
-                stage2.fetch()
-
-                # Since we got the .spec.yaml file successfully, we're going
-                # to break and not try any more mirrors.  Before we do though,
-                # we'll try to fetch a .cdashid file associated with the
-                # buildcache entry.  If we don't get one, it's not any kind of
-                # error, as buildcache entries are not required to have them.
-                cdashidfile_url = mirror_root + "/" + cdashidfile_name
-                stage3 = Stage(cdashidfile_url, name="build_cache",
-                               path=path, keep=True)
-                try:
-                    stage3.fetch()
-                except fs.FetchError:
-                    tty.msg('No .cdashid file associated with {0}'.format(
-                        specfile_name))
-
-                break
-            except fs.FetchError:
-                continue
-        except fs.FetchError:
+        if _download_buildcache_entry(mirror_root, file_descriptions):
+            return True
+        else:
             continue
+
+    return False

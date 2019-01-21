@@ -16,7 +16,7 @@ import spack.repo
 import spack.store
 from spack.paths import etc_path
 from spack.spec import Spec
-from spack.util.spec_set import CombinatorialSpecSet
+from spack.spec_set import CombinatorialSpecSet
 
 import spack.binary_distribution as bindist
 import spack.cmd.common.arguments as arguments
@@ -52,9 +52,6 @@ def setup_parser(subparser):
     create.add_argument('--no-rebuild-index', action='store_true',
                         default=False, help="skip rebuilding index after " +
                                             "building package(s)")
-    create.add_argument('--cdash-build-id', default=None,
-                        help="If provided, a .cdashid file will be written " +
-                        "alongside .spec.yaml")
     create.add_argument('-y', '--spec-yaml', default=None,
                         help='Create buildcache entry for spec from yaml file')
     create.add_argument(
@@ -142,6 +139,9 @@ def setup_parser(subparser):
     dltarball.add_argument(
         '-p', '--path', default=None,
         help="Path to directory where tarball should be downloaded")
+    dltarball.add_argument(
+        '-c', '--require-cdashid', action='store_true', default=False,
+        help="Required .cdashid file to be downloaded with buildcache entry")
     dltarball.set_defaults(func=get_tarball)
 
     # Get buildcache name
@@ -319,7 +319,7 @@ def createtarball(args):
         spec.concretize()
         bindist.build_tarball(spec, outdir, args.force, args.rel,
                               args.unsigned, args.allow_root, signkey,
-                              not args.no_rebuild_index, args.cdash_build_id)
+                              not args.no_rebuild_index)
 
 
 def installtarball(args):
@@ -377,7 +377,9 @@ def getkeys(args):
 def check_binaries(args):
     """Check specs (either a single spec from --spec, or else the full set
     of release specs) against remote binary mirror(s) to see if any need
-    to be rebuilt.
+    to be rebuilt.  This command uses the process exit code to indicate
+    its result, specifically, if the exit code is non-zero, then at least
+    one of the indicated specs needs to be rebuilt.
     """
     if args.spec or args.spec_yaml:
         specs = [get_concrete_spec(args)]
@@ -409,7 +411,12 @@ def check_binaries(args):
 
 
 def get_tarball(args):
-    """Download buildcache entry from remote mirror to local folder"""
+    """Download buildcache entry from a remote mirror to local folder.  This
+    command uses the process exit code to indicate its result, specifically,
+    a non-zero exit code indicates that the command failed to download at
+    least one of the required buildcache components.  Normally, just the
+    tarball and .spec.yaml files are required, but if the --require-cdashid
+    argument was provided, then a .cdashid file is also required."""
     if not args.spec and not args.spec_yaml:
         tty.msg('No specs provided, exiting.')
         sys.exit(0)
@@ -419,7 +426,34 @@ def get_tarball(args):
         sys.exit(0)
 
     spec = get_concrete_spec(args)
-    bindist.download_buildcache_entry(spec, args.path)
+
+    tarfile_name = bindist.tarball_name(spec, '.spack')
+    tarball_dir_name = bindist.tarball_directory_name(spec)
+    tarball_path_name = os.path.join(tarball_dir_name, tarfile_name)
+    local_tarball_path = os.path.join(args.path, tarball_dir_name)
+
+    files_to_fetch = [
+        {
+            'url': tarball_path_name,
+            'path': local_tarball_path,
+            'required': True,
+        }, {
+            'url': bindist.tarball_name(spec, '.spec.yaml'),
+            'path': args.path,
+            'required': True,
+        }, {
+            'url': bindist.tarball_name(spec, '.cdashid'),
+            'path': args.path,
+            'required': args.require_cdashid,
+        },
+    ]
+
+    result = bindist.download_buildcache_entry(files_to_fetch)
+
+    if result:
+        sys.exit(0)
+
+    sys.exit(1)
 
 
 def get_concrete_spec(args):

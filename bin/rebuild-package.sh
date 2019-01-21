@@ -29,13 +29,11 @@ shopt -s expand_aliases
 
 export FORCE_UNSAFE_CONFIGURE=1
 
-# TEMP_DIR="$( mktemp -d )"
 TEMP_DIR="${CI_PROJECT_DIR}/jobs_scratch_dir"
 
 JOB_LOG_DIR="${TEMP_DIR}/logs"
 SPEC_DIR="${TEMP_DIR}/specs"
-CURRENT_WORKING_DIR=`pwd`
-LOCAL_MIRROR="${CURRENT_WORKING_DIR}/local_mirror"
+LOCAL_MIRROR="${CI_PROJECT_DIR}/local_mirror"
 BUILD_CACHE_DIR="${LOCAL_MIRROR}/build_cache"
 SPACK_BIN_DIR="${CI_PROJECT_DIR}/bin"
 CDASH_UPLOAD_URL="${CDASH_BASE_URL}/submit.php?project=Spack"
@@ -44,7 +42,7 @@ declare -a JOB_DEPS_PKG_NAMES
 
 export SPACK_ROOT=${CI_PROJECT_DIR}
 export PATH="${SPACK_BIN_DIR}:${PATH}"
-export GNUPGHOME="${CURRENT_WORKING_DIR}/opt/spack/gpg"
+export GNUPGHOME="${CI_PROJECT_DIR}/opt/spack/gpg"
 
 mkdir -p ${JOB_LOG_DIR}
 mkdir -p ${SPEC_DIR}
@@ -160,7 +158,7 @@ gen_full_specs_for_job_and_deps() {
     JOB_SPEC_NAME="${pkgName}@${pkgVersion}%${compiler} arch=${osarch}"
     JOB_PKG_NAME="${pkgName}"
     SPEC_YAML_PATH="${SPEC_DIR}/${pkgName}.yaml"
-    local root_spec_name="${ROOT_SPEC} arch=${osarch}"
+    local root_spec_name="${ROOT_SPEC}"
     local spec_names_to_save="${pkgName}"
 
     IFS=';' read -ra DEPS <<< "${DEPENDENCIES}"
@@ -213,6 +211,10 @@ set -x
 spack gpg list --trusted
 spack gpg list --signing
 
+# Whether we have to build the spec or download it pre-built, we expect to find
+# the cdash build id file sitting in this location afterwards.
+JOB_CDASH_ID_FILE="${BUILD_CACHE_DIR}/${JOB_BUILD_CACHE_ENTRY_NAME}.cdashid"
+
 # Finally, we can check the spec we have been tasked with build against
 # the built binary on the remote mirror to see if it needs to be rebuilt
 spack -d buildcache check --spec-yaml "${SPEC_YAML_PATH}" --mirror-url "${MIRROR_URL}"
@@ -232,25 +234,17 @@ if [[ $? -ne 0 ]]; then
     # buildid generated for us by CDash
     JOB_CDASH_ID=$(extract_build_id "${BUILD_ID_LINE}")
 
-    BUILD_ID_ARG=""
-    if [ "${JOB_CDASH_ID}" != "NONE" ]; then
-        echo "Found build id for ${JOB_SPEC_NAME} from 'spack install' output: ${JOB_CDASH_ID}"
-        BUILD_ID_ARG="--cdash-build-id \"${JOB_CDASH_ID}\""
-    else
-        echo "Unable to find build id in install output, install probably failed."
-        exit 1
-    fi
-
-    # Create buildcache entry for this package.  We should eventually change
-    # this to read the spec from the yaml file, but it seems unlikely there
-    # will be a spec that matches the name which is NOT the same as represented
-    # in the yaml file
-    spack -d buildcache create --spec-yaml "${SPEC_YAML_PATH}" -a -f -d "${LOCAL_MIRROR}" --no-rebuild-index ${BUILD_ID_ARG}
+    # Create buildcache entry for this package, reading the spec from the yaml
+    # file.
+    spack -d buildcache create --spec-yaml "${SPEC_YAML_PATH}" -a -f -d "${LOCAL_MIRROR}" --no-rebuild-index
     check_error $? "spack buildcache create"
 
-    # TODO: Now push buildcache entry to remote mirror, something like:
-    # "spack buildcache put <mirror> <spec>", when that subcommand
-    # is implemented
+    # Write the .cdashid file to the buildcache as well
+    echo "${JOB_CDASH_ID}" >> ${JOB_CDASH_ID_FILE}
+
+    # TODO: The upload-s3 command should eventually be replaced with something
+    # like: "spack buildcache put <mirror> <spec>", when that subcommand is
+    # properly implemented.
     spack -d upload-s3 spec --base-dir "${LOCAL_MIRROR}" --spec-yaml "${SPEC_YAML_PATH}"
     check_error $? "spack upload-s3 spec"
 else
@@ -260,15 +254,11 @@ else
     spack mirror add remote_binary_mirror ${MIRROR_URL}
 
     # Now download it
-    spack -d buildcache download --spec-yaml "${SPEC_YAML_PATH}" --path "${BUILD_CACHE_DIR}/"
+    spack -d buildcache download --spec-yaml "${SPEC_YAML_PATH}" --path "${BUILD_CACHE_DIR}/" --require-cdashid
     check_error $? "spack buildcache download"
 fi
 
-# Now, whether we had to build the spec or download it pre-built, we should have
-# the cdash build id file sitting in place as well.  We use it to link this job to
-# the jobs it depends on in CDash.
-JOB_CDASH_ID_FILE="${BUILD_CACHE_DIR}/${JOB_BUILD_CACHE_ENTRY_NAME}.cdashid"
-
+# The next step is to relate this job to the jobs it depends on
 if [ -f "${JOB_CDASH_ID_FILE}" ]; then
     JOB_CDASH_BUILD_ID=$(<${JOB_CDASH_ID_FILE})
 
