@@ -217,7 +217,7 @@ JOB_CDASH_ID_FILE="${BUILD_CACHE_DIR}/${JOB_BUILD_CACHE_ENTRY_NAME}.cdashid"
 
 # Finally, we can check the spec we have been tasked with build against
 # the built binary on the remote mirror to see if it needs to be rebuilt
-spack -d buildcache check --spec-yaml "${SPEC_YAML_PATH}" --mirror-url "${MIRROR_URL}"
+spack -d buildcache check --spec-yaml "${SPEC_YAML_PATH}" --mirror-url "${MIRROR_URL}" --rebuild-on-error
 
 if [[ $? -ne 0 ]]; then
     # Configure mirror
@@ -308,4 +308,4 @@ fi
     find ${BUILD_CACHE_DIR} -maxdepth 3 -type d -ls
 )
 
-echo "This line should be logged"
+echo "End of rebuild package script"

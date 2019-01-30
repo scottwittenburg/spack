@@ -11,6 +11,7 @@ import llnl.util.tty as tty
 
 import spack.cmd
 import spack.environment as ev
+from spack.error import SpecError
 import spack.config
 import spack.repo
 import spack.store
@@ -125,6 +126,11 @@ def setup_parser(subparser):
     check.add_argument(
         '-y', '--spec-yaml', default=None,
         help='Check single spec from yaml file instead of release specs file')
+
+    check.add_argument(
+        '--rebuild-on-error', default=False, action='store_true',
+        help="Default to rebuilding packages if errors are encountered " +
+             "during the process of checking whether rebuilding is needed")
 
     check.set_defaults(func=check_binaries)
 
@@ -407,7 +413,7 @@ def check_binaries(args):
         sys.exit(0)
 
     sys.exit(bindist.check_specs_against_mirrors(
-        configured_mirrors, specs, args.output_file))
+        configured_mirrors, specs, args.output_file, args.rebuild_on_error))
 
 
 def get_tarball(args):
@@ -469,8 +475,9 @@ def get_concrete_spec(args):
         try:
             spec = Spec(spec_str)
             spec.concretize()
-        except Exception:
+        except SpecError as spec_error:
             tty.error('Unable to concrectize spec {0}'.format(args.spec))
+            tty.debug(spec_error)
             sys.exit(1)
 
         return spec
@@ -517,10 +524,14 @@ def save_dependent_spec_yaml(args):
             print('attempting to write spec yaml to {0}'.format(yaml_path))
             with open(yaml_path, 'w') as fd:
                 fd.write(spec.to_yaml(all_deps=True))
-    except Exception as inst:
+    except SpecError as spec_error:
+        tty.error('Encountered error with spec')
+        tty.msg(spec_error)
+        sys.exit(1)
+    except EnvironmentError as env_error:
         tty.error('Unable to write dependent specs {0} from root {1}'.format(
             args.specs, args.root_spec))
-        tty.msg(inst)
+        tty.msg(env_error)
         sys.exit(1)
 
     sys.exit(0)

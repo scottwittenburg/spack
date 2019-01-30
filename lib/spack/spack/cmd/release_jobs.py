@@ -6,7 +6,6 @@
 import argparse
 import json
 import os
-import re
 import shutil
 import tempfile
 
@@ -36,7 +35,7 @@ def setup_parser(subparser):
         help="path to release spec-set yaml file")
 
     subparser.add_argument(
-        '-m', '--mirror-url', default='https://mirror.spack.io',
+        '-m', '--mirror-url', default=None,
         help="url of binary mirror where builds should be pushed")
 
     subparser.add_argument(
@@ -60,10 +59,11 @@ def setup_parser(subparser):
         help="Print summary of staged jobs to standard output")
 
     subparser.add_argument(
-        '--this-machine-only', action='store_true', default=False,
+        '--resolve-deps-locally', action='store_true', default=False,
         help="Use only the current machine to concretize specs, " +
         "instead of iterating over items in os-container-mapping.yaml " +
-        "and using docker run")
+        "and using docker run.  Assumes the current machine architecure " +
+        "is listed in the os-container-mapping.yaml config file.")
 
     subparser.add_argument(
         '--specs-deps-output', default='/dev/stdout',
@@ -75,7 +75,7 @@ def setup_parser(subparser):
         'specs', nargs=argparse.REMAINDER,
         help="These positional arguments are generally for internal use.  " +
              "The --spec-set argument should be used to identify a yaml " +
-             "file describing the set of release specs to include in the "+
+             "file describing the set of release specs to include in the " +
              ".gitlab-ci.yml file.")
 
 
@@ -85,10 +85,15 @@ def get_job_name(spec, osarch):
 
 
 def get_spec_string(spec):
+    format_elements = [
+        '${package}@${version}',
+        '%${compilername}@${compilerversion}',
+    ]
+
     if spec.architecture:
-        return '{0}@{1}%{2} arch={3}'.format(spec.name, spec.version,
-                                             spec.compiler, spec.architecture)
-    return '{0}@{1}%{2}'.format(spec.name, spec.version, spec.compiler)
+        format_elements.append(' arch=${architecture}')
+
+    return spec.format(''.join(format_elements))
 
 
 def _add_dependency(spec_label, dep_label, deps):
@@ -145,15 +150,11 @@ def get_deps_using_container(specs, image):
 
     # Check for errors from spack command
     if os.path.exists(temp_err) and os.path.getsize(temp_err) > 0:
-        # Spack wrote something to stderr inside the container
+        # Spack wrote something to stderr inside the container.  We will
+        # print out whatever it is, but attempt to carry on with the process.
         tty.error('Encountered spack error running command in container:')
         with open(temp_err, 'r') as err:
             tty.error(err.read())
-
-        # If spack wrote anything to stderr, we'll assume the command didn't
-        # work.  In that case, we just clean up and return early.
-        # shutil.rmtree(temp_dir)
-        # return None
 
     spec_deps_obj = {}
 
@@ -221,7 +222,9 @@ def stage_spec_jobs(spec_set, containers, current_system=None):
     else:
         os_names = [name for name in containers]
 
-    container_specs = {name: {'image': None, 'specs': []} for name in os_names}
+    container_specs = {}
+    for name in os_names:
+        container_specs[name] = {'image': None, 'specs': []}
 
     # Collect together all the specs that should be concretized in each
     # container so they can all be done at once, avoiding the need to
@@ -253,17 +256,21 @@ def stage_spec_jobs(spec_set, containers, current_system=None):
     unstaged = set(spec_labels.keys())
     stages = []
 
-    while deps:
-        depends_on = set(deps.keys())
-        next_stage = unstaged.difference(depends_on)
+    while dependencies:
+        dependents = set(dependencies.keys())
+        next_stage = unstaged.difference(dependents)
         stages.append(next_stage)
         unstaged.difference_update(next_stage)
-        deps = remove_satisfied_deps(deps, next_stage)
+        # Note that "dependencies" is a dictionary mapping each dependent
+        # package to the set of not-yet-handled dependencies.  This step
+        # removes all the dependencies that are handled by this stage, by
+        # returning a new dictionary with those dependencies left out.
+        dependencies = remove_satisfied_deps(dependencies, next_stage)
 
     if unstaged:
         stages.append(unstaged.copy())
 
-    return spec_labels, dependencies, stages
+    return spec_labels, deps, stages
 
 
 def print_staging_summary(spec_labels, dependencies, stages):
@@ -283,6 +290,62 @@ def print_staging_summary(spec_labels, dependencies, stages):
 
 
 def compute_spec_deps(spec_list, stream_like=None):
+    """
+    Computes all the dependencies for the spec(s) and generates a JSON
+    object which provides both a list of unique spec names as well as a
+    comprehensive list of all the edges in the dependency graph.  For
+    example, given a single spec like 'readline@7.0', this function
+    generates the following JSON object:
+
+    .. code-block:: JSON
+
+       {
+           "dependencies": [
+               {
+                   "depends": "readline/ip6aiun",
+                   "spec": "readline/ip6aiun"
+               },
+               {
+                   "depends": "ncurses/y43rifz",
+                   "spec": "readline/ip6aiun"
+               },
+               {
+                   "depends": "ncurses/y43rifz",
+                   "spec": "readline/ip6aiun"
+               },
+               {
+                   "depends": "pkgconf/eg355zb",
+                   "spec": "ncurses/y43rifz"
+               },
+               {
+                   "depends": "pkgconf/eg355zb",
+                   "spec": "readline/ip6aiun"
+               }
+           ],
+           "specs": [
+               {
+                 "root_spec": "readline@7.0%clang@9.1.0-apple arch=darwin-...",
+                 "spec": "readline@7.0%clang@9.1.0-apple arch=darwin-highs...",
+                 "label": "readline/ip6aiun"
+               },
+               {
+                 "root_spec": "readline@7.0%clang@9.1.0-apple arch=darwin-...",
+                 "spec": "ncurses@6.1%clang@9.1.0-apple arch=darwin-highsi...",
+                 "label": "ncurses/y43rifz"
+               },
+               {
+                 "root_spec": "readline@7.0%clang@9.1.0-apple arch=darwin-...",
+                 "spec": "pkgconf@1.5.4%clang@9.1.0-apple arch=darwin-high...",
+                 "label": "pkgconf/eg355zb"
+               }
+           ]
+       }
+
+    The object can be optionally written out to some stream.  This is
+    useful, for example, when we need to concretize and generate the
+    dependencies of a spec in a specific docker container.
+
+    """
     deptype = all_deptypes
     spec_labels = {}
 
@@ -306,8 +369,6 @@ def compute_spec_deps(spec_list, stream_like=None):
         rkey, rlabel = key_label(spec)
 
         for s in spec.traverse(deptype=deptype):
-            if not s.concrete:
-                s.concretize()
             skey, slabel = key_label(s)
             spec_labels[slabel] = {
                 'spec': get_spec_string(s),
@@ -357,8 +418,7 @@ def release_jobs(parser, args):
             compute_spec_deps(spec_list, out)
         return
 
-    this_machine_only = args.this_machine_only
-    current_system = sys_type() if this_machine_only else None
+    current_system = sys_type() if args.resolve_deps_locally else None
 
     release_specs_path = args.spec_set
     if not release_specs_path:
@@ -431,6 +491,7 @@ def release_jobs(parser, args):
                     'paths': [
                         'local_mirror/build_cache',
                         'jobs_scratch_dir',
+                        'cdash_report',
                     ],
                     'when': 'always',
                 },

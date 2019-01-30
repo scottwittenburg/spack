@@ -5,13 +5,11 @@
 
 import os
 import re
-import ssl
 import tarfile
 import shutil
 import platform
 import tempfile
 import hashlib
-import traceback
 from contextlib import closing
 
 import json
@@ -34,8 +32,6 @@ from spack.util.executable import ProcessError
 
 
 _build_cache_relative_path = 'build_cache'
-_meta_yaml_regex = re.compile(
-    r'[\d\.]+-([\w\d\-]+)-([\w\d\.]+)-([\w\d]{32})\.spec\.yaml$')
 
 
 class NoOverwriteException(Exception):
@@ -113,7 +109,7 @@ def buildinfo_file_name(prefix):
     """
     Filename of the binary package meta-data file
     """
-    name = prefix + "/.spack/binary_distribution"
+    name = os.path.join(prefix, ".spack/binary_distribution")
     return name
 
 
@@ -406,8 +402,8 @@ def download_tarball(spec):
         tty.die("Please add a spack mirror to allow " +
                 "download of pre-compiled packages.")
     tarball = tarball_path_name(spec, '.spack')
-    for key in mirrors:
-        url = mirrors[key] + "/" + _build_cache_relative_path + "/" + tarball
+    for mirror_name, mirror_url in mirrors.items():
+        url = mirror_url + '/' + _build_cache_relative_path + '/' + tarball
         # stage the tarball into standard place
         stage = Stage(url, name="build_cache", keep=True)
         try:
@@ -604,10 +600,9 @@ def get_specs(force=False):
 
     path = str(spack.architecture.sys_type())
     urls = set()
-    for key in mirrors:
-        url = mirrors[key]
-        if url.startswith('file'):
-            mirror = url.replace('file://', '') + '/build_cache'
+    for mirror_name, mirror_url in mirrors.items():
+        if mirror_url.startswith('file'):
+            mirror = mirror_url.replace('file://', '') + "/" + _build_cache_relative_path
             tty.msg("Finding buildcaches in %s" % mirror)
             if os.path.exists(mirror):
                 files = os.listdir(mirror)
@@ -616,8 +611,8 @@ def get_specs(force=False):
                         link = 'file://' + mirror + '/' + file
                         urls.add(link)
         else:
-            tty.msg("Finding buildcaches on %s" % url)
-            p, links = spider(url + "/build_cache")
+            tty.msg("Finding buildcaches on %s" % mirror_url)
+            p, links = spider(mirror_url + "/" + _build_cache_relative_path)
             for link in links:
                 if re.search("spec.yaml", link) and re.search(path, link):
                     urls.add(link)
@@ -653,10 +648,10 @@ def get_keys(install=False, trust=False, force=False):
                 "download of build caches.")
 
     keys = set()
-    for key in mirrors:
-        url = mirrors[key]
-        if url.startswith('file'):
-            mirror = url.replace('file://', '') + '/build_cache'
+    for mirror_name, mirror_url in mirrors.items():
+        if mirror_url.startswith('file'):
+            mirror = os.path.join(
+                mirror_url.replace('file://', ''), _build_cache_relative_path)
             tty.msg("Finding public keys in %s" % mirror)
             files = os.listdir(mirror)
             for file in files:
@@ -664,8 +659,8 @@ def get_keys(install=False, trust=False, force=False):
                     link = 'file://' + mirror + '/' + file
                     keys.add(link)
         else:
-            tty.msg("Finding public keys on %s" % url)
-            p, links = spider(url + "/build_cache", depth=1)
+            tty.msg("Finding public keys on %s" % mirror_url)
+            p, links = spider(mirror_url + "/build_cache", depth=1)
             for link in links:
                 if re.search(r'\.key', link):
                     keys.add(link)
@@ -688,7 +683,7 @@ def get_keys(install=False, trust=False, force=False):
                             'Use -t to install all downloaded keys')
 
 
-def needs_rebuild(spec, mirror_url):
+def needs_rebuild(spec, mirror_url, rebuild_on_errors=False):
     if not spec.concrete:
         raise ValueError('spec must be concrete to check against mirror')
 
@@ -702,23 +697,32 @@ def needs_rebuild(spec, mirror_url):
         pkg_name, pkg_version, pkg_hash, pkg_full_hash))
     tty.debug(spec.tree())
 
-    # retrieve the .spec.yaml and look there instead
+    # Try to retrieve the .spec.yaml directly, based on the known
+    # format of the name, in order to determine if the package
+    # needs to be rebuilt.
     build_cache_dir = build_cache_directory(mirror_url)
     spec_yaml_file_name = tarball_name(spec, '.spec.yaml')
     file_path = os.path.join(build_cache_dir, spec_yaml_file_name)
 
+    result_of_error = 'Package ({0}) will {1}be rebuilt'.format(
+        spec.short_spec, '' if rebuild_on_errors else 'not ')
+
     try:
         yaml_contents = read_from_url(file_path)
-    except Exception as e:
-        tty.warn(' '.join(["Caught exception reading from url ({0}) in",
-                 "needs_rebuild, package will be rebuilt: %s:%s"]).format(
-            file_path, type(e), e), traceback.format_exc())
-        return True
+    except URLError as url_err:
+        err_msg = [
+            'Unable to determine whether {0} needs rebuilding,',
+            ' caught URLError attempting to read from {1}.',
+        ]
+        tty.error(''.join(err_msg).format(spec.short_spec, file_path))
+        tty.debug(url_err)
+        tty.warn(result_of_error)
+        return rebuild_on_errors
 
     if not yaml_contents:
-        tty.warn('reading {0} returned nothing, rebuilding {1}'.format(
-            file_path, spec.short_spec))
-        return True
+        tty.error('Reading {0} returned nothing'.format(file_path))
+        tty.warn(result_of_error)
+        return rebuild_on_errors
 
     spec_yaml = syaml.load(yaml_contents)
 
@@ -728,18 +732,21 @@ def needs_rebuild(spec, mirror_url):
     # full_hash become the same thing.
     if ('full_hash' not in spec_yaml or
         spec_yaml['full_hash'] != pkg_full_hash):
-            tty.msg(spec.tree())
-            if 'full_hash' in spec_yaml:
-                tty.msg('hash mismatch, remote = {0}, local = {1}'.format(
-                    spec_yaml['full_hash'], pkg_full_hash))
-            else:
-                tty.msg('full_hash missing from remote spec.yaml')
-            return True
+        if 'full_hash' in spec_yaml:
+            reason = 'hash mismatch, remote = {0}, local = {1}'.format(
+                spec_yaml['full_hash'], pkg_full_hash)
+        else:
+            reason = 'full_hash was missing from remote spec.yaml'
+        tty.msg('Rebuilding {0}, reason: {1}'.format(
+            spec.short_spec, reason))
+        tty.msg(spec.tree())
+        return True
 
     return False
 
 
-def check_specs_against_mirrors(mirrors, specs, output_file=None):
+def check_specs_against_mirrors(mirrors, specs, output_file=None,
+                                rebuild_on_errors=False):
     rebuilds = {}
     for mirror_name, mirror_url in mirrors.items():
         tty.msg('Checking for built specs at %s' % mirror_url)
@@ -747,7 +754,7 @@ def check_specs_against_mirrors(mirrors, specs, output_file=None):
         rebuild_list = []
 
         for spec in specs:
-            if needs_rebuild(spec, mirror_url):
+            if needs_rebuild(spec, mirror_url, rebuild_on_errors):
                 rebuild_list.append({
                     'short_spec': spec.short_spec,
                     'hash': spec.dag_hash()
@@ -793,8 +800,8 @@ def download_buildcache_entry(file_descriptions):
         tty.die("Please add a spack mirror to allow " +
                 "download of buildcache entries.")
 
-    for key in mirrors:
-        mirror_root = os.path.join(mirrors[key], _build_cache_relative_path)
+    for mirror_name, mirror_url in mirrors.items():
+        mirror_root = os.path.join(mirror_url, _build_cache_relative_path)
 
         if _download_buildcache_entry(mirror_root, file_descriptions):
             return True
