@@ -10,7 +10,7 @@ import shutil
 import tempfile
 
 import subprocess
-from jsonschema import validate
+from jsonschema import validate, ValidationError
 from six import iteritems
 
 import llnl.util.tty as tty
@@ -20,7 +20,8 @@ from spack.dependency import all_deptypes
 from spack.spec import Spec, CompilerSpec
 from spack.paths import spack_root
 from spack.error import SpackError
-from spack.schema.os_container_mapping import schema
+from spack.schema.os_container_mapping import schema as mapping_schema
+from spack.schema.specs_deps import schema as specs_deps_schema
 from spack.spec_set import CombinatorialSpecSet
 import spack.util.spack_yaml as syaml
 
@@ -94,6 +95,10 @@ def get_spec_string(spec):
         format_elements.append(' arch=${architecture}')
 
     return spec.format(''.join(format_elements))
+
+
+def spec_deps_key_label(s):
+    return s.dag_hash(), "%s/%s" % (s.name, s.dag_hash(7))
 
 
 def _add_dependency(spec_label, dep_label, deps):
@@ -183,6 +188,14 @@ def get_spec_dependencies(specs, deps, spec_labels, image=None):
     else:
         spec_deps_obj = compute_spec_deps(specs)
 
+    try:
+        validate(spec_deps_obj, specs_deps_schema)
+    except ValidationError as val_err:
+        tty.error('Ill-formed specs dependencies JSON object')
+        tty.error(spec_deps_obj)
+        tty.debug(val_err)
+        return
+
     if spec_deps_obj:
         dependencies = spec_deps_obj['dependencies']
         specs = spec_deps_obj['specs']
@@ -198,6 +211,10 @@ def get_spec_dependencies(specs, deps, spec_labels, image=None):
 
 
 def stage_spec_jobs(spec_set, containers, current_system=None):
+    # The convenience method below, "remove_satisfied_deps()", does not modify
+    # the "deps" parameter.  Instead, it returns a new dictionary where only
+    # dependencies which have not yet been satisfied are included in the
+    # return value.
     def remove_satisfied_deps(deps, satisfied_list):
         new_deps = {}
 
@@ -262,9 +279,10 @@ def stage_spec_jobs(spec_set, containers, current_system=None):
         stages.append(next_stage)
         unstaged.difference_update(next_stage)
         # Note that "dependencies" is a dictionary mapping each dependent
-        # package to the set of not-yet-handled dependencies.  This step
-        # removes all the dependencies that are handled by this stage, by
-        # returning a new dictionary with those dependencies left out.
+        # package to the set of not-yet-handled dependencies.  The final step
+        # below removes all the dependencies that are handled by this stage.
+        # Note that in the line the below, the "dependencies" variable is
+        # overwritten, rather than modifying the dictionary to which it refers.
         dependencies = remove_satisfied_deps(dependencies, next_stage)
 
     if unstaged:
@@ -352,9 +370,6 @@ def compute_spec_deps(spec_list, stream_like=None):
     specs = []
     dependencies = []
 
-    def key_label(s):
-        return s.dag_hash(), "%s/%s" % (s.name, s.dag_hash(7))
-
     def append_dep(s, d):
         dependencies.append({
             'spec': s,
@@ -366,10 +381,10 @@ def compute_spec_deps(spec_list, stream_like=None):
 
         root_spec = get_spec_string(spec)
 
-        rkey, rlabel = key_label(spec)
+        rkey, rlabel = spec_deps_key_label(spec)
 
         for s in spec.traverse(deptype=deptype):
-            skey, slabel = key_label(s)
+            skey, slabel = spec_deps_key_label(s)
             spec_labels[slabel] = {
                 'spec': get_spec_string(s),
                 'root': root_spec,
@@ -377,7 +392,7 @@ def compute_spec_deps(spec_list, stream_like=None):
             append_dep(rlabel, slabel)
 
             for d in s.dependencies(deptype=deptype):
-                dkey, dlabel = key_label(d)
+                dkey, dlabel = spec_deps_key_label(d)
                 append_dep(slabel, dlabel)
 
     for l, d in spec_labels.items():
@@ -406,7 +421,13 @@ def release_jobs(parser, args):
     with open(os_container_mapping_path, 'r') as fin:
         os_container_mapping = syaml.load(fin)
 
-    validate(os_container_mapping, schema)
+    try:
+        validate(os_container_mapping, mapping_schema)
+    except ValidationError as val_err:
+        tty.error('Ill-formed os-container-mapping configuration object')
+        tty.error(os_container_mapping)
+        tty.debug(val_err)
+        return
 
     containers = os_container_mapping['containers']
 

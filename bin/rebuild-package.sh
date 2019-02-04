@@ -6,6 +6,15 @@
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
 ###
+### This script represents a gitlab-ci job, corresponding to a single release
+### spec.  As such this script must first decide whether or not the spec it
+### has been assigned is up to date on the remote binary mirror.  If it is
+### not (i.e. the source code has changed in a "significant enough" way), this
+### script will build the package, create a binary cache for it, and then push
+### all related files to the remote binary mirror.  This script also
+### communicates with a remote CDash instance to share status on the package
+### build process.
+###
 ### The following environment variables are expected to be set in order for
 ### the various elements in this script to function properly.  Listed first
 ### are two defaults we rely on from gitlab, then three we set up in the

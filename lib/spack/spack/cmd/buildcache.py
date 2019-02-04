@@ -193,9 +193,8 @@ def find_matching_specs(
     # List of specs that match expressions given via command line
     specs_from_cli = []
     has_errors = False
-    tty.msg('find_matching_specs: going to parse specs')
+    tty.debug('find_matching_specs: about to parse specs for {0}'.format(pkgs))
     specs = spack.cmd.parse_specs(pkgs)
-    tty.msg('find_matching_specs: going to parse specs')
     for spec in specs:
         matching = spack.store.db.query(spec, hashes=hashes)
         # For each spec provided, make sure it refers to only one package.
@@ -515,10 +514,8 @@ def save_dependent_spec_yaml(args):
         root_spec.concretize()
         spec = root_spec
         for dep_spec in args.specs.split():
-            # if args.root_spec != dep_spec:
             if dep_spec in root_spec:
                 spec = root_spec[dep_spec]
-                # spec.concretize()
             yaml_path = os.path.join(args.yaml_dir, '{0}.yaml'.format(
                 spec.name))
             print('attempting to write spec yaml to {0}'.format(yaml_path))

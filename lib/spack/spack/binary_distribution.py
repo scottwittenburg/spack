@@ -250,7 +250,7 @@ def sign_tarball(key, force, specfile_path):
     Gpg.sign(key, specfile_path, '%s.asc' % specfile_path)
 
 
-def generate_html_index(path_list, output_path):
+def _generate_html_index(path_list, output_path):
     f = open(output_path, 'w')
     header = """<html>\n
 <head>\n</head>\n
@@ -271,7 +271,7 @@ def generate_package_index(build_cache_dir):
     index_html_path_tmp = os.path.join(build_cache_dir, 'index.html.tmp')
     index_html_path = os.path.join(build_cache_dir, 'index.html')
 
-    generate_html_index(path_list, index_html_path_tmp)
+    _generate_html_index(path_list, index_html_path_tmp)
     shutil.move(index_html_path_tmp, index_html_path)
 
 
