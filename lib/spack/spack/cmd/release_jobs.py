@@ -269,6 +269,10 @@ def stage_spec_jobs(spec_set, containers, current_system=None):
             specs = container_specs[osname]['specs']
             get_spec_dependencies(specs, deps, spec_labels, image)
 
+    # Save the original deps, as we need to return them at the end of the
+    # function.  In the while loop below, the "dependencies" variable is
+    # overwritten rather than being modified each time through the loop,
+    # thus preserving the original value of "deps" saved here.
     dependencies = deps
     unstaged = set(spec_labels.keys())
     stages = []
@@ -281,8 +285,6 @@ def stage_spec_jobs(spec_set, containers, current_system=None):
         # Note that "dependencies" is a dictionary mapping each dependent
         # package to the set of not-yet-handled dependencies.  The final step
         # below removes all the dependencies that are handled by this stage.
-        # Note that in the line the below, the "dependencies" variable is
-        # overwritten, rather than modifying the dictionary to which it refers.
         dependencies = remove_satisfied_deps(dependencies, next_stage)
 
     if unstaged:

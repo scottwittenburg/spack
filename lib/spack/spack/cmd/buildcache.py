@@ -16,7 +16,7 @@ import spack.config
 import spack.repo
 import spack.store
 from spack.paths import etc_path
-from spack.spec import Spec
+from spack.spec import Spec, save_dependency_spec_yamls
 from spack.spec_set import CombinatorialSpecSet
 
 import spack.binary_distribution as bindist
@@ -163,7 +163,7 @@ def setup_parser(subparser):
 
     # Given the root spec, save the yaml of the dependent spec to a file
     saveyaml = subparsers.add_parser('save-yaml',
-                                     help=save_dependent_spec_yaml.__doc__)
+                                     help=save_spec_yamls.__doc__)
     saveyaml.add_argument(
         '-r', '--root-spec', default=None,
         help='Root spec of dependent spec')
@@ -173,7 +173,7 @@ def setup_parser(subparser):
     saveyaml.add_argument(
         '-y', '--yaml-dir', default=None,
         help='Path to directory where spec yamls should be saved')
-    saveyaml.set_defaults(func=save_dependent_spec_yaml)
+    saveyaml.set_defaults(func=save_spec_yamls)
 
 
 def find_matching_specs(
@@ -495,8 +495,13 @@ def get_buildcache_name(args):
     sys.exit(0)
 
 
-def save_dependent_spec_yaml(args):
-    """Get full spec relative to root spec and write it to a file"""
+def save_spec_yamls(args):
+    """Get full spec for dependencies, relative to root spec, and write them
+    to files in the specified output directory.  Uses exit code to signal
+    success or failure.  An exit code of zero means the command was likely
+    successful.  If any errors or exceptions are encountered, or if expected
+    command-line arguments are not provided, then the exit code will be
+    non-zero."""
     if not args.root_spec:
         tty.msg('No root spec provided, exiting.')
         sys.exit(1)
@@ -509,27 +514,12 @@ def save_dependent_spec_yaml(args):
         tty.msg('No yaml directory provided, exiting.')
         sys.exit(1)
 
-    try:
-        root_spec = Spec(args.root_spec)
-        root_spec.concretize()
-        spec = root_spec
-        for dep_spec in args.specs.split():
-            if dep_spec in root_spec:
-                spec = root_spec[dep_spec]
-            yaml_path = os.path.join(args.yaml_dir, '{0}.yaml'.format(
-                spec.name))
-            print('attempting to write spec yaml to {0}'.format(yaml_path))
-            with open(yaml_path, 'w') as fd:
-                fd.write(spec.to_yaml(all_deps=True))
-    except SpecError as spec_error:
-        tty.error('Encountered error with spec')
-        tty.msg(spec_error)
-        sys.exit(1)
-    except EnvironmentError as env_error:
-        tty.error('Unable to write dependent specs {0} from root {1}'.format(
-            args.specs, args.root_spec))
-        tty.msg(env_error)
-        sys.exit(1)
+    root_spec = Spec(args.root_spec)
+    root_spec.concretize()
+    root_spec_as_yaml = root_spec.to_yaml(all_deps=True)
+
+    save_dependency_spec_yamls(
+        root_spec_as_yaml, args.yaml_dir, args.specs.split())
 
     sys.exit(0)
 
