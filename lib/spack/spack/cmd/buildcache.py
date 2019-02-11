@@ -321,7 +321,6 @@ def createtarball(args):
 
     for spec in specs:
         tty.msg('creating binary cache file for package %s ' % spec.format())
-        spec.concretize()
         bindist.build_tarball(spec, outdir, args.force, args.rel,
                               args.unsigned, args.allow_root, signkey,
                               not args.no_rebuild_index)

@@ -747,6 +747,23 @@ def needs_rebuild(spec, mirror_url, rebuild_on_errors=False):
 
 def check_specs_against_mirrors(mirrors, specs, output_file=None,
                                 rebuild_on_errors=False):
+    """Check all the given specs against buildcaches on the given mirrors and
+    determine if any of the specs need to be rebuilt.  Reasons for needing to
+    rebuild include binary cache for spec isn't present on a mirror, or it is
+    present but the full_hash has changed since last time spec was built.
+
+    Arguments:
+        mirrors (dict): Mirrors to check against
+        specs (iterable): Specs to check against mirrors
+        output_file (string): Path to output file to be written.  If provided,
+            mirrors with missing or out-of-date specs will be formatted as a
+            JSON object and written to this file.
+        rebuild_on_errors (boolean): Treat any errors encountered while
+            checking specs as a signal to rebuild package.
+
+    Returns: 1 if any spec was out-of-date on any mirror, 0 otherwise.
+
+    """
     rebuilds = {}
     for mirror_name, mirror_url in mirrors.items():
         tty.msg('Checking for built specs at %s' % mirror_url)

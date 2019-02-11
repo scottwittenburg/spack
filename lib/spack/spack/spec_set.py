@@ -27,10 +27,9 @@ class CombinatorialSpecSet:
 
         Args:
             yaml_like: either raw YAML data as a dict, a file-like object
-                to read the YAML from, or a string containing YAML.  * A
-                file-like object to read YAML from. In the first case, we
-                assume already-parsed YAML data.  In the second two
-                cases, we just run yaml.load() on the data.
+                to read the YAML from, or a string containing YAML.  In the
+                first case, we assume already-parsed YAML data.  In the second
+                two cases, we just run yaml.load() on the data.
             ignore_invalid (bool): whether to ignore invalid specs when
                 expanding the values of this spec set.
         """

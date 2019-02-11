@@ -31,7 +31,7 @@ RUN mkdir -p /home/spackuser/Download/gcc550/build-gcc550            && \
     make -j$(nproc)                                                  && \
     make install                                                     && \
     cd /home/spackuser                                               && \
-    rm -rf /home/spackuser/Download/gcc550
+    rm -rf /home/spackuser/Download
 
 RUN export PATH=/spack/bin:$PATH              && \
     spack compiler find /opt/gcc/gcc-5.5.0
@@ -43,7 +43,6 @@ RUN mkdir -p /home/spackuser/spackcommand
 COPY update_rpaths.py /home/spackuser/spackcommand/update_rpaths.py
 
 RUN spack python /home/spackuser/spackcommand/update_rpaths.py  \
-        --compilers-yaml-path /root/.spack/linux/compilers.yaml \
         --prefix /opt/gcc/gcc-5.5.0                             \
         --rpaths /opt/gcc/gcc-5.5.0/lib64
 
@@ -57,7 +56,6 @@ RUN export PATH=/spack/bin:$PATH                                     && \
 RUN sed -i 's/f77: null/f77: \/opt\/gcc\/gcc-5.5.0\/bin\/gfortran/g;s/fc: null/fc: \/opt\/gcc\/gcc-5.5.0\/bin\/gfortran/g' ~/.spack/linux/compilers.yaml
 
 RUN spack python /home/spackuser/spackcommand/update_rpaths.py  \
-        --compilers-yaml-path /root/.spack/linux/compilers.yaml \
         --prefix /spack/opt/spack/linux-centos7-x86_64/gcc-5.5.0/llvm-6.0.0-awfpo7kn3k24weu655rrt2erihzd4gii                             \
         --rpaths /spack/opt/spack/linux-centos7-x86_64/gcc-5.5.0/llvm-6.0.0-awfpo7kn3k24weu655rrt2erihzd4gii/lib
 
