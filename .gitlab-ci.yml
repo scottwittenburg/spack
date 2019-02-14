@@ -1,0 +1,2 @@
+include:
+  - remote: 'https://internal.spack.io/glciy/release-workflow-testing.yaml'
