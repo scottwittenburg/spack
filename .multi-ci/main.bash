@@ -1,10 +1,15 @@
 #! /usr/bin/env bash
 
+set -e
+
 if [ -z "$DOWNSTREAM_CI_REPO" ] ; then
     echo "Warning: missing variable: DOWNSTREAM_CI_REPO" >&2
 fi
 
-SHA="$( git rev-parse HEAD )"
+apt-get -qyy update && apt-get -qyy install git
+
+git config --global user.email "robot@spack.io"
+git config --global user.name "Mr. Roboto"
 
 # TODO: do more interesting dynamic st00f here
 echo "Generating .gitlab-ci.yml"
@@ -15,9 +20,9 @@ hello:
     - "./run-this-script.sh"
   tags:
     - "spack-k8s"
-  image: "busybox"
+  image: "ubuntu"
   variables:
-    - SHA="$SHA"
+    SHA: "$CI_COMMIT_SHA"
 EOF
 
 echo "Generating ./run-this-script.sh"
@@ -31,11 +36,17 @@ EOF
 
 chmod +x ./run-this-script.sh
 
-current_branch="$( git rev-parse --abbrev-ref HEAD )"
+git status
+
+current_branch="$CI_COMMIT_REF_NAME"
 downstream_branch="auto-ci-$current_branch"
 
+git branch -D ___multi_ci___ 2> /dev/null || true
+git checkout -b ___multi_ci___
 git add .gitlab-ci.yml ./run-this-script.sh
 git commit -m 'x'
 git reset "$( git commit-tree HEAD^{tree} -m x )"
-git push "$DOWNSTREAM_CI_REPO" "$current_branch:$downstream_branch"
+git status
+git push --force "$DOWNSTREAM_CI_REPO" \
+    "___multi_ci___:$downstream_branch"
 
