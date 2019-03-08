@@ -1,0 +1,6 @@
+hello:
+  script:
+    - "./.multi-ci/main.bash"
+  tags:
+    - "spack-k8s"
+  image: "ubuntu:xenial"
