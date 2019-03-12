@@ -3,4 +3,4 @@ hello:
     - "./bin/generate-ci-yml.sh"
   tags:
     - "spack-k8s"
-  image: "ubuntu:xenial"
+  image: "scottwittenburg/spack_ci_generator_alpine"
