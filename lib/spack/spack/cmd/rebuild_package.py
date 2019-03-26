@@ -4,9 +4,11 @@
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
 import argparse
+import base64.b64decode as b64decode
 import os
 import shutil
 import sys
+from subprocess import Popen, PIPE
 import tempfile
 
 from six import iteritems
@@ -14,6 +16,7 @@ from six.moves.urllib.parse import urlencode
 
 import llnl.util.tty as tty
 
+import spack.binary_distribution as bindist
 from spack.main import SpackCommand
 from spack.spec import Spec, save_dependency_spec_yamls
 import spack.util.spack_yaml as syaml
@@ -24,7 +27,9 @@ level = "long"
 
 
 spack_gpg = SpackCommand('gpg')
-spack_buildcache = SpackCommand('buildcache')
+# spack_buildcache = SpackCommand('buildcache')
+spack_config = SpackCommand('config')
+spack_mirror = SpackCommand('mirror')
 
 
 def setup_parser(subparser):
@@ -44,8 +49,9 @@ def setup_parser(subparser):
         help="Root spec of which this package is a dependency")
 
 
-def setup_environment():
+def setup_environment(args):
     os.environ['FORCE_UNSAFE_CONFIGURE'] = 1
+    os.environ['GNUPGHOME'] = '{0}/opt/spack/gpg'.format(args.ci_project_dir)
 
 
 def url_encode_string(input_string):
@@ -83,6 +89,8 @@ def save_full_yamls(job_name, dependencies, root_spec_name, output_dir):
     save_dependency_spec_yamls(
         root_spec_as_yaml, output_dir, job_deps_pkg_names + [pkg_name])
 
+    return job_spec_name, job_group, spec_yaml_path
+
 
 def rebuild_package(parser, args):
     ci_project_dir = args.ci_project_dir
@@ -90,10 +98,10 @@ def rebuild_package(parser, args):
     cdash_base_url = args.cdash_base_url
     cdash_project = args.cdash_project
     dependencies = args.dependencies
-    mirror_url = args.mirror_url
+    remote_mirror_url = args.mirror_url
     root_spec = args.root_spec
 
-    setup_environment()
+    setup_environment(args)
 
     temp_dir = os.path.join(ci_project_dir, 'jobs_scratch_dir')
     job_log_dir = os.path.join(temp_dir, 'logs')
@@ -113,55 +121,80 @@ def rebuild_package(parser, args):
 
     job_log_file = os.path.join(job_log_dir, 'cdash_log.txt')
 
-    with open(job_log_file, 'w') as fd:
-        os.dup2(fd.fileno(), sys.stdout.fileno())
-        os.dup2(fd.fileno(), sys.stderr.fileno())
+    with open(job_log_file, 'w') as log_fd:
+        os.dup2(log_fd.fileno(), sys.stdout.fileno())
+        os.dup2(log_fd.fileno(), sys.stderr.fileno())
 
+        job_spec_name, job_group, spec_yaml_path = save_full_yamls(
+            ci_job_name, dependencies, root_spec, spec_dir)
 
+        tty.msg('Building package {0} to push to {1}'.format(
+            job_spec_name, remote_mirror_url))
 
+        # List compilers spack knows about
+        tty.msg('Compiler Configurations:')
+        spack_config('get', 'compilers')
+
+        # Create the build_cache directory if it doesn't exist
+        os.makedirs(build_cache_dir)
+
+        # Get buildcache name so we can write a CDash build id file in the right place.
+        # If we're unable to get the buildcache name, we may have encountered a problem
+        # concretizing the spec, or some other issue that will eventually cause the job
+        # to fail.
+        with open(spec_yaml_path, 'r') as fd:
+            concrete_job_spec = Spec.from_yaml(fd.read())
+            job_build_cache_entry_name = bindist.tarball_name(concrete_job_spec, '')
+
+        # This command has the side-effect of creating the directory referred
+        # to as GNUPGHOME in setup_environment()
+        spack_gpg('list')
+
+        # Importing the secret key using gpg2 directly should allow both
+        # signing and verification
+        gpg_process = Popen(["gpg2 --import"], stdin=PIPE)
+        gpg_out, gpg_err = gpg_process.communicate(
+            b64decode(os.environ['SPACK_SIGNING_KEY']))
+
+        if gpg_out:
+            tty.msg('gpg2 output: {0}'.format(gpg_out))
+
+        if gpg_err:
+            tty.msg('gpg2 error: {0}'.format(gpg_err))
+
+        # Now print the keys we have for verifying and signing
+        spack_gpg('list', '--trusted')
+        spack_gpg('list', '--signing')
+
+        # Whether we have to build the spec or download it pre-built, we are
+        # going to expect to find the cdash build id file sitting in this
+        # location afterwards.
+        job_cdash_id_file = os.path.join(build_cache_dir, '{0}.cdashid'.format(
+            job_build_cache_entry_name))
+
+        # Finally, we can check the spec we have been tasked with building
+        # against the binary on the remote mirror to see if it actually
+        # needs to be rebuilt
+        needs_rebuild = bindist.check_specs_against_mirrors(
+            {'myMirror': remote_mirror_url}, [concrete_job_spec], None, True)
+
+        if needs_rebuild:
+            # Configure mirror
+            spack_mirror('add', 'local_artifact_mirror', 'file://{0}'.format(
+                local_mirror_dir))
+
+            # ...
+        else:
+            tty.msg('{0} is up to date on {1}, downloading it'.format(
+                job_spec_name, remote_mirror_url))
+
+            # Configure remote mirror so we can download buildcache entry
+            spack_mirror('add', 'remote_binary_mirror', remote_mirror_url)
+
+            # Now download it
+            spack_buildcache('download', '--spec-yaml', spec_yaml_path,
+                             '--path', build_cache_dir, '--require-cdashid')
     """
-
-gen_full_specs_for_job_and_deps
-
-echo "Building package ${JOB_SPEC_NAME}, ${HASH}, ${MIRROR_URL}"
-
-# Finally, list the compilers spack knows about
-echo "Compiler Configurations:"
-spack config get compilers
-
-# Make the build_cache directory if it doesn't exist
-mkdir -p "${BUILD_CACHE_DIR}"
-
-# Get buildcache name so we can write a CDash build id file in the right place.
-# If we're unable to get the buildcache name, we may have encountered a problem
-# concretizing the spec, or some other issue that will eventually cause the job
-# to fail.
-JOB_BUILD_CACHE_ENTRY_NAME=`spack -d buildcache get-buildcache-name --spec-yaml "${SPEC_YAML_PATH}"`
-if [[ $? -ne 0 ]]; then
-    echo "ERROR, unable to get buildcache entry name for job ${CI_JOB_NAME} (spec: ${JOB_SPEC_NAME})"
-    exit 1
-fi
-
-# This should create the directory we referred to as GNUPGHOME earlier
-spack gpg list
-
-# Importing the secret key using gpg2 directly should allow to
-# sign and verify both
-set +x
-KEY_IMPORT_RESULT=`echo ${SPACK_SIGNING_KEY} | base64 --decode | gpg2 --import`
-check_error $? "gpg2 --import"
-set -x
-
-spack gpg list --trusted
-spack gpg list --signing
-
-# Whether we have to build the spec or download it pre-built, we expect to find
-# the cdash build id file sitting in this location afterwards.
-JOB_CDASH_ID_FILE="${BUILD_CACHE_DIR}/${JOB_BUILD_CACHE_ENTRY_NAME}.cdashid"
-
-# Finally, we can check the spec we have been tasked with build against
-# the built binary on the remote mirror to see if it needs to be rebuilt
-spack -d buildcache check --spec-yaml "${SPEC_YAML_PATH}" --mirror-url "${MIRROR_URL}" --rebuild-on-error
 
 if [[ $? -ne 0 ]]; then
     # Configure mirror

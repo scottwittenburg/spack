@@ -37,9 +37,7 @@
 ###
 
 export SPACK_ROOT=${CI_PROJECT_DIR}
-
 . "${SPACK_ROOT}/share/spack/setup-env.sh"
-export GNUPGHOME="${SPACK_ROOT}/opt/spack/gpg"
 
 spack rebuild-package \
     --ci-project-dir "${CI_PROJECT_DIR}" \
