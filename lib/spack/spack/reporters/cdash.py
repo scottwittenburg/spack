@@ -252,11 +252,17 @@ class CDash(Reporter):
             sys.stderr.flush()
             response = opener.open(request)
             sys.stderr.write('CDash reporter finished making request\n')
-            sys.stderr.flush()
             if not self.buildId:
-                match = buildid_regexp.search(response.read())
+                responseText = response.read()
+                sys.stderr.write('  did not have builId yet, response was:\n')
+                sys.stderr.write('{0}\n'.format(responseText))
+                match = buildid_regexp.search(responseText)
                 if match:
                     self.buildId = match.group(1)
+                    sys.stderr.write('  found buildId in response: {0}\n'.format(self.buildId))
+                else:
+                    sys.stderr.write('  still no build id\n')
+            sys.stderr.flush()
 
     def print_cdash_link(self):
         if self.buildId:
@@ -266,3 +272,5 @@ class CDash(Reporter):
             build_url = build_url[0:build_url.find("submit.php")]
             build_url += "buildSummary.php?buildid={0}".format(self.buildId)
             print("View your build results here:\n  {0}\n".format(build_url))
+        else:
+            print('WAIT UNTIL WE HAVE A BUILD ID TO PRINT IT')

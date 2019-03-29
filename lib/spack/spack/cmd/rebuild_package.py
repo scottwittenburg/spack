@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
 import argparse
-import base64.b64decode as b64decode
+from base64 import b64decode
 import os
 import shutil
 import sys
@@ -30,6 +30,7 @@ spack_gpg = SpackCommand('gpg')
 # spack_buildcache = SpackCommand('buildcache')
 spack_config = SpackCommand('config')
 spack_mirror = SpackCommand('mirror')
+spack_install = SpackCommand('install')
 
 
 def setup_parser(subparser):
@@ -183,7 +184,19 @@ def rebuild_package(parser, args):
             spack_mirror('add', 'local_artifact_mirror', 'file://{0}'.format(
                 local_mirror_dir))
 
-            # ...
+            job_cdash_id = "NONE"
+
+            # Install package, using the buildcache from the local mirror to
+            # satisfy dependencies.
+            spack_install('install', '--keep-stage',
+                '--cdash-upload-url', cdash_upload_url,
+                '--cdash-build', job_spec_name,
+                '--cdash-site', 'Spack AWS Gitlab Instance'
+                '--cdash-track', job_group,
+                '-f', spec_yaml_path)
+
+
+
         else:
             tty.msg('{0} is up to date on {1}, downloading it'.format(
                 job_spec_name, remote_mirror_url))
@@ -197,15 +210,10 @@ def rebuild_package(parser, args):
     """
 
 if [[ $? -ne 0 ]]; then
-    # Configure mirror
-    spack mirror add local_artifact_mirror "file://${LOCAL_MIRROR}"
 
     JOB_CDASH_ID="NONE"
 
-    # Install package, using the buildcache from the local mirror to
-    # satisfy dependencies.
-    BUILD_ID_LINE=`spack -d -k -v install --use-cache --keep-stage --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${JOB_SPEC_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "${JOB_GROUP}" -f "${SPEC_YAML_PATH}" | grep "buildSummary\\.php"`
-    check_error $? "spack install"
+        check_error $? "spack install"
 
     # Copy some log files into an artifact location
     stage_dir=$(spack location --stage-dir -f "${SPEC_YAML_PATH}")
