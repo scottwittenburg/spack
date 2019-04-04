@@ -21,6 +21,7 @@ import spack.util.path
 from spack.spec import Spec
 from spack.error import SpackError
 from spack.util.spack_yaml import syaml_dict
+from spack.util.url import format as urlformat
 
 description = "manage mirrors (source and binary)"
 section = "config"
@@ -32,6 +33,7 @@ def setup_parser(subparser):
 
     sp = subparser.add_subparsers(
         metavar='SUBCOMMAND', dest='mirror_command')
+
 
     # Create
     create_parser = sp.add_parser('create', help=mirror_create.__doc__)
@@ -96,7 +98,7 @@ def setup_parser(subparser):
 
 def mirror_add(args):
     """Add a mirror to Spack."""
-    url = spack.mirror.mirror_url_format(args.url)
+    url = urlformat(args.url)
 
     mirrors = spack.config.get('mirrors', scope=args.scope)
     if not mirrors:
@@ -144,7 +146,7 @@ def mirror_remove(args):
 
 def mirror_set_url(args):
     """Change the URL of a mirror."""
-    url = spack.mirror.mirror_url_format(args.url)
+    url = urlformat(args.url)
 
     mirrors = spack.config.get('mirrors', scope=args.scope)
     if not mirrors:
