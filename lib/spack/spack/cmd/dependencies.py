@@ -12,6 +12,7 @@ import spack.environment as ev
 import spack.store
 import spack.repo
 import spack.cmd
+import spack.cmd.common.arguments as arguments
 
 description = "show dependencies of a package"
 section = "basic"
@@ -29,12 +30,11 @@ def setup_parser(subparser):
     subparser.add_argument(
         '-V', '--no-expand-virtuals', action='store_false', default=True,
         dest="expand_virtuals", help="do not expand virtual dependencies")
-    subparser.add_argument(
-        'spec', nargs=argparse.REMAINDER, help="spec or package name")
+    arguments.add_common_arguments(subparser, ['specs'])
 
 
 def dependencies(parser, args):
-    specs = spack.cmd.parse_specs(args.spec)
+    specs = spack.cmd.parse_specs(args.specs)
     if len(specs) != 1:
         tty.die("spack dependencies takes only one spec.")
 

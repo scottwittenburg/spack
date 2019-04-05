@@ -19,14 +19,11 @@ level = "long"
 
 
 def setup_parser(subparser):
-    arguments.add_common_arguments(subparser, ['clean', 'dirty'])
-    subparser.add_argument(
-        'spec', nargs=argparse.REMAINDER,
-        help="specs of package environment to emulate")
+    arguments.add_common_arguments(subparser, ['clean', 'dirty', 'specs'])
 
 
 def build_env(parser, args):
-    if not args.spec:
+    if not args.specs:
         tty.die("spack build-env requires a spec.")
 
     # Specs may have spaces in them, so if they do, require that the
@@ -34,13 +31,13 @@ def build_env(parser, args):
     # executed.  If there is no '--', assume that the spec is the
     # first argument.
     sep = '--'
-    if sep in args.spec:
-        s = args.spec.index(sep)
-        spec = args.spec[:s]
-        cmd = args.spec[s + 1:]
+    if sep in args.specs:
+        s = args.specs.index(sep)
+        spec = args.specs[:s]
+        cmd = args.specs[s + 1:]
     else:
-        spec = args.spec[0]
-        cmd = args.spec[1:]
+        spec = args.specs[0]
+        cmd = args.specs[1:]
 
     specs = spack.cmd.parse_specs(spec, concretize=True)
     if len(specs) > 1:

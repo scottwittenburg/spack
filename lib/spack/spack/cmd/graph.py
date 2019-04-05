@@ -9,6 +9,7 @@ import argparse
 import llnl.util.tty as tty
 
 import spack.cmd
+import spack.cmd.common.arguments as arguments
 import spack.config
 import spack.store
 from spack.dependency import all_deptypes, canonical_deptype
@@ -47,9 +48,7 @@ def setup_parser(subparser):
         help="comma-separated list of deptypes to traverse. default=%s"
         % ','.join(all_deptypes))
 
-    subparser.add_argument(
-        'specs', nargs=argparse.REMAINDER,
-        help="specs of packages to graph")
+    arguments.add_common_arguments(subparser, ['specs'])
 
 
 def graph(parser, args):

@@ -18,20 +18,17 @@ level = "long"
 
 
 def setup_parser(subparser):
-    arguments.add_common_arguments(subparser, ['no_checksum'])
-    subparser.add_argument(
-        'packages', nargs=argparse.REMAINDER,
-        help="specs of packages to stage")
+    arguments.add_common_arguments(subparser, ['no_checksum', 'specs'])
 
 
 def patch(parser, args):
-    if not args.packages:
+    if not args.specs:
         tty.die("patch requires at least one package argument")
 
     if args.no_checksum:
         spack.config.set('config:checksum', False, scope='command_line')
 
-    specs = spack.cmd.parse_specs(args.packages, concretize=True)
+    specs = spack.cmd.parse_specs(args.specs, concretize=True)
     for spec in specs:
         package = spack.repo.get(spec)
         package.do_patch()

@@ -7,6 +7,7 @@ import argparse
 import llnl.util.tty as tty
 
 import spack.cmd
+import spack.cmd.common.arguments as arguments
 import spack.environment as ev
 import spack.store
 from spack.filesystem_view import YamlFilesystemView
@@ -28,13 +29,11 @@ def setup_parser(subparser):
         '-a', '--all', action='store_true',
         help="deactivate all extensions of an extendable package, or "
         "deactivate an extension AND its dependencies")
-    subparser.add_argument(
-        'spec', nargs=argparse.REMAINDER,
-        help="spec of package extension to deactivate")
+    arguments.add_common_arguments(subparser, ['specs'])
 
 
 def deactivate(parser, args):
-    specs = spack.cmd.parse_specs(args.spec)
+    specs = spack.cmd.parse_specs(args.specs)
     if len(specs) != 1:
         tty.die("deactivate requires one spec.  %d given." % len(specs))
 
