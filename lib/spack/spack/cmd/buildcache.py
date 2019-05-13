@@ -295,6 +295,7 @@ def createtarball(args):
                 " yaml file containing a spec to install")
     pkgs = set(packages)
     specs = set()
+    # TODO(opadron): handle -d MIRROR_NAME
     outdir = '.'
     if args.directory:
         outdir = args.directory
@@ -333,6 +334,8 @@ def createtarball(args):
 
     for spec in specs:
         tty.msg('creating binary cache file for package %s ' % spec.format())
+        # NOTE(opadron): make sure outdir is fully resolved push URL by this
+        #                point.
         bindist.build_tarball(spec, outdir, args.force, args.rel,
                               args.unsigned, args.allow_root, signkey,
                               not args.no_rebuild_index)
