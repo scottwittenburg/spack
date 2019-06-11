@@ -54,6 +54,9 @@ cd $env_dir
 token_file="${temp_dir}/cdash_auth_token"
 echo ${CDASH_AUTH_TOKEN} > ${token_file}
 
+# Tell spack to find a compiler
+spack compiler find
+
 # This commands generates the .gitlab-ci.yml and creates buildgroup in cdash
 spack release-jobs --force --output-file ${gen_ci_file} --cdash-credentials ${token_file}
 

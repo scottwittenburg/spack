@@ -377,6 +377,40 @@ def find_matching_config(spec, ci_mappings):
     return None
 
 
+def augment_specs_with_compilers(spec_list):
+    COMPILER_TO_PACKAGE_MAPPING = {
+        'clang': 'llvm',
+    }
+
+    augmented_specs = [s for s in spec_list]
+
+    os_to_compilers_map = {}
+
+    for s in spec_list:
+        arch = s.architecture
+
+        if arch not in os_to_compilers_map:
+            os_to_compilers_map[arch] = []
+
+        compilers_list = os_to_compilers_map[arch]
+
+        if s.compiler not in compilers_list:
+            compilers_list.append(s.compiler)
+
+    for arch in os_to_compilers_map:
+        compiler_list = os_to_compilers_map[arch]
+        for c in compiler_list:
+            compiler_pkg_name = c.name
+            if c.name in COMPILER_TO_PACKAGE_MAPPING:
+                compiler_pkg_name = COMPILER_TO_PACKAGE_MAPPING[c.name]
+            s = Spec('{0}@{1} arch={2}'.format(
+                compiler_pkg_name, c.version, arch))
+            # s.concretize()
+            augmented_specs.append(s)
+
+    return augmented_specs
+
+
 def release_jobs(parser, args):
     env = ev.get_env(args, 'release-jobs', required=True)
     env.concretize(force=args.force)
@@ -408,7 +442,8 @@ def release_jobs(parser, args):
     ci_mirrors = yaml_root['mirrors']
     mirror_urls = ci_mirrors.values()
 
-    spec_labels, dependencies, stages = stage_spec_jobs(env.all_specs())
+    spec_labels, dependencies, stages = stage_spec_jobs(
+        augment_specs_with_compilers(env.all_specs()))
 
     if not stages:
         tty.msg('No jobs staged, exiting.')

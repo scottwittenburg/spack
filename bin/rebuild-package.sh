@@ -191,6 +191,9 @@ gen_full_specs_for_job_and_deps
 
 echo "Building package ${CDASH_BUILD_NAME}, ${HASH}, ${MIRROR_URL}"
 
+# Tell spack to find a compiler
+spack compiler find
+
 # Finally, list the compilers spack knows about
 echo "Compiler Configurations:"
 spack config get compilers
