@@ -369,20 +369,20 @@ def spec_matches(spec, match_string):
     return spec.satisfies(match_string)
 
 
-def find_matching_config(spec, ci_mappings):
-    for ci_mapping in ci_mappings:
+def find_matching_runner(spec, ci_mappings):
+    for ci_name, ci_mapping in ci_mappings.items():
         for match_string in ci_mapping['match']:
             if spec_matches(spec, match_string):
-                return ci_mapping['runner-attributes']
+                return ci_name
     return None
 
 
-def augment_specs_with_compilers(spec_list):
+def find_compiler_specs(spec_list):
     COMPILER_TO_PACKAGE_MAPPING = {
         'clang': 'llvm',
     }
 
-    augmented_specs = [s for s in spec_list]
+    compiler_specs = []
 
     os_to_compilers_map = {}
 
@@ -406,9 +406,9 @@ def augment_specs_with_compilers(spec_list):
             s = Spec('{0}@{1} arch={2}'.format(
                 compiler_pkg_name, c.version, arch))
             # s.concretize()
-            augmented_specs.append(s)
+            compiler_specs.append(s)
 
-    return augmented_specs
+    return compiler_specs
 
 
 def release_jobs(parser, args):
@@ -442,128 +442,177 @@ def release_jobs(parser, args):
     ci_mirrors = yaml_root['mirrors']
     mirror_urls = ci_mirrors.values()
 
-    spec_labels, dependencies, stages = stage_spec_jobs(
-        augment_specs_with_compilers(env.all_specs()))
+    # root_specs = env.all_specs()
+    root_specs = [s for s in env.roots()]
+
+    tty.msg('Your environment file represents the following specs:')
+    for s in root_specs:
+        print('  {0}'.format(s))
+
+    # First map the roots specs from the environment to runners
+    root_spec_runners = {}
+    compiler_spec_runners = {}
+    for s in root_specs:
+        runner_name = find_matching_runner(s, ci_mappings)
+        root_spec_runners[s] = runner_name
+        compiler_spec_runners[s.compiler] = runner_name
+
+    compiler_specs = find_compiler_specs(root_specs)
+    compiler_spec_labels, compiler_deps, compiler_stages = stage_spec_jobs(
+        compiler_specs)
+
+    spec_labels, dependencies, stages = stage_spec_jobs(root_specs)
+
+    overlap = any([elt in compiler_deps for elt in dependencies.keys()])
+
+    if overlap:
+        tty.warn('  !!! WARNING: overlap between release and compiler jobs !!!')
+        duplicates = [elt for elt in dependencies.keys() if elt in compiler_deps]
+        tty.warn(', '.join(duplicates))
 
     if not stages:
         tty.msg('No jobs staged, exiting.')
         return
 
     if args.print_summary:
+        tty.msg('Compiler staging summary:\n')
+        print_staging_summary(
+            compiler_spec_labels, compiler_deps, compiler_stages)
+        tty.msg('\nRelease jobs staging summary:\n')
         print_staging_summary(spec_labels, dependencies, stages)
+        tty.msg('\n')
 
     all_job_names = []
     output_object = {}
     job_count = 0
 
-    stage_names = ['stage-{0}'.format(i) for i in range(len(stages))]
+    total_num_stages = len(compiler_stages) + len(stages)
+    stage_names = ['stage-{0}'.format(i) for i in range(total_num_stages)]
     stage = 0
 
-    for stage_jobs in stages:
-        stage_name = stage_names[stage]
+    def add_job(spec_label, stage_name, compiler_job=False):
+        release_spec = spec_labels[spec_label]['spec']
+        root_spec = spec_labels[spec_label]['rootSpec']
 
-        for spec_label in stage_jobs:
-            release_spec = spec_labels[spec_label]['spec']
-            root_spec = spec_labels[spec_label]['rootSpec']
+        if not compiler_job:
+            runner_name = root_spec_runners[root_spec]
+        else:
+            runner_name = compiler_spec_runners[root_spec.compiler]
 
-            runner_attribs = find_matching_config(release_spec, ci_mappings)
+        if runner_name:
+            runner_attrs = ci_mappings[runner_name]['runner-attributes']
 
-            if not runner_attribs:
-                tty.warn('No match found for {0}, skipping it'.format(
-                    release_spec))
-                continue
+        if not runner_attrs:
+            tty.warn('No match found for {0}, skipping it'.format(
+                release_spec))
+            continue
 
-            tags = [tag for tag in runner_attribs['tags']]
+        tags = [tag for tag in runner_attrs['tags']]
 
-            variables = {}
-            if 'variables' in runner_attribs:
-                variables.update(runner_attribs['variables'])
+        variables = {}
+        if 'variables' in runner_attrs:
+            variables.update(runner_attrs['variables'])
 
-            build_image = None
-            if 'image' in runner_attribs:
-                build_image = runner_attribs['image']
+        build_image = None
+        if 'image' in runner_attrs:
+            build_image = runner_attrs['image']
 
-            osname = str(release_spec.architecture)
-            job_name = get_job_name(release_spec, osname, build_group)
-            cdash_build_name = get_cdash_build_name(release_spec, build_group)
+        spec_arch = str(release_spec.architecture)
+        job_name = get_job_name(release_spec, spec_arch, build_group)
+        cdash_build_name = get_cdash_build_name(release_spec, build_group)
 
-            all_job_names.append(cdash_build_name)
+        all_job_names.append(cdash_build_name)
 
-            job_scripts = ['./bin/rebuild-package.sh']
+        job_scripts = ['./bin/rebuild-package.sh']
 
-            job_dependencies = []
-            if spec_label in dependencies:
-                job_dependencies = (
-                    [get_job_name(spec_labels[d]['spec'], osname, build_group)
-                        for d in dependencies[spec_label]])
+        job_dependencies = []
+        if spec_label in dependencies:
+            job_dependencies = (
+                [get_job_name(spec_labels[d]['spec'], spec_arch, build_group)
+                    for d in dependencies[spec_label]])
 
-            job_variables = {
-                'MIRROR_URL': mirror_urls[0],
-                'CDASH_BASE_URL': cdash_url,
-                'CDASH_PROJECT': cdash_project,
-                'CDASH_PROJECT_ENC': cdash_project_enc,
-                'CDASH_BUILD_NAME': cdash_build_name,
-                'DEPENDENCIES': ';'.join(job_dependencies),
-                'ROOT_SPEC': str(root_spec),
-            }
+        if not compiler_job:
+            job_dependencies.append(root_spec.compiler, spec_arch, build_group)
 
-            if args.signing_key:
-                job_variables['SIGN_KEY_HASH'] = args.signing_key
-
-            variables.update(job_variables)
-
-            job_object = {
-                'stage': stage_name,
-                'variables': variables,
-                'script': job_scripts,
-                'artifacts': {
-                    'paths': [
-                        'local_mirror/build_cache',
-                        'jobs_scratch_dir',
-                        'cdash_report',
-                    ],
-                    'when': 'always',
-                },
-                'dependencies': job_dependencies,
-                'tags': tags,
-            }
-
-            if build_image:
-                job_object['image'] = build_image
-
-            output_object[job_name] = job_object
-            job_count += 1
-
-        stage += 1
-
-    tty.msg('{0} build jobs generated in {1} stages'.format(
-        job_count, len(stages)))
-
-    # Use "all_job_names" to populate the build group for this set
-    if cdash_auth_token:
-        try:
-            populate_buildgroup(all_job_names, build_group, cdash_project,
-                                cdash_site, cdash_auth_token, cdash_url)
-        except (SpackError, HTTPError, URLError) as err:
-            tty.warn('Problem populating buildgroup: {0}'.format(err))
-    else:
-        tty.warn('Unable to populate buildgroup without CDash credentials')
-
-    # Add an extra, final job to regenerate the index
-    final_stage = 'stage-rebuild-index'
-    final_job = {
-        'stage': final_stage,
-        'variables': {
+        job_variables = {
             'MIRROR_URL': mirror_urls[0],
-        },
-        'image': 'scottwittenburg/spack_ci_generator_alpine',  # just needs some basic python image
-        'script': './bin/rebuild-index.sh',
-        'tags': ['spack-k8s']    # may want a runner to handle this
-    }
-    output_object['rebuild-index'] = final_job
-    stage_names.append(final_stage)
+            'CDASH_BASE_URL': cdash_url,
+            'CDASH_PROJECT': cdash_project,
+            'CDASH_PROJECT_ENC': cdash_project_enc,
+            'CDASH_BUILD_NAME': cdash_build_name,
+            'DEPENDENCIES': ';'.join(job_dependencies),
+            'ROOT_SPEC': str(root_spec.compiler if compiler_job else root_spec),
+            'JOB_SPEC_PKG_NAME': release_spec.name,
+            'JOB_SPEC_PKG_VERSION': release_spec.version,
+            'JOB_SPEC_COMPILER': 'UNKNOWN' if compiler_job else release_spec.compiler,
+            'JOB_SPEC_OSARCH': spec_arch,
+            'JOB_SPEC_BUILDGROUP': build_group,
+        }
 
-    output_object['stages'] = stage_names
+        if args.signing_key:
+            job_variables['SIGN_KEY_HASH'] = args.signing_key
 
-    with open(args.output_file, 'w') as outf:
-        outf.write(syaml.dump(output_object))
+        variables.update(job_variables)
+
+        job_object = {
+            'stage': stage_name,
+            'variables': variables,
+            'script': job_scripts,
+            'artifacts': {
+                'paths': [
+                    'local_mirror/build_cache',
+                    'jobs_scratch_dir',
+                    'cdash_report',
+                ],
+                'when': 'always',
+            },
+            'dependencies': job_dependencies, # used by gitlab-ci for artifact finding
+            'tags': tags,
+        }
+
+        if build_image:
+            job_object['image'] = build_image
+
+        output_object[job_name] = job_object
+
+    for stage_list, compiler_job in [(compiler_stages, True), (stages, False)]:
+        for stage_jobs in stage_list:
+            stage_name = stage_names[stage]
+
+            for spec_label in stage_jobs:
+                add_job(spec_label, stage_name, compiler_job)
+                job_count += 1
+
+            stage += 1
+
+    # tty.msg('{0} build jobs generated in {1} stages'.format(
+    #     job_count, len(stages)))
+
+    # # Use "all_job_names" to populate the build group for this set
+    # if cdash_auth_token:
+    #     try:
+    #         populate_buildgroup(all_job_names, build_group, cdash_project,
+    #                             cdash_site, cdash_auth_token, cdash_url)
+    #     except (SpackError, HTTPError, URLError) as err:
+    #         tty.warn('Problem populating buildgroup: {0}'.format(err))
+    # else:
+    #     tty.warn('Unable to populate buildgroup without CDash credentials')
+
+    # # Add an extra, final job to regenerate the index
+    # final_stage = 'stage-rebuild-index'
+    # final_job = {
+    #     'stage': final_stage,
+    #     'variables': {
+    #         'MIRROR_URL': mirror_urls[0],
+    #     },
+    #     'image': 'scottwittenburg/spack_ci_generator_alpine',  # just needs some basic python image
+    #     'script': './bin/rebuild-index.sh',
+    #     'tags': ['spack-k8s']    # may want a runner to handle this
+    # }
+    # output_object['rebuild-index'] = final_job
+    # stage_names.append(final_stage)
+
+    # output_object['stages'] = stage_names
+
+    # with open(args.output_file, 'w') as outf:
+    #     outf.write(syaml.dump(output_object))

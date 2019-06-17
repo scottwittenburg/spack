@@ -191,7 +191,10 @@ gen_full_specs_for_job_and_deps
 
 echo "Building package ${CDASH_BUILD_NAME}, ${HASH}, ${MIRROR_URL}"
 
-# Tell spack to find a compiler
+# Tell spack to find a compiler.  If this is not a compiler job (i.e. either
+# a compiler or one of its dependencies), then those jobs must have completed
+# already, and we should look for the compiler for this job within the artifact
+# buildcache, as that is where we should expect to find it.
 spack compiler find
 
 # Finally, list the compilers spack knows about

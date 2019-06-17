@@ -25,16 +25,16 @@ spack:
     # based on ubuntu18.04 and which already has some compilers configured.
     # Here we just add some of the ones which are defined on a different
     # builder image.
-    - compiler:
-        operating_system: ubuntu18.04
-        modules: []
-        paths:
-          cc: /not/used
-          cxx: /not/used
-          f77: /not/used
-          fc: /not/used
-        spec: gcc@5.5.0
-        target: x86_64
+    # - compiler:
+    #     operating_system: ubuntu18.04
+    #     modules: []
+    #     paths:
+    #       cc: /not/used
+    #       cxx: /not/used
+    #       f77: /not/used
+    #       fc: /not/used
+    #     spec: gcc@5.5.0
+    #     target: x86_64
     - compiler:
         operating_system: ubuntu18.04
         modules: []
