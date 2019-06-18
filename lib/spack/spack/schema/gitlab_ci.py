@@ -18,7 +18,7 @@ properties = {
         'required': ['mappings'],
         'patternProperties': {
             r'mappings': {
-                'type': 'array',
+                'type': 'object',
                 'default': {},
                 'additionalProperties': False,
                 'patternProperties': {

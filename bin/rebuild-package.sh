@@ -33,7 +33,7 @@
 ### CDASH_PROJECT_ENC
 ### CDASH_BUILD_NAME
 ### ROOT_SPEC
-### DEPENDENCIES
+### RELATED_BUILDS
 ### MIRROR_URL
 ###
 
@@ -160,29 +160,17 @@ EOF
 }
 
 gen_full_specs_for_job_and_deps() {
+    SPEC_YAML_PATH="${SPEC_DIR}/${JOB_SPEC_PKG_NAME}.yaml"
+    local spec_names_to_save="${JOB_SPEC_PKG_NAME}"
 
-    read -ra PARTSARRAY <<< "${CI_JOB_NAME}"
-    local pkgName="${PARTSARRAY[0]}"
-    local pkgVersion="${PARTSARRAY[1]}"
-    local compiler="${PARTSARRAY[2]}"
-    local osarch="${PARTSARRAY[3]}"
-    local buildGroup="${PARTSARRAY[@]:4}" # get everything after osarch
-
-    JOB_GROUP="${buildGroup}"
-    JOB_PKG_NAME="${pkgName}"
-    SPEC_YAML_PATH="${SPEC_DIR}/${pkgName}.yaml"
-    local root_spec_name="${ROOT_SPEC}"
-    local spec_names_to_save="${pkgName}"
-
-    IFS=';' read -ra DEPS <<< "${DEPENDENCIES}"
+    IFS=';' read -ra DEPS <<< "${RELATED_BUILDS}"
     for i in "${DEPS[@]}"; do
-        read -ra PARTSARRAY <<< "${i}"
-        pkgName="${PARTSARRAY[0]}"
-        spec_names_to_save="${spec_names_to_save} ${pkgName}"
-        JOB_DEPS_PKG_NAMES+=("${pkgName}")
+        depPkgName="${i}"
+        spec_names_to_save="${spec_names_to_save} ${depPkgName}"
+        JOB_DEPS_PKG_NAMES+=("${depPkgName}")
     done
 
-    spack -d buildcache save-yaml --specs "${spec_names_to_save}" --root-spec "${root_spec_name}" --yaml-dir "${SPEC_DIR}"
+    spack -d buildcache save-yaml --specs "${spec_names_to_save}" --root-spec "${ROOT_SPEC}" --yaml-dir "${SPEC_DIR}"
 }
 
 begin_logging
@@ -243,7 +231,7 @@ if [[ $? -ne 0 ]]; then
 
     # Install package, using the buildcache from the local mirror to
     # satisfy dependencies.
-    BUILD_ID_LINE=`spack -d -k -v install --use-cache --keep-stage --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${CDASH_BUILD_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "${JOB_GROUP}" -f "${SPEC_YAML_PATH}" | grep "buildSummary\\.php"`
+    BUILD_ID_LINE=`spack -d -k -v install --use-cache --keep-stage --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${CDASH_BUILD_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "${JOB_SPEC_BUILDGROUP}" -f "${SPEC_YAML_PATH}" | grep "buildSummary\\.php"`
     check_error $? "spack install"
 
     # Copy some log files into an artifact location, once we have a way
