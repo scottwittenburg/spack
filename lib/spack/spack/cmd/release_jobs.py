@@ -545,20 +545,19 @@ def release_jobs(parser, args):
             job_dependencies.append(get_job_name(job_compiler_spec, spec_arch, build_group))
 
         job_variables = {
-            'MIRROR_URL': mirror_urls[0],
-            'CDASH_BASE_URL': cdash_url,
-            'CDASH_PROJECT': cdash_project,
-            'CDASH_PROJECT_ENC': cdash_project_enc,
-            'CDASH_BUILD_NAME': cdash_build_name,
-            'RELATED_BUILDS': ';'.join(related_builds),
-            'ROOT_SPEC': root_spec,
-            'JOB_SPEC_PKG_NAME': release_spec.name,
-            'JOB_SPEC_OSARCH': spec_arch,
-            'JOB_SPEC_BUILDGROUP': build_group,
+            'SPACK_MIRROR_URL': mirror_urls[0],
+            'SPACK_CDASH_BASE_URL': cdash_url,
+            'SPACK_CDASH_PROJECT': cdash_project,
+            'SPACK_CDASH_PROJECT_ENC': cdash_project_enc,
+            'SPACK_CDASH_BUILD_NAME': cdash_build_name,
+            'SPACK_RELATED_BUILDS': ';'.join(related_builds),
+            'SPACK_ROOT_SPEC': root_spec,
+            'SPACK_JOB_SPEC_PKG_NAME': release_spec.name,
+            'SPACK_JOB_SPEC_BUILDGROUP': build_group,
         }
 
-        if args.signing_key:
-            job_variables['SIGN_KEY_HASH'] = args.signing_key
+        if not compiler_job:
+            job_variables['SPACK_FIND_COMPILER'] = str(release_spec.compiler)
 
         variables.update(job_variables)
 

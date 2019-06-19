@@ -28,13 +28,16 @@
 ### AWS_SECRET_ACCESS_KEY
 ### SPACK_SIGNING_KEY
 ###
-### CDASH_BASE_URL
-### CDASH_PROJECT
-### CDASH_PROJECT_ENC
-### CDASH_BUILD_NAME
-### ROOT_SPEC
-### RELATED_BUILDS
-### MIRROR_URL
+### SPACK_CDASH_BASE_URL
+### SPACK_CDASH_PROJECT
+### SPACK_CDASH_PROJECT_ENC
+### SPACK_CDASH_BUILD_NAME
+### SPACK_ROOT_SPEC
+### SPACK_RELATED_BUILDS
+### SPACK_MIRROR_URL
+### SPACK_JOB_SPEC_PKG_NAME
+### SPACK_JOB_SPEC_BUILDGROUP
+### SPACK_FIND_COMPILER
 ###
 
 shopt -s expand_aliases
@@ -48,8 +51,8 @@ SPEC_DIR="${TEMP_DIR}/specs"
 LOCAL_MIRROR="${CI_PROJECT_DIR}/local_mirror"
 BUILD_CACHE_DIR="${LOCAL_MIRROR}/build_cache"
 SPACK_BIN_DIR="${CI_PROJECT_DIR}/bin"
-CDASH_UPLOAD_URL="${CDASH_BASE_URL}/submit.php?project=${CDASH_PROJECT_ENC}"
-DEP_JOB_RELATEBUILDS_URL="${CDASH_BASE_URL}/api/v1/relateBuilds.php"
+CDASH_UPLOAD_URL="${SPACK_CDASH_BASE_URL}/submit.php?project=${SPACK_CDASH_PROJECT_ENC}"
+DEP_JOB_RELATEBUILDS_URL="${SPACK_CDASH_BASE_URL}/api/v1/relateBuilds.php"
 declare -a JOB_DEPS_PKG_NAMES
 
 export SPACK_ROOT=${CI_PROJECT_DIR}
@@ -160,47 +163,20 @@ EOF
 }
 
 gen_full_specs_for_job_and_deps() {
-    SPEC_YAML_PATH="${SPEC_DIR}/${JOB_SPEC_PKG_NAME}.yaml"
-    local spec_names_to_save="${JOB_SPEC_PKG_NAME}"
+    SPEC_YAML_PATH="${SPEC_DIR}/${SPACK_JOB_SPEC_PKG_NAME}.yaml"
+    local spec_names_to_save="${SPACK_JOB_SPEC_PKG_NAME}"
 
-    IFS=';' read -ra DEPS <<< "${RELATED_BUILDS}"
+    IFS=';' read -ra DEPS <<< "${SPACK_RELATED_BUILDS}"
     for i in "${DEPS[@]}"; do
         depPkgName="${i}"
         spec_names_to_save="${spec_names_to_save} ${depPkgName}"
         JOB_DEPS_PKG_NAMES+=("${depPkgName}")
     done
 
-    spack -d buildcache save-yaml --specs "${spec_names_to_save}" --root-spec "${ROOT_SPEC}" --yaml-dir "${SPEC_DIR}"
+    spack -d buildcache save-yaml --specs "${spec_names_to_save}" --root-spec "${SPACK_ROOT_SPEC}" --yaml-dir "${SPEC_DIR}"
 }
 
 begin_logging
-
-gen_full_specs_for_job_and_deps
-
-echo "Building package ${CDASH_BUILD_NAME}, ${HASH}, ${MIRROR_URL}"
-
-# Tell spack to find a compiler.  If this is not a compiler job (i.e. either
-# a compiler or one of its dependencies), then those jobs must have completed
-# already, and we should look for the compiler for this job within the artifact
-# buildcache, as that is where we should expect to find it.
-spack compiler find
-
-# Finally, list the compilers spack knows about
-echo "Compiler Configurations:"
-spack config get compilers
-
-# Make the build_cache directory if it doesn't exist
-mkdir -p "${BUILD_CACHE_DIR}"
-
-# Get buildcache name so we can write a CDash build id file in the right place.
-# If we're unable to get the buildcache name, we may have encountered a problem
-# concretizing the spec, or some other issue that will eventually cause the job
-# to fail.
-JOB_BUILD_CACHE_ENTRY_NAME=`spack -d buildcache get-buildcache-name --spec-yaml "${SPEC_YAML_PATH}"`
-if [[ $? -ne 0 ]]; then
-    echo "ERROR, unable to get buildcache entry name for job ${CI_JOB_NAME} (spec: ${CDASH_BUILD_NAME})"
-    exit 1
-fi
 
 # This should create the directory we referred to as GNUPGHOME earlier
 spack gpg list
@@ -215,13 +191,59 @@ set -x
 spack gpg list --trusted
 spack gpg list --signing
 
+# Tell spack to find a compiler.  If this is not a compiler job (i.e. either
+# a compiler or one of its dependencies), then those jobs must have completed
+# already, and we should look for the compiler for this job within the artifact
+# buildcache, as that is where we should expect to find it.
+if [ -z "${SPACK_FIND_COMPILER}" ]; then
+    echo "This is a compiler job, just find any available compiler"
+    spack compiler find
+else
+    echo "This is NOT a compiler job, install the compiler for the job"
+    # Configure the "artifact mirror" so compiler will be installed from there
+    spack mirror add local_artifact_mirror "file://${LOCAL_MIRROR}"
+    # Install the compiler needed for this job from the local binary mirror
+    spack install "${SPACK_FIND_COMPILER}"
+    check_error $? "spack install ${SPACK_FIND_COMPILER}"
+    # Find the path to the compiler we just installed
+    JOB_COMPILER_LOCATION=$(spack location -i "${SPACK_FIND_COMPILER}")
+    check_error $? "spack location -i ${SPACK_FIND_COMPILER}"
+    # Tell spack about that compiler
+    spack compiler find "${JOB_COMPILER_LOCATION}"
+    check_error $? "spack compiler find ${JOB_COMPILER_LOCATION}"
+    # Remove the "artifact mirror" as we may not want it later
+    spack mirror remove local_artifact_mirror
+fi
+
+# Now that we have our compilers set up, we can safely concretize specs
+gen_full_specs_for_job_and_deps
+
+echo "Building package ${SPACK_CDASH_BUILD_NAME}"
+
+# Finally, list the compilers spack knows about
+echo "Compiler Configurations:"
+spack config get compilers
+
+# Make the build_cache directory if it doesn't exist
+mkdir -p "${BUILD_CACHE_DIR}"
+
+# Get buildcache name so we can write a CDash build id file in the right place.
+# If we're unable to get the buildcache name, we may have encountered a problem
+# concretizing the spec, or some other issue that will eventually cause the job
+# to fail.
+JOB_BUILD_CACHE_ENTRY_NAME=`spack -d buildcache get-buildcache-name --spec-yaml "${SPEC_YAML_PATH}"`
+if [[ $? -ne 0 ]]; then
+    echo "ERROR, unable to get buildcache entry name for job ${CI_JOB_NAME} (spec: ${SPACK_CDASH_BUILD_NAME})"
+    exit 1
+fi
+
 # Whether we have to build the spec or download it pre-built, we expect to find
 # the cdash build id file sitting in this location afterwards.
 JOB_CDASH_ID_FILE="${BUILD_CACHE_DIR}/${JOB_BUILD_CACHE_ENTRY_NAME}.cdashid"
 
 # Finally, we can check the spec we have been tasked with build against
 # the built binary on the remote mirror to see if it needs to be rebuilt
-spack -d buildcache check --spec-yaml "${SPEC_YAML_PATH}" --mirror-url "${MIRROR_URL}" --rebuild-on-error
+spack -d buildcache check --spec-yaml "${SPEC_YAML_PATH}" --mirror-url "${SPACK_MIRROR_URL}" --rebuild-on-error
 
 if [[ $? -ne 0 ]]; then
     # Configure mirror
@@ -231,7 +253,7 @@ if [[ $? -ne 0 ]]; then
 
     # Install package, using the buildcache from the local mirror to
     # satisfy dependencies.
-    BUILD_ID_LINE=`spack -d -k -v install --use-cache --keep-stage --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${CDASH_BUILD_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "${JOB_SPEC_BUILDGROUP}" -f "${SPEC_YAML_PATH}" | grep "buildSummary\\.php"`
+    BUILD_ID_LINE=`spack -d -k -v install --use-cache --keep-stage --cdash-upload-url "${SPACK_CDASH_UPLOAD_URL}" --cdash-build "${SPACK_CDASH_BUILD_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "${SPACK_JOB_SPEC_BUILDGROUP}" -f "${SPEC_YAML_PATH}" | grep "buildSummary\\.php"`
     check_error $? "spack install"
 
     # Copy some log files into an artifact location, once we have a way
@@ -260,10 +282,10 @@ if [[ $? -ne 0 ]]; then
     spack -d upload-s3 spec --base-dir "${LOCAL_MIRROR}" --spec-yaml "${SPEC_YAML_PATH}"
     check_error $? "spack upload-s3 spec"
 else
-    echo "spec ${CDASH_BUILD_NAME} is already up to date on remote mirror, downloading it"
+    echo "spec ${SPACK_CDASH_BUILD_NAME} is already up to date on remote mirror, downloading it"
 
     # Configure remote mirror so we can download buildcache entry
-    spack mirror add remote_binary_mirror ${MIRROR_URL}
+    spack mirror add remote_binary_mirror ${SPACK_MIRROR_URL}
 
     # Now download it
     spack -d buildcache download --spec-yaml "${SPEC_YAML_PATH}" --path "${BUILD_CACHE_DIR}/" --require-cdashid
@@ -293,8 +315,8 @@ if [ -f "${JOB_CDASH_ID_FILE}" ]; then
             if [ -f "${DEP_JOB_ID_FILE}" ]; then
                 DEP_JOB_CDASH_BUILD_ID=$(<${DEP_JOB_ID_FILE})
                 echo "File ${DEP_JOB_ID_FILE} contained value ${DEP_JOB_CDASH_BUILD_ID}"
-                echo "Relating builds -> ${CDASH_BUILD_NAME} (buildid=${JOB_CDASH_BUILD_ID}) depends on ${DEP_PKG_NAME} (buildid=${DEP_JOB_CDASH_BUILD_ID})"
-                relateBuildsPostBody="$(get_relate_builds_post_data "${CDASH_PROJECT}" ${JOB_CDASH_BUILD_ID} ${DEP_JOB_CDASH_BUILD_ID})"
+                echo "Relating builds -> ${SPACK_CDASH_BUILD_NAME} (buildid=${JOB_CDASH_BUILD_ID}) depends on ${DEP_PKG_NAME} (buildid=${DEP_JOB_CDASH_BUILD_ID})"
+                relateBuildsPostBody="$(get_relate_builds_post_data "${SPACK_CDASH_PROJECT}" ${JOB_CDASH_BUILD_ID} ${DEP_JOB_CDASH_BUILD_ID})"
                 relateBuildsResult=`curl "${DEP_JOB_RELATEBUILDS_URL}" -H "Content-Type: application/json" -H "Accept: application/json" -d "${relateBuildsPostBody}"`
                 echo "Result of curl request: ${relateBuildsResult}"
             else
