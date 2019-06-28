@@ -69,6 +69,9 @@ spack:
   gitlab-ci:
     mappings:
       spack-cloud-ubuntu:
+        bootstrap-compilers: # this is optional, but only compiler specs matching the ones listed here will be bootstrapped
+          - gcc@65.5.0
+          - clang@6.0.0
         match:
           # these are specs, if *any* match the spec under consideration, this
           # 'mapping' will be used to generate the CI job
