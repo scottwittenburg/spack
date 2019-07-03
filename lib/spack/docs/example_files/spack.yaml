@@ -70,7 +70,7 @@ spack:
         runner-attributes:
           tags:
             - spack-k8s
-          image: spack/centos:7
+          image: scottwittenburg/spack_builder_centos_7
       - summit:
         match:
           - os=rhel7
