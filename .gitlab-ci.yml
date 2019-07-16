@@ -3,7 +3,7 @@ generate ci jobs:
     - "./bin/generate-gitlab-ci-yml.sh"
   tags:
     - "spack-k8s"
-  image: "scottwittenburg/spack_builder_ubuntu_18.04"
+  image: "scottwittenburg/spack_ci_generator_alpine"
   artifacts:
     paths:
       - ci-generation

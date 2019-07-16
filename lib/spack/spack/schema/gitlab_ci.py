@@ -17,7 +17,14 @@ properties = {
         'additionalProperties': False,
         'required': ['mappings'],
         'patternProperties': {
-            r'mappings': {
+            'phases': {
+                'type': 'array',
+                'default': ['specs'],
+                'items': {
+                    'type': 'string',
+                },
+            },
+            'mappings': {
                 'type': 'array',
                 'default': {},
                 'additionalProperties': False,
@@ -29,7 +36,6 @@ properties = {
                         'properties': {
                             'match': {
                                 'type': 'array',
-                                'default': [],
                                 'items': {
                                     'type': 'string',
                                 },
