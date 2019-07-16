@@ -17,7 +17,30 @@ properties = {
         'additionalProperties': False,
         'required': ['mappings'],
         'patternProperties': {
-            r'mappings': {
+            'bootstrap': {
+                'type': 'array',
+                'items': {
+                    'anyOf': [
+                        {
+                            'type': 'string',
+                        }, {
+                            'type': 'object',
+                            'additionalProperties': False,
+                            'required': ['name'],
+                            'properties': {
+                                'name': {
+                                    'type': 'string',
+                                },
+                                'compiler-agnostic': {
+                                    'type': 'boolean',
+                                    'default': False,
+                                },
+                            },
+                        },
+                    ],
+                },
+            },
+            'mappings': {
                 'type': 'array',
                 'default': {},
                 'additionalProperties': False,
@@ -29,7 +52,6 @@ properties = {
                         'properties': {
                             'match': {
                                 'type': 'array',
-                                'default': [],
                                 'items': {
                                     'type': 'string',
                                 },
