@@ -28,13 +28,16 @@
 ### AWS_SECRET_ACCESS_KEY
 ### SPACK_SIGNING_KEY
 ###
-### CDASH_BASE_URL
-### CDASH_PROJECT
-### CDASH_PROJECT_ENC
-### CDASH_BUILD_NAME
-### ROOT_SPEC
-### DEPENDENCIES
-### MIRROR_URL
+### SPACK_CDASH_BASE_URL
+### SPACK_CDASH_PROJECT
+### SPACK_CDASH_PROJECT_ENC
+### SPACK_CDASH_BUILD_NAME
+### SPACK_ROOT_SPEC
+### SPACK_RELATED_BUILDS
+### SPACK_MIRROR_URL
+### SPACK_JOB_SPEC_PKG_NAME
+### SPACK_JOB_SPEC_BUILDGROUP
+### SPACK_JOB_IN_MAIN_PHASE
 ###
 
 shopt -s expand_aliases
@@ -160,29 +163,17 @@ EOF
 }
 
 gen_full_specs_for_job_and_deps() {
+    SPEC_YAML_PATH="${SPEC_DIR}/${SPACK_JOB_SPEC_PKG_NAME}.yaml"
+    local spec_names_to_save="${SPACK_JOB_SPEC_PKG_NAME}"
 
-    read -ra PARTSARRAY <<< "${CI_JOB_NAME}"
-    local pkgName="${PARTSARRAY[0]}"
-    local pkgVersion="${PARTSARRAY[1]}"
-    local compiler="${PARTSARRAY[2]}"
-    local osarch="${PARTSARRAY[3]}"
-    local buildGroup="${PARTSARRAY[@]:4}" # get everything after osarch
-
-    JOB_GROUP="${buildGroup}"
-    JOB_PKG_NAME="${pkgName}"
-    SPEC_YAML_PATH="${SPEC_DIR}/${pkgName}.yaml"
-    local root_spec_name="${ROOT_SPEC}"
-    local spec_names_to_save="${pkgName}"
-
-    IFS=';' read -ra DEPS <<< "${DEPENDENCIES}"
+    IFS=';' read -ra DEPS <<< "${SPACK_RELATED_BUILDS}"
     for i in "${DEPS[@]}"; do
-        read -ra PARTSARRAY <<< "${i}"
-        pkgName="${PARTSARRAY[0]}"
-        spec_names_to_save="${spec_names_to_save} ${pkgName}"
-        JOB_DEPS_PKG_NAMES+=("${pkgName}")
+        depPkgName="${i}"
+        spec_names_to_save="${spec_names_to_save} ${depPkgName}"
+        JOB_DEPS_PKG_NAMES+=("${depPkgName}")
     done
 
-    spack -d buildcache save-yaml --specs "${spec_names_to_save}" --root-spec "${root_spec_name}" --yaml-dir "${SPEC_DIR}"
+    spack -d buildcache save-yaml --specs "${spec_names_to_save}" --root-spec "${SPACK_ROOT_SPEC}" --yaml-dir "${SPEC_DIR}"
 }
 
 begin_logging

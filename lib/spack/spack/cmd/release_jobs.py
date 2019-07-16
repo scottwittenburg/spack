@@ -27,16 +27,15 @@ level = "long"
 
 def setup_parser(subparser):
     subparser.add_argument(
-        '-f', '--force', action='store_true', default=False,
-        help="Force re-concretization of environment first")
+        '-a', '--use-artifacts-mirror', default=False,
+        action='store_true', help="Maintain local binary mirror within " +
+        "gitlab artifacts, which reduces amount of data which needs to be " +
+        "downloaded from remote binary mirrors when installing binary " +
+        "packages.")
 
     subparser.add_argument(
         '-o', '--output-file', default=".gitlab-ci.yml",
         help="path to output file to write")
-
-    subparser.add_argument(
-        '-k', '--signing-key', default=None,
-        help="hash of gpg key to use for package signing")
 
     subparser.add_argument(
         '-p', '--print-summary', action='store_true', default=False,
@@ -115,9 +114,9 @@ def populate_buildgroup(job_names, group_name, project, site,
         raise SpackError(msg)
 
 
-def get_job_name(spec, osarch, build_group):
-    return '{0} {1} {2} {3} {4}'.format(
-        spec.name, spec.version, spec.compiler, osarch, build_group)
+def get_job_name(phase, spec, osarch, build_group):
+    return '({0}) {1} {2} {3} {4} {5}'.format(
+        phase, spec.name, spec.version, spec.compiler, osarch, build_group)
 
 
 def get_cdash_build_name(spec, build_group):
@@ -135,6 +134,10 @@ def get_spec_string(spec):
         format_elements.append(' {arch=architecture}')
 
     return spec.format(''.join(format_elements))
+
+
+def format_root_spec(root_spec, main_phase):
+    return str(root_spec)
 
 
 def spec_deps_key_label(s):
@@ -167,7 +170,7 @@ def get_spec_dependencies(specs, deps, spec_labels):
         for entry in specs:
             spec_labels[entry['label']] = {
                 'spec': Spec(entry['spec']),
-                'rootSpec': entry['root_spec'],
+                'rootSpec': Spec(entry['root_spec']),
             }
 
         for entry in dependencies:
@@ -247,14 +250,14 @@ def print_staging_summary(spec_labels, dependencies, stages):
     if not stages:
         return
 
-    tty.msg('Staging summary:')
+    tty.msg('  Staging summary:')
     stage_index = 0
     for stage in stages:
-        tty.msg('  stage {0} ({1} jobs):'.format(stage_index, len(stage)))
+        tty.msg('    stage {0} ({1} jobs):'.format(stage_index, len(stage)))
 
         for job in sorted(stage):
             s = spec_labels[job]['spec']
-            tty.msg('    {0} -> {1}'.format(job, get_spec_string(s)))
+            tty.msg('      {0} -> {1}'.format(job, get_spec_string(s)))
 
         stage_index += 1
 
@@ -379,7 +382,6 @@ def find_matching_config(spec, ci_mappings):
 
 def release_jobs(parser, args):
     env = ev.get_env(args, 'release-jobs', required=True)
-    env.concretize(force=args.force)
 
     # FIXME: What's the difference between one that opens with 'spack'
     # and one that opens with 'env'?  This will only handle the former.
@@ -408,101 +410,123 @@ def release_jobs(parser, args):
     ci_mirrors = yaml_root['mirrors']
     mirror_urls = ci_mirrors.values()
 
-    spec_labels, dependencies, stages = stage_spec_jobs(env.all_specs())
+    staged_phases = {
+        'specs': stage_spec_jobs(env.all_specs()),
+    }
 
-    if not stages:
-        tty.msg('No jobs staged, exiting.')
-        return
+    phases = yaml_root['gitlab-ci']['phases']
+
+    for phase_name in phases:
+        staged_phases[phase_name] = stage_spec_jobs(env.spec_lists[phase_name])
 
     if args.print_summary:
-        print_staging_summary(spec_labels, dependencies, stages)
+        for phase_name in phases:
+            tty.msg('Stages for phase "{0}"'.format(phase_name))
+            phase_stages = staged_phases[phase_name]
+            print_staging_summary(*phase_stages)
 
     all_job_names = []
     output_object = {}
-    job_count = 0
+    job_id = 0
+    stage_id = 0
 
-    stage_names = ['stage-{0}'.format(i) for i in range(len(stages))]
-    stage = 0
+    stage_names = []
 
-    for stage_jobs in stages:
-        stage_name = stage_names[stage]
+    for phase_name in phases:
+        main_phase = True if phase_name == 'specs' else False
+        spec_labels, dependencies, stages = staged_phases[phase_name]
 
-        for spec_label in stage_jobs:
-            release_spec = spec_labels[spec_label]['spec']
-            root_spec = spec_labels[spec_label]['rootSpec']
+        for stage_jobs in stages:
+            stage_name = 'stage-{0}'.format(stage_id)
+            stage_names.append(stage_name)
+            stage_id += 1
 
-            runner_attribs = find_matching_config(release_spec, ci_mappings)
+            for spec_label in stage_jobs:
+                release_spec = spec_labels[spec_label]['spec']
+                root_spec = spec_labels[spec_label]['rootSpec']
 
-            if not runner_attribs:
-                tty.warn('No match found for {0}, skipping it'.format(
-                    release_spec))
-                continue
+                runner_attribs = find_matching_config(root_spec, ci_mappings)
 
-            tags = [tag for tag in runner_attribs['tags']]
+                if not runner_attribs:
+                    tty.warn('No match found for {0}, skipping it'.format(
+                        release_spec))
+                    continue
 
-            variables = {}
-            if 'variables' in runner_attribs:
-                variables.update(runner_attribs['variables'])
+                tags = [tag for tag in runner_attribs['tags']]
 
-            build_image = None
-            if 'image' in runner_attribs:
-                build_image = runner_attribs['image']
+                variables = {}
+                if 'variables' in runner_attribs:
+                    variables.update(runner_attribs['variables'])
 
-            osname = str(release_spec.architecture)
-            job_name = get_job_name(release_spec, osname, build_group)
-            cdash_build_name = get_cdash_build_name(release_spec, build_group)
+                build_image = None
+                if 'image' in runner_attribs:
+                    build_image = runner_attribs['image']
 
-            all_job_names.append(cdash_build_name)
+                osname = str(release_spec.architecture)
+                job_name = get_job_name(phase_name, release_spec, osname, build_group)
+                cdash_build_name = get_cdash_build_name(release_spec, build_group)
 
-            job_scripts = ['./bin/rebuild-package.sh']
+                all_job_names.append(cdash_build_name)
 
-            job_dependencies = []
-            if spec_label in dependencies:
-                job_dependencies = (
-                    [get_job_name(spec_labels[d]['spec'], osname, build_group)
-                        for d in dependencies[spec_label]])
+                job_scripts = ['./bin/rebuild-package.sh']
 
-            job_variables = {
-                'MIRROR_URL': mirror_urls[0],
-                'CDASH_BASE_URL': cdash_url,
-                'CDASH_PROJECT': cdash_project,
-                'CDASH_PROJECT_ENC': cdash_project_enc,
-                'CDASH_BUILD_NAME': cdash_build_name,
-                'DEPENDENCIES': ';'.join(job_dependencies),
-                'ROOT_SPEC': str(root_spec),
-            }
+                related_builds = []      # Used for relating CDash builds
+                if spec_label in dependencies:
+                    related_builds = (
+                        [spec_labels[d]['spec'].name
+                            for d in dependencies[spec_label]])
 
-            if args.signing_key:
-                job_variables['SIGN_KEY_HASH'] = args.signing_key
+                job_variables = {
+                    'SPACK_MIRROR_URL': mirror_urls[0],
+                    'SPACK_CDASH_BASE_URL': cdash_url,
+                    'SPACK_CDASH_PROJECT': cdash_project,
+                    'SPACK_CDASH_PROJECT_ENC': cdash_project_enc,
+                    'SPACK_CDASH_BUILD_NAME': cdash_build_name,
+                    'SPACK_RELATED_BUILDS': ';'.join(related_builds),
+                    'SPACK_ROOT_SPEC': format_root_spec(root_spec, main_phase),
+                    'SPACK_JOB_SPEC_PKG_NAME': release_spec.name,
+                    'SPACK_JOB_SPEC_BUILDGROUP': build_group,
+                    'SPACK_JOB_IN_MAIN_PHASE': main_phase,
+                }
 
-            variables.update(job_variables)
+                variables.update(job_variables)
 
-            job_object = {
-                'stage': stage_name,
-                'variables': variables,
-                'script': job_scripts,
-                'artifacts': {
-                    'paths': [
-                        'local_mirror/build_cache',
-                        'jobs_scratch_dir',
-                        'cdash_report',
-                    ],
+                job_object = {
+                    'stage': stage_name,
+                    'variables': variables,
+                    'script': job_scripts,
+                    'tags': tags,
+                }
+
+                artifact_paths = [
+                    'jobs_scratch_dir',
+                    'cdash_report',
+                ]
+
+                if args.use_artifacts_mirror:
+                    artifact_paths.append('local_mirror/build_cache')
+                    # Here we omit 'dependencies' and allow the default
+                    # behavior, which is to download artifacts from all
+                    # previous stages.
+                else:
+                    # According to gitlab-ci docs, setting 'dependencies' to an
+                    # empty array will skip downloading any artifacts for the
+                    # job
+                    job_object['dependencies'] = []
+
+                job_object['artifacts'] = {
+                    'paths': artifact_paths,
                     'when': 'always',
-                },
-                'dependencies': job_dependencies,
-                'tags': tags,
-            }
+                }
 
-            if build_image:
-                job_object['image'] = build_image
+                if build_image:
+                    job_object['image'] = build_image
 
-            output_object[job_name] = job_object
-            job_count += 1
-
-        stage += 1
+                output_object[job_name] = job_object
+                job_id += 1
 
     tty.msg('{0} build jobs generated in {1} stages'.format(
-        job_count, len(stages)))
+        job_id, stage_id))
 
     # Use "all_job_names" to populate the build group for this set
     if cdash_auth_token:
@@ -529,6 +553,9 @@ def release_jobs(parser, args):
     stage_names.append(final_stage)
 
     output_object['stages'] = stage_names
+
+    import pdb
+    pdb.set_trace()
 
     with open(args.output_file, 'w') as outf:
         outf.write(syaml.dump(output_object))
