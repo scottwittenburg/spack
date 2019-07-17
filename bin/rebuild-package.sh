@@ -37,7 +37,7 @@
 ### SPACK_MIRROR_URL
 ### SPACK_JOB_SPEC_PKG_NAME
 ### SPACK_JOB_SPEC_BUILDGROUP
-### SPACK_JOB_IN_MAIN_PHASE
+### SPACK_COMPILER_ACTION
 ###
 
 shopt -s expand_aliases
@@ -51,8 +51,8 @@ SPEC_DIR="${TEMP_DIR}/specs"
 LOCAL_MIRROR="${CI_PROJECT_DIR}/local_mirror"
 BUILD_CACHE_DIR="${LOCAL_MIRROR}/build_cache"
 SPACK_BIN_DIR="${CI_PROJECT_DIR}/bin"
-CDASH_UPLOAD_URL="${CDASH_BASE_URL}/submit.php?project=${CDASH_PROJECT_ENC}"
-DEP_JOB_RELATEBUILDS_URL="${CDASH_BASE_URL}/api/v1/relateBuilds.php"
+CDASH_UPLOAD_URL="${SPACK_CDASH_BASE_URL}/submit.php?project=${SPACK_CDASH_PROJECT_ENC}"
+DEP_JOB_RELATEBUILDS_URL="${SPACK_CDASH_BASE_URL}/api/v1/relateBuilds.php"
 declare -a JOB_DEPS_PKG_NAMES
 
 export SPACK_ROOT=${CI_PROJECT_DIR}
@@ -178,9 +178,35 @@ gen_full_specs_for_job_and_deps() {
 
 begin_logging
 
-gen_full_specs_for_job_and_deps
+echo "Running job for spec: ${SPACK_CDASH_BUILD_NAME}"
 
-echo "Building package ${CDASH_BUILD_NAME}, ${HASH}, ${MIRROR_URL}"
+# This should create the directory we referred to as GNUPGHOME earlier
+spack gpg list
+
+# Importing the secret key using gpg2 directly should allow to
+# sign and verify both
+set +x
+KEY_IMPORT_RESULT=`echo ${SPACK_SIGNING_KEY} | base64 --decode | gpg2 --import`
+check_error $? "gpg2 --import"
+set -x
+
+spack gpg list --trusted
+spack gpg list --signing
+
+if [ "${SPACK_COMPILER_ACTION}" == "INSTALL_MISSING" ]; then
+    echo "Make sure bootstrapped compiler will be installed"
+    # Configure the binary mirror where, if needed, this jobs compiler
+    # was installed in binary pacakge form, then tell spack to
+    # install_missing_compilers.
+elif [ "${SPACK_COMPILER_ACTION}" == "FIND_ANY" ]; then
+    echo "Just find any available compiler"
+    spack compiler find
+else
+    echo "No compiler action to be taken"
+fi
+
+# Now that we have our compilers set up, we can safely concretize specsgen_full_specs_for_job_and_deps
+gen_full_specs_for_job_and_deps
 
 # Finally, list the compilers spack knows about
 echo "Compiler Configurations:"
@@ -195,22 +221,9 @@ mkdir -p "${BUILD_CACHE_DIR}"
 # to fail.
 JOB_BUILD_CACHE_ENTRY_NAME=`spack -d buildcache get-buildcache-name --spec-yaml "${SPEC_YAML_PATH}"`
 if [[ $? -ne 0 ]]; then
-    echo "ERROR, unable to get buildcache entry name for job ${CI_JOB_NAME} (spec: ${CDASH_BUILD_NAME})"
+    echo "ERROR, unable to get buildcache entry name for job ${CI_JOB_NAME} (spec: ${SPACK_CDASH_BUILD_NAME})"
     exit 1
 fi
-
-# This should create the directory we referred to as GNUPGHOME earlier
-spack gpg list
-
-# Importing the secret key using gpg2 directly should allow to
-# sign and verify both
-set +x
-KEY_IMPORT_RESULT=`echo ${SPACK_SIGNING_KEY} | base64 --decode | gpg2 --import`
-check_error $? "gpg2 --import"
-set -x
-
-spack gpg list --trusted
-spack gpg list --signing
 
 # Whether we have to build the spec or download it pre-built, we expect to find
 # the cdash build id file sitting in this location afterwards.

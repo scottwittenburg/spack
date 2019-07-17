@@ -27,13 +27,6 @@ level = "long"
 
 def setup_parser(subparser):
     subparser.add_argument(
-        '-a', '--use-artifacts-mirror', default=False,
-        action='store_true', help="Maintain local binary mirror within " +
-        "gitlab artifacts, which reduces amount of data which needs to be " +
-        "downloaded from remote binary mirrors when installing binary " +
-        "packages.")
-
-    subparser.add_argument(
         '-o', '--output-file', default=".gitlab-ci.yml",
         help="path to output file to write")
 
@@ -44,6 +37,21 @@ def setup_parser(subparser):
     subparser.add_argument(
         '--cdash-credentials', default=None,
         help="Path to file containing CDash authentication token")
+
+    subparser.add_argument(
+        '--use-artifacts-mirror', default=False,
+        action='store_true', help="Maintain local binary mirror within " +
+        "gitlab artifacts, which reduces amount of data which needs to be " +
+        "downloaded from remote binary mirrors when installing binary " +
+        "packages.")
+
+    subparser.add_argument(
+        '--strip-compilers', default=False,
+        action='store_true', help="In multi-phase pipelines, this option " +
+        "causes compiler information to be stripped from specs and job " +
+        "names in phases other than the main phase.  This allows compiler " +
+        "bootstrapping, for example, to use any available compiler on the " +
+        "CI generation machine.")
 
 
 def _create_buildgroup(opener, headers, url, project, group_name, group_type):
@@ -114,9 +122,17 @@ def populate_buildgroup(job_names, group_name, project, site,
         raise SpackError(msg)
 
 
-def get_job_name(phase, spec, osarch, build_group):
-    return '({0}) {1} {2} {3} {4} {5}'.format(
-        phase, spec.name, spec.version, spec.compiler, osarch, build_group)
+def is_main_phase(phase_name):
+    return True if phase_name == 'specs' else False
+
+
+def get_job_name(phase, strip_compiler, spec, osarch, build_group):
+    if is_main_phase(phase) == False and strip_compiler == True:
+        return '({0}) {1} {2} {3} {4}'.format(
+            phase, spec.name, spec.version, osarch, build_group)
+    else:
+        return '({0}) {1} {2} {3} {4} {5}'.format(
+            phase, spec.name, spec.version, spec.compiler, osarch, build_group)
 
 
 def get_cdash_build_name(spec, build_group):
@@ -136,8 +152,13 @@ def get_spec_string(spec):
     return spec.format(''.join(format_elements))
 
 
-def format_root_spec(root_spec, main_phase):
-    return str(root_spec)
+def format_root_spec(spec, main_phase, strip_compiler):
+    if main_phase == False and strip_compiler == True:
+        return '{0}@{1} arch={2}'.format(
+            spec.name, spec.version, spec.architecture)
+    else:
+        return '{0}@{1}%{2} arch={3}'.format(
+            spec.name, spec.version, spec.compiler, spec.architecture)
 
 
 def spec_deps_key_label(s):
@@ -414,7 +435,10 @@ def release_jobs(parser, args):
         'specs': stage_spec_jobs(env.all_specs()),
     }
 
-    phases = yaml_root['gitlab-ci']['phases']
+    if 'phases' in yaml_root['gitlab-ci']:
+        phases = yaml_root['gitlab-ci']['phases']
+    else:
+        phases = ['specs']
 
     for phase_name in phases:
         staged_phases[phase_name] = stage_spec_jobs(env.spec_lists[phase_name])
@@ -433,7 +457,7 @@ def release_jobs(parser, args):
     stage_names = []
 
     for phase_name in phases:
-        main_phase = True if phase_name == 'specs' else False
+        main_phase = is_main_phase(phase_name)
         spec_labels, dependencies, stages = staged_phases[phase_name]
 
         for stage_jobs in stages:
@@ -463,7 +487,8 @@ def release_jobs(parser, args):
                     build_image = runner_attribs['image']
 
                 osname = str(release_spec.architecture)
-                job_name = get_job_name(phase_name, release_spec, osname, build_group)
+                job_name = get_job_name(phase_name, args.strip_compilers,
+                                        release_spec, osname, build_group)
                 cdash_build_name = get_cdash_build_name(release_spec, build_group)
 
                 all_job_names.append(cdash_build_name)
@@ -476,6 +501,12 @@ def release_jobs(parser, args):
                         [spec_labels[d]['spec'].name
                             for d in dependencies[spec_label]])
 
+                compiler_action = 'NONE'
+                if len(phases) > 1:
+                    compiler_action = 'FIND_ANY'
+                    if is_main_phase(phase_name):
+                        compiler_action = 'INSTALL_MISSING'
+
                 job_variables = {
                     'SPACK_MIRROR_URL': mirror_urls[0],
                     'SPACK_CDASH_BASE_URL': cdash_url,
@@ -483,10 +514,11 @@ def release_jobs(parser, args):
                     'SPACK_CDASH_PROJECT_ENC': cdash_project_enc,
                     'SPACK_CDASH_BUILD_NAME': cdash_build_name,
                     'SPACK_RELATED_BUILDS': ';'.join(related_builds),
-                    'SPACK_ROOT_SPEC': format_root_spec(root_spec, main_phase),
+                    'SPACK_ROOT_SPEC': format_root_spec(
+                        root_spec, main_phase, args.strip_compilers),
                     'SPACK_JOB_SPEC_PKG_NAME': release_spec.name,
                     'SPACK_JOB_SPEC_BUILDGROUP': build_group,
-                    'SPACK_JOB_IN_MAIN_PHASE': main_phase,
+                    'SPACK_COMPILER_ACTION': compiler_action,
                 }
 
                 variables.update(job_variables)
@@ -553,9 +585,6 @@ def release_jobs(parser, args):
     stage_names.append(final_stage)
 
     output_object['stages'] = stage_names
-
-    import pdb
-    pdb.set_trace()
 
     with open(args.output_file, 'w') as outf:
         outf.write(syaml.dump(output_object))
