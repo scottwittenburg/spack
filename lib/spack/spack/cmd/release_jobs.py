@@ -45,14 +45,6 @@ def setup_parser(subparser):
         "downloaded from remote binary mirrors when installing binary " +
         "packages.")
 
-    subparser.add_argument(
-        '--strip-compilers', default=False,
-        action='store_true', help="In multi-phase pipelines, this option " +
-        "causes compiler information to be stripped from specs and job " +
-        "names in phases other than the main phase.  This allows compiler " +
-        "bootstrapping, for example, to use any available compiler on the " +
-        "CI generation machine.")
-
 
 def _create_buildgroup(opener, headers, url, project, group_name, group_type):
     data = {
@@ -435,16 +427,37 @@ def release_jobs(parser, args):
         'specs': stage_spec_jobs(env.all_specs()),
     }
 
-    if 'phases' in yaml_root['gitlab-ci']:
-        phases = yaml_root['gitlab-ci']['phases']
-    else:
-        phases = ['specs']
 
-    for phase_name in phases:
+    if 'phases' in yaml_root['gitlab-ci']:
+        phases = []
+        for phase in yaml_root['gitlab-ci']['phases']:
+            try:
+                phase_name = phase.get('name')
+                strip_compilers = phase.get('strip-compilers')
+                enable_cdash_reporting = phase.get('cdash-reporting')
+            except AttributeError:
+                phase_name = phase
+                strip_compilers = False
+                enable_cdash_reporting = True
+            phases.append({
+                'name': phase_name,
+                'strip-compilers': strip_compilers,
+                'cdash-reporting': enable_cdash_reporting,
+            })
+    else:
+        phases = [{
+            'name': 'specs',
+            'strip-compilers': False,
+            'cdash-reporting': True,
+        }]
+
+    for phase in phases:
+        phase_name = phase['name']
         staged_phases[phase_name] = stage_spec_jobs(env.spec_lists[phase_name])
 
     if args.print_summary:
-        for phase_name in phases:
+        for phasee in phases:
+            phase_name = phase['name']
             tty.msg('Stages for phase "{0}"'.format(phase_name))
             phase_stages = staged_phases[phase_name]
             print_staging_summary(*phase_stages)
@@ -456,7 +469,11 @@ def release_jobs(parser, args):
 
     stage_names = []
 
-    for phase_name in phases:
+    for phase in phases:
+        phase_name = phase['name']
+        strip_compilers = phase['strip-compilers']
+        enable_cdash_reporting = phase['cdash-reporting']
+
         main_phase = is_main_phase(phase_name)
         spec_labels, dependencies, stages = staged_phases[phase_name]
 
@@ -487,7 +504,7 @@ def release_jobs(parser, args):
                     build_image = runner_attribs['image']
 
                 osname = str(release_spec.architecture)
-                job_name = get_job_name(phase_name, args.strip_compilers,
+                job_name = get_job_name(phase_name, strip_compilers,
                                         release_spec, osname, build_group)
                 cdash_build_name = get_cdash_build_name(release_spec, build_group)
 
@@ -515,7 +532,7 @@ def release_jobs(parser, args):
                     'SPACK_CDASH_BUILD_NAME': cdash_build_name,
                     'SPACK_RELATED_BUILDS': ';'.join(related_builds),
                     'SPACK_ROOT_SPEC': format_root_spec(
-                        root_spec, main_phase, args.strip_compilers),
+                        root_spec, main_phase, strip_compilers),
                     'SPACK_JOB_SPEC_PKG_NAME': release_spec.name,
                     'SPACK_JOB_SPEC_BUILDGROUP': build_group,
                     'SPACK_COMPILER_ACTION': compiler_action,

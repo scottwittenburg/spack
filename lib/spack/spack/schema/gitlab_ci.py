@@ -21,7 +21,28 @@ properties = {
                 'type': 'array',
                 'default': ['specs'],
                 'items': {
-                    'type': 'string',
+                    'anyOf': [
+                        {
+                            'type': 'string',
+                        },{
+                            'type': 'object',
+                            'additionalProperties': False,
+                            'required': ['name'],
+                            'properties': {
+                                'name': {
+                                    'type': 'string',
+                                },
+                                'strip-compilers': {
+                                    'type': 'boolean',
+                                    'default': False,
+                                },
+                                'cdash-reporting': {
+                                    'type': 'boolean',
+                                    'default': True,
+                                },
+                            },
+                        },
+                    ],
                 },
             },
             'mappings': {
