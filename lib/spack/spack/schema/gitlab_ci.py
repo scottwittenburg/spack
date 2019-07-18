@@ -17,6 +17,10 @@ properties = {
         'additionalProperties': False,
         'required': ['mappings'],
         'patternProperties': {
+            'use-artifacts-mirror': {
+                'type': 'boolean',
+                'default': False,
+            },
             'phases': {
                 'type': 'array',
                 'default': ['specs'],

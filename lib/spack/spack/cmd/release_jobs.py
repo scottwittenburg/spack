@@ -38,13 +38,6 @@ def setup_parser(subparser):
         '--cdash-credentials', default=None,
         help="Path to file containing CDash authentication token")
 
-    subparser.add_argument(
-        '--use-artifacts-mirror', default=False,
-        action='store_true', help="Maintain local binary mirror within " +
-        "gitlab artifacts, which reduces amount of data which needs to be " +
-        "downloaded from remote binary mirrors when installing binary " +
-        "packages.")
-
 
 def _create_buildgroup(opener, headers, url, project, group_name, group_type):
     data = {
@@ -427,6 +420,9 @@ def release_jobs(parser, args):
         'specs': stage_spec_jobs(env.all_specs()),
     }
 
+    use_artifacts_mirror = False
+    if 'use-artifacts-mirror' in yaml_root['gitlab-ci']:
+        use_artifacts_mirror = yaml_root['gitlab-ci']['use-artifacts-mirror']
 
     if 'phases' in yaml_root['gitlab-ci']:
         phases = []
@@ -506,17 +502,8 @@ def release_jobs(parser, args):
                 osname = str(release_spec.architecture)
                 job_name = get_job_name(phase_name, strip_compilers,
                                         release_spec, osname, build_group)
-                cdash_build_name = get_cdash_build_name(release_spec, build_group)
-
-                all_job_names.append(cdash_build_name)
 
                 job_scripts = ['./bin/rebuild-package.sh']
-
-                related_builds = []      # Used for relating CDash builds
-                if spec_label in dependencies:
-                    related_builds = (
-                        [spec_labels[d]['spec'].name
-                            for d in dependencies[spec_label]])
 
                 compiler_action = 'NONE'
                 if len(phases) > 1:
@@ -524,21 +511,35 @@ def release_jobs(parser, args):
                     if is_main_phase(phase_name):
                         compiler_action = 'INSTALL_MISSING'
 
-                job_variables = {
+                job_vars = {
                     'SPACK_MIRROR_URL': mirror_urls[0],
-                    'SPACK_CDASH_BASE_URL': cdash_url,
-                    'SPACK_CDASH_PROJECT': cdash_project,
-                    'SPACK_CDASH_PROJECT_ENC': cdash_project_enc,
-                    'SPACK_CDASH_BUILD_NAME': cdash_build_name,
-                    'SPACK_RELATED_BUILDS': ';'.join(related_builds),
                     'SPACK_ROOT_SPEC': format_root_spec(
                         root_spec, main_phase, strip_compilers),
                     'SPACK_JOB_SPEC_PKG_NAME': release_spec.name,
-                    'SPACK_JOB_SPEC_BUILDGROUP': build_group,
                     'SPACK_COMPILER_ACTION': compiler_action,
                 }
 
-                variables.update(job_variables)
+                if enable_cdash_reporting:
+                    cdash_build_name = get_cdash_build_name(
+                        release_spec, build_group)
+                    all_job_names.append(cdash_build_name)
+
+                    related_builds = []      # Used for relating CDash builds
+                    if spec_label in dependencies:
+                        related_builds = (
+                            [spec_labels[d]['spec'].name
+                                for d in dependencies[spec_label]])
+
+                    job_vars['SPACK_CDASH_BASE_URL'] = cdash_url
+                    job_vars['SPACK_CDASH_PROJECT'] = cdash_project
+                    job_vars['SPACK_CDASH_PROJECT_ENC'] = cdash_project_enc
+                    job_vars['SPACK_CDASH_BUILD_NAME'] = cdash_build_name
+                    job_vars['SPACK_RELATED_BUILDS'] = ';'.join(related_builds)
+                    job_vars['SPACK_JOB_SPEC_BUILDGROUP'] = build_group
+
+                job_vars['SPACK_ENABLE_CDASH'] = enable_cdash_reporting
+
+                variables.update(job_vars)
 
                 job_object = {
                     'stage': stage_name,
@@ -552,7 +553,7 @@ def release_jobs(parser, args):
                     'cdash_report',
                 ]
 
-                if args.use_artifacts_mirror:
+                if use_artifacts_mirror:
                     artifact_paths.append('local_mirror/build_cache')
                     # Here we omit 'dependencies' and allow the default
                     # behavior, which is to download artifacts from all
