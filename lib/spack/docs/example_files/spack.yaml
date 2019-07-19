@@ -116,13 +116,9 @@ spack:
         target: x86_64
 
   gitlab-ci:
-    use-artifacts-mirror: true
-
-    bootstrap: # like 'phases', but w/out specs and w/out cdash reporting
+    bootstrap:
       - name: compiler-pkgs
         compiler-agnostic: true
-      - pkgs2
-
     mappings:
       - spack-cloud-ubuntu:
         match:

@@ -398,61 +398,54 @@ def release_jobs(parser, args):
 
     ci_mappings = yaml_root['gitlab-ci']['mappings']
 
-    ci_cdash = yaml_root['cdash']
-    build_group = ci_cdash['build-group']
-    cdash_url = ci_cdash['url']
-    cdash_project = ci_cdash['project']
-    proj_enc = urlencode({'project': cdash_project})
-    eq_idx = proj_enc.find('=') + 1
-    cdash_project_enc = proj_enc[eq_idx:]
-    cdash_site = ci_cdash['site']
+    enable_cdash_reporting = False
     cdash_auth_token = None
 
-    if args.cdash_credentials:
-        with open(args.cdash_credentials) as fd:
-            cdash_auth_token = fd.read()
-            cdash_auth_token = cdash_auth_token.strip()
+    if 'cdash' in yaml_root:
+        enable_cdash_reporting = True
+        ci_cdash = yaml_root['cdash']
+        build_group = ci_cdash['build-group']
+        cdash_url = ci_cdash['url']
+        cdash_project = ci_cdash['project']
+        proj_enc = urlencode({'project': cdash_project})
+        eq_idx = proj_enc.find('=') + 1
+        cdash_project_enc = proj_enc[eq_idx:]
+        cdash_site = ci_cdash['site']
+
+        if args.cdash_credentials:
+            with open(args.cdash_credentials) as fd:
+                cdash_auth_token = fd.read()
+                cdash_auth_token = cdash_auth_token.strip()
 
     ci_mirrors = yaml_root['mirrors']
     mirror_urls = ci_mirrors.values()
 
-    staged_phases = {
-        'specs': stage_spec_jobs(env.all_specs()),
-    }
-
-    use_artifacts_mirror = False
-    if 'use-artifacts-mirror' in yaml_root['gitlab-ci']:
-        use_artifacts_mirror = yaml_root['gitlab-ci']['use-artifacts-mirror']
-
-    if 'phases' in yaml_root['gitlab-ci']:
-        phases = []
-        for phase in yaml_root['gitlab-ci']['phases']:
+    phases = []
+    if 'bootstrap' in yaml_root['gitlab-ci']:
+        for phase in yaml_root['gitlab-ci']['bootstrap']:
             try:
                 phase_name = phase.get('name')
-                strip_compilers = phase.get('strip-compilers')
-                enable_cdash_reporting = phase.get('cdash-reporting')
+                strip_compilers = phase.get('compiler-agnostic')
             except AttributeError:
                 phase_name = phase
                 strip_compilers = False
-                enable_cdash_reporting = True
             phases.append({
                 'name': phase_name,
                 'strip-compilers': strip_compilers,
-                'cdash-reporting': enable_cdash_reporting,
             })
-    else:
-        phases = [{
-            'name': 'specs',
-            'strip-compilers': False,
-            'cdash-reporting': True,
-        }]
 
+    phases.append({
+        'name': 'specs',
+        'strip-compilers': False,
+    })
+
+    staged_phases = {}
     for phase in phases:
         phase_name = phase['name']
         staged_phases[phase_name] = stage_spec_jobs(env.spec_lists[phase_name])
 
     if args.print_summary:
-        for phasee in phases:
+        for phase in phases:
             phase_name = phase['name']
             tty.msg('Stages for phase "{0}"'.format(phase_name))
             phase_stages = staged_phases[phase_name]
@@ -468,7 +461,6 @@ def release_jobs(parser, args):
     for phase in phases:
         phase_name = phase['name']
         strip_compilers = phase['strip-compilers']
-        enable_cdash_reporting = phase['cdash-reporting']
 
         main_phase = is_main_phase(phase_name)
         spec_labels, dependencies, stages = staged_phases[phase_name]
@@ -519,6 +511,19 @@ def release_jobs(parser, args):
                     'SPACK_COMPILER_ACTION': compiler_action,
                 }
 
+                job_dependencies = []
+                if spec_label in dependencies:
+                    job_dependencies = (
+                        [get_job_name(phase_name, strip_compilers,
+                                      spec_labels[dep_label]['spec'],
+                                      osname, build_group)
+                            for dep_label in dependencies[spec_label]])
+
+                # FIXME: If this spec will be compiled with a bootstrapped
+                # FIXME: compiler, then we need to add to the dependencies
+                # FIXME: array the name of the job corresponding to that
+                # FIXME: compiler.
+
                 if enable_cdash_reporting:
                     cdash_build_name = get_cdash_build_name(
                         release_spec, build_group)
@@ -546,27 +551,15 @@ def release_jobs(parser, args):
                     'variables': variables,
                     'script': job_scripts,
                     'tags': tags,
-                }
-
-                artifact_paths = [
-                    'jobs_scratch_dir',
-                    'cdash_report',
-                ]
-
-                if use_artifacts_mirror:
-                    artifact_paths.append('local_mirror/build_cache')
-                    # Here we omit 'dependencies' and allow the default
-                    # behavior, which is to download artifacts from all
-                    # previous stages.
-                else:
-                    # According to gitlab-ci docs, setting 'dependencies' to an
-                    # empty array will skip downloading any artifacts for the
-                    # job
-                    job_object['dependencies'] = []
-
-                job_object['artifacts'] = {
-                    'paths': artifact_paths,
-                    'when': 'always',
+                    'artifacts': {
+                        'paths': [
+                            'jobs_scratch_dir',
+                            'cdash_report',
+                            'local_mirror/build_cache',
+                        ],
+                        'when': 'always',
+                    },
+                    'dependencies': job_dependencies,
                 }
 
                 if build_image:

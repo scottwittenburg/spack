@@ -17,13 +17,8 @@ properties = {
         'additionalProperties': False,
         'required': ['mappings'],
         'patternProperties': {
-            'use-artifacts-mirror': {
-                'type': 'boolean',
-                'default': False,
-            },
-            'phases': {
+            'bootstrap': {
                 'type': 'array',
-                'default': ['specs'],
                 'items': {
                     'anyOf': [
                         {
@@ -36,13 +31,9 @@ properties = {
                                 'name': {
                                     'type': 'string',
                                 },
-                                'strip-compilers': {
+                                'compiler-agnostic': {
                                     'type': 'boolean',
                                     'default': False,
-                                },
-                                'cdash-reporting': {
-                                    'type': 'boolean',
-                                    'default': True,
                                 },
                             },
                         },
