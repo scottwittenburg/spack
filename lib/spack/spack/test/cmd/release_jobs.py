@@ -5,6 +5,7 @@
 
 import os
 import pytest
+import sys
 
 import spack
 import spack.environment as ev
@@ -130,4 +131,4 @@ spack:
         with open(outputfile) as f:
             contents = f.read()
             assert('archive-files' in contents)
-            assert('stages: [stage-0]' in contents)
+            assert('stages: [stage-0' in contents)

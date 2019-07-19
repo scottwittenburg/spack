@@ -28,7 +28,7 @@ properties = {
                     'anyOf': [
                         {
                             'type': 'string',
-                        },{
+                        }, {
                             'type': 'object',
                             'additionalProperties': False,
                             'required': ['name'],

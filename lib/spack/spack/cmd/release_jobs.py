@@ -112,7 +112,7 @@ def is_main_phase(phase_name):
 
 
 def get_job_name(phase, strip_compiler, spec, osarch, build_group):
-    if is_main_phase(phase) == False and strip_compiler == True:
+    if is_main_phase(phase) is False and strip_compiler is True:
         return '({0}) {1} {2} {3} {4}'.format(
             phase, spec.name, spec.version, osarch, build_group)
     else:
@@ -138,7 +138,7 @@ def get_spec_string(spec):
 
 
 def format_root_spec(spec, main_phase, strip_compiler):
-    if main_phase == False and strip_compiler == True:
+    if main_phase is False and strip_compiler is True:
         return '{0}@{1} arch={2}'.format(
             spec.name, spec.version, spec.architecture)
     else:
@@ -595,7 +595,7 @@ def release_jobs(parser, args):
         'variables': {
             'MIRROR_URL': mirror_urls[0],
         },
-        'image': 'scottwittenburg/spack_ci_generator_alpine',  # just needs some basic python image
+        'image': 'scottwittenburg/spack_ci_generator_alpine',
         'script': './bin/rebuild-index.sh',
         'tags': ['spack-k8s']    # may want a runner to handle this
     }
