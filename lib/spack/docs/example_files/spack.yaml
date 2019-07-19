@@ -116,8 +116,11 @@ spack:
         target: x86_64
 
   gitlab-ci:
+    use-artifacts-mirror: true
     phases:
-      - bootstrap
+      - name: bootstrap
+        strip-compilers: true
+        cdash-reporting: false
       - specs
     mappings:
       - spack-cloud-ubuntu:
