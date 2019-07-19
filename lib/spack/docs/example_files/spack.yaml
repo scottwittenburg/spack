@@ -1,6 +1,6 @@
 spack:
   definitions:
-  - bootstrap:
+  - compiler-pkgs:
     - 'llvm+clang@6.0.1 os=centos7'
     - 'gcc@6.5.0 os=centos7'
     - 'llvm+clang@6.0.1 os=ubuntu18.04'
@@ -117,11 +117,12 @@ spack:
 
   gitlab-ci:
     use-artifacts-mirror: true
-    phases:
-      - name: bootstrap
-        strip-compilers: true
-        cdash-reporting: false
-      - specs
+
+    bootstrap: # like 'phases', but w/out specs and w/out cdash reporting
+      - name: compiler-pkgs
+        compiler-agnostic: true
+      - pkgs2
+
     mappings:
       - spack-cloud-ubuntu:
         match:
