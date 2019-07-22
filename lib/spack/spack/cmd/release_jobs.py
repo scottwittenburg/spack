@@ -3,7 +3,9 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
+import base64
 import json
+import zlib
 
 from jsonschema import validate, ValidationError
 from six import iteritems
@@ -14,6 +16,7 @@ from six.moves.urllib.request import build_opener, HTTPHandler, Request
 import llnl.util.tty as tty
 
 import spack.environment as ev
+import spack.compilers as compilers
 from spack.dependency import all_deptypes
 from spack.error import SpackError
 from spack.spec import Spec
@@ -112,12 +115,48 @@ def is_main_phase(phase_name):
 
 
 def get_job_name(phase, strip_compiler, spec, osarch, build_group):
-    if is_main_phase(phase) is False and strip_compiler is True:
-        return '({0}) {1} {2} {3} {4}'.format(
-            phase, spec.name, spec.version, osarch, build_group)
-    else:
-        return '({0}) {1} {2} {3} {4} {5}'.format(
-            phase, spec.name, spec.version, spec.compiler, osarch, build_group)
+    item_idx = 0
+    format_str = ''
+    format_args = []
+
+    if phase:
+        format_str += '({' + str(item_idx) + '})'
+        format_args.append(phase)
+        item_idx += 1
+
+    format_str += ' {' + str(item_idx) + '}'
+    format_args.append(spec.name)
+    item_idx += 1
+
+    format_str += ' {' + str(item_idx) + '}'
+    format_args.append(spec.version)
+    item_idx += 1
+
+    if is_main_phase(phase) is True or strip_compiler is False:
+        format_str += ' {' + str(item_idx) + '}'
+        format_args.append(spec.compiler)
+        item_idx += 1
+
+    format_str += ' {' + str(item_idx) + '}'
+    format_args.append(osarch)
+    item_idx += 1
+
+    if build_group:
+        format_str += ' {' + str(item_idx) + '}'
+        format_args.append(build_group)
+        item_idx += 1
+
+    # import pdb
+    # pdb.set_trace()
+
+    return format_str.format(*format_args)
+
+    # if is_main_phase(phase) is False and strip_compiler is True:
+    #     return '({0}) {1} {2} {3} {4}'.format(
+    #         phase, spec.name, spec.version, osarch, build_group)
+    # else:
+    #     return '({0}) {1} {2} {3} {4} {5}'.format(
+    #         phase, spec.name, spec.version, spec.compiler, osarch, build_group)
 
 
 def get_cdash_build_name(spec, build_group):
@@ -142,8 +181,10 @@ def format_root_spec(spec, main_phase, strip_compiler):
         return '{0}@{1} arch={2}'.format(
             spec.name, spec.version, spec.architecture)
     else:
-        return '{0}@{1}%{2} arch={3}'.format(
-            spec.name, spec.version, spec.compiler, spec.architecture)
+        spec_yaml = spec.to_yaml(all_deps=True).encode('utf-8')
+        return str(base64.b64encode(zlib.compress(spec_yaml)).decode('utf-8'))
+        # return '{0}@{1}%{2} arch={3}'.format(
+        #     spec.name, spec.version, spec.compiler, spec.architecture)
 
 
 def spec_deps_key_label(s):
@@ -398,6 +439,7 @@ def release_jobs(parser, args):
 
     ci_mappings = yaml_root['gitlab-ci']['mappings']
 
+    build_group = None
     enable_cdash_reporting = False
     cdash_auth_token = None
 
@@ -418,8 +460,9 @@ def release_jobs(parser, args):
                 cdash_auth_token = cdash_auth_token.strip()
 
     ci_mirrors = yaml_root['mirrors']
-    mirror_urls = ci_mirrors.values()
+    mirror_urls = [url for url in ci_mirrors.values()]
 
+    bootstrap_specs = []
     phases = []
     if 'bootstrap' in yaml_root['gitlab-ci']:
         for phase in yaml_root['gitlab-ci']['bootstrap']:
@@ -433,6 +476,13 @@ def release_jobs(parser, args):
                 'name': phase_name,
                 'strip-compilers': strip_compilers,
             })
+
+            for bs in env.spec_lists[phase_name]:
+                bootstrap_specs.append({
+                    'spec': bs,
+                    'phase-name': phase_name,
+                    'strip-compilers': strip_compilers,
+                })
 
     phases.append({
         'name': 'specs',
@@ -519,10 +569,26 @@ def release_jobs(parser, args):
                                       osname, build_group)
                             for dep_label in dependencies[spec_label]])
 
-                # FIXME: If this spec will be compiled with a bootstrapped
-                # FIXME: compiler, then we need to add to the dependencies
-                # FIXME: array the name of the job corresponding to that
-                # FIXME: compiler.
+                # This next section helps gitlab make sure the right
+                # bootstrapped compiler exists in the artifacts buildcache by
+                # creating an artificial dependency between this spec and its
+                # compiler.  So, if we are in the main phase, and if the
+                # compiler we are supposed to use is listed in any of the
+                # bootstrap spec lists, then we will add one more dependency to
+                # "job_dependencies" (that compiler).
+                if is_main_phase(phase_name):
+                    compiler_pkg_spec = compilers.pkg_spec_for_compiler(
+                        release_spec.compiler)
+                    for bs in bootstrap_specs:
+                        bs_arch = bs['spec'].architecture
+                        if (bs['spec'].satisfies(compiler_pkg_spec) and
+                            bs_arch == release_spec.architecture):
+                            c_job_name = get_job_name(bs['phase-name'],
+                                                      bs['strip-compilers'],
+                                                      bs['spec'],
+                                                      str(bs_arch),
+                                                      build_group)
+                            job_dependencies.append(c_job_name)
 
                 if enable_cdash_reporting:
                     cdash_build_name = get_cdash_build_name(
@@ -572,7 +638,7 @@ def release_jobs(parser, args):
         job_id, stage_id))
 
     # Use "all_job_names" to populate the build group for this set
-    if cdash_auth_token:
+    if enable_cdash_reporting and cdash_auth_token:
         try:
             populate_buildgroup(all_job_names, build_group, cdash_project,
                                 cdash_site, cdash_auth_token, cdash_url)

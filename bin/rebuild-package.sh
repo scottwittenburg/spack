@@ -190,7 +190,24 @@ gen_full_specs_for_job_and_deps() {
         done
     fi
 
-    spack -d buildcache save-yaml --specs "${spec_names_to_save}" --root-spec "${SPACK_ROOT_SPEC}" --yaml-dir "${SPEC_DIR}"
+    if [ "${SPACK_COMPILER_ACTION}" == "FIND_ANY" ]; then
+        # This corresponds to a bootstrapping phase where we need to
+        # rely on any available compiler to build the package (i.e. the
+        # compiler needed to be stripped from the spec), and thus we need
+        # to concretize the root spec again.
+        spack -d buildcache save-yaml --specs "${spec_names_to_save}" --root-spec "${SPACK_ROOT_SPEC}" --yaml-dir "${SPEC_DIR}"
+    else
+        # in this case, either we're relying on Spack to install missing compiler
+        # bootstrapped in a previous phase, or else we only had one phase (like a
+        # site which already knows what compilers are available on it's runners),
+        # so we don't want to concretize that root spec again.
+        tmp_dir=$(mktemp -d)
+        TMP_YAML_PATH="${tmp_dir}/root.yaml"
+        ROOT_SPEC_YAML=$(spack python -c "import base64 ; import zlib ; print(str(zlib.decompress(base64.b64decode('${SPACK_ROOT_SPEC}')).decode('utf-8')))")
+        echo "${ROOT_SPEC_YAML}" > "${TMP_YAML_PATH}"
+        spack -d buildcache save-yaml --specs "${spec_names_to_save}" --root-spec-yaml "${TMP_YAML_PATH}" --yaml-dir "${SPEC_DIR}"
+        rm -rf ${tmp_dir}
+    fi
 }
 
 begin_logging
@@ -210,9 +227,19 @@ set -x
 spack gpg list --trusted
 spack gpg list --signing
 
+# To have spack install missing compilers, we need to add a custom
+# configuration scope, then we pass that to the package installation
+# command
+CUSTOM_CONFIG_SCOPE=""
+
 if [ "${SPACK_COMPILER_ACTION}" == "INSTALL_MISSING" ]; then
     echo "Make sure bootstrapped compiler will be installed"
-    # TODO:
+    custom_config_file_path="${TEMP_DIR}/custom_config.yaml"
+      cat <<CONFIG_STUFF > "${custom_config_file_path}"
+config:
+  install_missing_compilers: true
+CONFIG_STUFF
+    CUSTOM_CONFIG_SCOPE="-C ${custom_config_file_path}"
     # Configure the binary mirror where, if needed, this jobs compiler
     # was installed in binary pacakge form, then tell spack to
     # install_missing_compilers.
@@ -227,7 +254,7 @@ fi
 echo "Compiler Configurations:"
 spack config get compilers
 
-# Now that we have our compilers set up, we can safely concretize specsgen_full_specs_for_job_and_deps
+# Write full-deps yamls for this job spec and its dependencies
 gen_full_specs_for_job_and_deps
 
 # Make the build_cache directory if it doesn't exist
@@ -262,7 +289,7 @@ if [[ $? -ne 0 ]]; then
 
         # Install package, using the buildcache from the local mirror to
         # satisfy dependencies.
-        BUILD_ID_LINE=`spack -d -k -v install --keep-stage --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${CDASH_BUILD_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "${SPACK_JOB_SPEC_BUILDGROUP}" -f "${SPEC_YAML_PATH}" | grep "buildSummary\\.php"`
+        BUILD_ID_LINE=`spack -d -k -v "${CUSTOM_CONFIG_SCOPE}" install --keep-stage --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${CDASH_BUILD_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "${SPACK_JOB_SPEC_BUILDGROUP}" -f "${SPEC_YAML_PATH}" | grep "buildSummary\\.php"`
         check_error $? "spack install"
 
         # By parsing the output of the "spack install" command, we can get the
@@ -272,7 +299,7 @@ if [[ $? -ne 0 ]]; then
         # Write the .cdashid file to the buildcache as well
         echo "${JOB_CDASH_ID}" >> ${JOB_CDASH_ID_FILE}
     else
-        spack -d -k -v install --keep-stage -f "${SPEC_YAML_PATH}"
+        spack -d -k -v "${CUSTOM_CONFIG_SCOPE}" install --keep-stage -f "${SPEC_YAML_PATH}"
     fi
 
     # Copy some log files into an artifact location, once we have a way

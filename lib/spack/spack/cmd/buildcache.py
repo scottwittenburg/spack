@@ -179,6 +179,9 @@ def setup_parser(subparser):
         '-r', '--root-spec', default=None,
         help='Root spec of dependent spec')
     saveyaml.add_argument(
+        '-y', '--root-spec-yaml', default=None,
+        help='Path to yaml file containing root spec of dependent spec')
+    saveyaml.add_argument(
         '-s', '--specs', default=None,
         help='List of dependent specs for which saved yaml is desired')
     saveyaml.add_argument(
@@ -526,7 +529,7 @@ def save_spec_yamls(args):
     successful.  If any errors or exceptions are encountered, or if expected
     command-line arguments are not provided, then the exit code will be
     non-zero."""
-    if not args.root_spec:
+    if not args.root_spec and not args.root_spec_yaml:
         tty.msg('No root spec provided, exiting.')
         sys.exit(1)
 
@@ -538,9 +541,13 @@ def save_spec_yamls(args):
         tty.msg('No yaml directory provided, exiting.')
         sys.exit(1)
 
-    root_spec = Spec(args.root_spec)
-    root_spec.concretize()
-    root_spec_as_yaml = root_spec.to_yaml(all_deps=True)
+    if args.root_spec_yaml:
+        with open(args.root_spec_yaml) as fd:
+            root_spec_as_yaml = fd.read()
+    else:
+        root_spec = Spec(args.root_spec)
+        root_spec.concretize()
+        root_spec_as_yaml = root_spec.to_yaml(all_deps=True)
 
     save_dependency_spec_yamls(
         root_spec_as_yaml, args.yaml_dir, args.specs.split())
