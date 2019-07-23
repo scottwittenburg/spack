@@ -23,19 +23,20 @@
 ### CI_PROJECT_DIR
 ### CI_JOB_NAME
 ###
-### These three must be set up in the variables section of gitlab:
+### The following must be set up in the variables section of gitlab:
 ###
 ### AWS_ACCESS_KEY_ID
 ### AWS_SECRET_ACCESS_KEY
 ### SPACK_SIGNING_KEY
+###
+### SPACK_S3_UPLOAD_MIRROR_URL         // only required in the short term for the cloud case
 ###
 ### The following variabes are defined by the ci generation process and are
 ### required:
 ###
 ### SPACK_ENABLE_CDASH
 ### SPACK_ROOT_SPEC
-### SPACK_DEPENDENCY_FETCH_MIRROR_URL
-### SPACK_BINARY_PUSH_MIRROR_URL
+### SPACK_MIRROR_URL
 ### SPACK_JOB_SPEC_PKG_NAME
 ### SPACK_COMPILER_ACTION
 ###
@@ -48,8 +49,6 @@
 ### SPACK_CDASH_BUILD_NAME
 ### SPACK_RELATED_BUILDS
 ### SPACK_JOB_SPEC_BUILDGROUP
-###
-### SPACK_S3_UPLOAD_MIRROR_URL
 ###
 
 shopt -s expand_aliases
@@ -278,7 +277,7 @@ fi
 
 # Finally, we can check the spec we have been tasked with build against
 # the built binary on the remote mirror to see if it needs to be rebuilt
-spack -d buildcache check --spec-yaml "${SPEC_YAML_PATH}" --mirror-url "${MIRROR_URL}" --rebuild-on-error
+spack -d buildcache check --spec-yaml "${SPEC_YAML_PATH}" --mirror-url "${SPACK_MIRROR_URL}" --rebuild-on-error
 
 if [[ $? -ne 0 ]]; then
     # Configure mirror
@@ -321,12 +320,14 @@ if [[ $? -ne 0 ]]; then
     if [ ! -z "${SPACK_S3_UPLOAD_MIRROR_URL}" ] ; then
         spack -d upload-s3 spec --base-dir "${LOCAL_MIRROR}" --spec-yaml "${SPEC_YAML_PATH}" --endpoint-url "${SPACK_S3_UPLOAD_MIRROR_URL}"
         check_error $? "spack upload-s3 spec"
+    else
+        spack -d buildcache copy --base-dir "${LOCAL_MIRROR}" --spec-yaml "${SPEC_YAML_PATH}" --destination-url "${SPACK_MIRROR_URL}"
     fi
 else
     echo "spec ${CI_JOB_NAME} is already up to date on remote mirror, downloading it"
 
     # Configure remote mirror so we can download buildcache entry
-    spack mirror add remote_binary_mirror ${MIRROR_URL}
+    spack mirror add remote_binary_mirror ${SPACK_MIRROR_URL}
 
     # Now download it
     NEED_CDASH_ID_FILE=""
