@@ -143,11 +143,11 @@ spack:
             - spack-k8s
           image: scottwittenburg/spack_builder_centos_7
 
-  cdash:
-    build-group: Release Testing
-    url: https://cdash.spack.io
-    project: Spack Testing
-    site: Spack AWS Gitlab Instance
+  # cdash:
+  #   build-group: Release Testing
+  #   url: https://cdash.spack.io
+  #   project: Spack Testing
+  #   site: Spack AWS Gitlab Instance
 
   repos: []
   upstreams: {}
