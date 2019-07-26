@@ -55,7 +55,7 @@ token_file="${temp_dir}/cdash_auth_token"
 echo ${CDASH_AUTH_TOKEN} > ${token_file}
 
 # This commands generates the .gitlab-ci.yml and creates buildgroup in cdash
-spack release-jobs --force --output-file ${gen_ci_file} --cdash-credentials ${token_file}
+spack release-jobs --output-file ${gen_ci_file} --cdash-credentials ${token_file}
 
 if [[ $? -ne 0 ]]; then
     echo "spack release-jobs command failed"
@@ -64,6 +64,7 @@ fi
 
 cp ${gen_ci_file} "${original_directory}/.gitlab-ci.yml"
 
+# Remove global from here, it's clobbering people git identity config
 git config --global user.email "robot@spack.io"
 git config --global user.name "Build Robot"
 
