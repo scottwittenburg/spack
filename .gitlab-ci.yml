@@ -1,4 +1,6 @@
 generate ci jobs:
+  variables:
+    git_strategy: clone
   script:
     - "./bin/generate-gitlab-ci-yml.sh"
   tags:
