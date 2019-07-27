@@ -61,7 +61,24 @@ properties = {
                                 'additionalProperties': True,
                                 'required': ['tags'],
                                 'properties': {
-                                    'image': {'type': 'string'},
+                                    'image': {
+                                        'oneOf': [
+                                            {
+                                                'type': 'string'
+                                            }, {
+                                                'type': 'object',
+                                                'properties': {
+                                                    'name': {'type': 'string'},
+                                                    'entrypoint': {
+                                                        'type': 'array',
+                                                        'items': {
+                                                            'type': 'string',
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        ],
+                                    },
                                     'tags': {
                                         'type': 'array',
                                         'default': [],

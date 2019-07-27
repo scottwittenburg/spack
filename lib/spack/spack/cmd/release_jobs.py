@@ -532,9 +532,16 @@ def release_jobs(parser, args):
                 if 'variables' in runner_attribs:
                     variables.update(runner_attribs['variables'])
 
-                build_image = None
+                image_name = None
+                image_entry = None
                 if 'image' in runner_attribs:
                     build_image = runner_attribs['image']
+                    try:
+                        image_name = build_image.get('name')
+                        entrypoint = build_image.get('entrypoint')
+                        image_entry = [p for p in entrypoint]
+                    except AttributeError:
+                        image_name = build_image
 
                 osname = str(release_spec.architecture)
                 job_name = get_job_name(phase_name, strip_compilers,
@@ -623,8 +630,13 @@ def release_jobs(parser, args):
                     'dependencies': job_dependencies,
                 }
 
-                if build_image:
-                    job_object['image'] = build_image
+                if image_name:
+                    job_object['image'] = image_name
+                    if image_entry is not None:
+                        job_object['image'] = {
+                            'name': image_name,
+                            'entrypoint': image_entry,
+                        }
 
                 output_object[job_name] = job_object
                 job_id += 1

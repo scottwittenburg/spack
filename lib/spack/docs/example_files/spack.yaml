@@ -132,7 +132,9 @@ spack:
           # a part of the CI workflow
           tags:
             - spack-k8s
-          image: scottwittenburg/spack_builder_ubuntu_18.04
+          image:
+            name: scottwittenburg/spack_builder_ubuntu_18.04
+            entrypoint: []
       - spack-cloud-centos:
         match:
           # these are specs, if *any* match the spec under consideration, this
@@ -141,7 +143,9 @@ spack:
         runner-attributes:
           tags:
             - spack-k8s
-          image: scottwittenburg/spack_builder_centos_7
+          image:
+            name: scottwittenburg/spack_builder_centos_7
+            entrypoint: []
 
   cdash:
     build-group: Release Testing
