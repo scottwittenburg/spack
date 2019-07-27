@@ -70,8 +70,10 @@ if [ "${SPACK_ENABLE_CDASH}" == "True" ] ; then
 fi
 
 export SPACK_ROOT=${CI_PROJECT_DIR}
-export PATH="${SPACK_BIN_DIR}:${PATH}"
+# export PATH="${SPACK_BIN_DIR}:${PATH}"
 export GNUPGHOME="${CI_PROJECT_DIR}/opt/spack/gpg"
+
+. "${CI_PROJECT_DIR}/share/spack/setup-env.sh"
 
 mkdir -p ${JOB_LOG_DIR}
 mkdir -p ${SPEC_DIR}
