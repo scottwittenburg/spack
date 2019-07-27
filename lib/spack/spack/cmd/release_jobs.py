@@ -50,7 +50,9 @@ def _create_buildgroup(opener, headers, url, project, group_name, group_type):
         "type": group_type
     }
 
-    request = Request(url, data=json.dumps(data), headers=headers)
+    enc_data = json.dumps(data).encode('utf-8')
+
+    request = Request(url, data=enc_data, headers=headers)
 
     response = opener.open(request)
     response_code = response.getcode()
@@ -99,7 +101,9 @@ def populate_buildgroup(job_names, group_name, project, site,
         } for name in job_names]
     }
 
-    request = Request(url, data=json.dumps(data), headers=headers)
+    enc_data = json.dumps(data).encode('utf-8')
+
+    request = Request(url, data=enc_data, headers=headers)
     request.get_method = lambda: 'PUT'
 
     response = opener.open(request)
