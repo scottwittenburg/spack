@@ -290,7 +290,7 @@ if [[ $? -ne 0 ]]; then
 
         # Install package, using the buildcache from the local mirror to
         # satisfy dependencies.
-        BUILD_ID_LINE=`spack -d -k -v "${CUSTOM_CONFIG_SCOPE}" install --keep-stage --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${CDASH_BUILD_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "${SPACK_JOB_SPEC_BUILDGROUP}" -f "${SPEC_YAML_PATH}" | grep "buildSummary\\.php"`
+        BUILD_ID_LINE=`spack -d -k -v "${CUSTOM_CONFIG_SCOPE}" install --keep-stage --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${SPACK_CDASH_BUILD_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "${SPACK_JOB_SPEC_BUILDGROUP}" -f "${SPEC_YAML_PATH}" | grep "buildSummary\\.php"`
         check_error $? "spack install"
 
         # By parsing the output of the "spack install" command, we can get the
@@ -364,7 +364,7 @@ if [ "${SPACK_ENABLE_CDASH}" == "True" ] ; then
                 if [ -f "${DEP_JOB_ID_FILE}" ]; then
                     DEP_JOB_CDASH_BUILD_ID=$(<${DEP_JOB_ID_FILE})
                     echo "File ${DEP_JOB_ID_FILE} contained value ${DEP_JOB_CDASH_BUILD_ID}"
-                    echo "Relating builds -> ${CDASH_BUILD_NAME} (buildid=${JOB_CDASH_BUILD_ID}) depends on ${DEP_PKG_NAME} (buildid=${DEP_JOB_CDASH_BUILD_ID})"
+                    echo "Relating builds -> ${SPACK_CDASH_BUILD_NAME} (buildid=${JOB_CDASH_BUILD_ID}) depends on ${DEP_PKG_NAME} (buildid=${DEP_JOB_CDASH_BUILD_ID})"
                     relateBuildsPostBody="$(get_relate_builds_post_data "${CDASH_PROJECT}" ${JOB_CDASH_BUILD_ID} ${DEP_JOB_CDASH_BUILD_ID})"
                     relateBuildsResult=`curl "${DEP_JOB_RELATEBUILDS_URL}" -H "Content-Type: application/json" -H "Accept: application/json" -d "${relateBuildsPostBody}"`
                     echo "Result of curl request: ${relateBuildsResult}"
