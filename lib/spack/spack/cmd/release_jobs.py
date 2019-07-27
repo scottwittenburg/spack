@@ -603,7 +603,7 @@ def release_jobs(parser, args):
                     job_vars['SPACK_RELATED_BUILDS'] = ';'.join(related_builds)
                     job_vars['SPACK_JOB_SPEC_BUILDGROUP'] = build_group
 
-                job_vars['SPACK_ENABLE_CDASH'] = enable_cdash_reporting
+                job_vars['SPACK_ENABLE_CDASH'] = str(enable_cdash_reporting)
 
                 variables.update(job_vars)
 

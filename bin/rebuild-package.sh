@@ -63,7 +63,7 @@ LOCAL_MIRROR="${CI_PROJECT_DIR}/local_mirror"
 BUILD_CACHE_DIR="${LOCAL_MIRROR}/build_cache"
 SPACK_BIN_DIR="${CI_PROJECT_DIR}/bin"
 
-if [ "${SPACK_ENABLE_CDASH}" == "true" ] ; then
+if [ "${SPACK_ENABLE_CDASH}" == "True" ] ; then
     CDASH_UPLOAD_URL="${SPACK_CDASH_BASE_URL}/submit.php?project=${SPACK_CDASH_PROJECT_ENC}"
     DEP_JOB_RELATEBUILDS_URL="${SPACK_CDASH_BASE_URL}/api/v1/relateBuilds.php"
     declare -a JOB_DEPS_PKG_NAMES
@@ -180,7 +180,7 @@ gen_full_specs_for_job_and_deps() {
     SPEC_YAML_PATH="${SPEC_DIR}/${SPACK_JOB_SPEC_PKG_NAME}.yaml"
     local spec_names_to_save="${SPACK_JOB_SPEC_PKG_NAME}"
 
-    if [ "${SPACK_ENABLE_CDASH}" == "true" ] ; then
+    if [ "${SPACK_ENABLE_CDASH}" == "True" ] ; then
         IFS=';' read -ra DEPS <<< "${SPACK_RELATED_BUILDS}"
         for i in "${DEPS[@]}"; do
             depPkgName="${i}"
@@ -271,7 +271,7 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
-if [ "${SPACK_ENABLE_CDASH}" == "true" ] ; then
+if [ "${SPACK_ENABLE_CDASH}" == "True" ] ; then
     # Whether we have to build the spec or download it pre-built, we expect to find
     # the cdash build id file sitting in this location afterwards.
     JOB_CDASH_ID_FILE="${BUILD_CACHE_DIR}/${JOB_BUILD_CACHE_ENTRY_NAME}.cdashid"
@@ -285,7 +285,7 @@ if [[ $? -ne 0 ]]; then
     # Configure mirror
     spack mirror add local_artifact_mirror "file://${LOCAL_MIRROR}"
 
-    if [ "${SPACK_ENABLE_CDASH}" == "true" ] ; then
+    if [ "${SPACK_ENABLE_CDASH}" == "True" ] ; then
         JOB_CDASH_ID="NONE"
 
         # Install package, using the buildcache from the local mirror to
@@ -333,7 +333,7 @@ else
 
     # Now download it
     NEED_CDASH_ID_FILE=""
-    if [ "${SPACK_ENABLE_CDASH}" == "true" ] ; then
+    if [ "${SPACK_ENABLE_CDASH}" == "True" ] ; then
         NEED_CDASH_ID_FILE="--require-cdashid"
     fi
     spack -d buildcache download --spec-yaml "${SPEC_YAML_PATH}" --path "${BUILD_CACHE_DIR}/" "${NEED_CDASH_ID_FILE}"
@@ -341,7 +341,7 @@ else
 fi
 
 # The next step is to relate this job to the jobs it depends on
-if [ "${SPACK_ENABLE_CDASH}" == "true" ] ; then
+if [ "${SPACK_ENABLE_CDASH}" == "True" ] ; then
     if [ -f "${JOB_CDASH_ID_FILE}" ]; then
         JOB_CDASH_BUILD_ID=$(<${JOB_CDASH_ID_FILE})
 
