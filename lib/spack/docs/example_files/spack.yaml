@@ -134,7 +134,7 @@ spack:
             - spack-k8s
           image:
             name: scottwittenburg/spack_builder_ubuntu_18.04
-            entrypoint: []
+            entrypoint: ["/bin/bash", "-i", "-c"]
       - spack-cloud-centos:
         match:
           # these are specs, if *any* match the spec under consideration, this
@@ -145,7 +145,7 @@ spack:
             - spack-k8s
           image:
             name: scottwittenburg/spack_builder_centos_7
-            entrypoint: []
+            entrypoint: ["/bin/bash", "-i", "-c"]
 
   cdash:
     build-group: Release Testing
