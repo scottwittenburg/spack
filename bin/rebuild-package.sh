@@ -199,7 +199,9 @@ gen_full_specs_for_job_and_deps() {
         # in this case, either we're relying on Spack to install missing compiler
         # bootstrapped in a previous phase, or else we only had one phase (like a
         # site which already knows what compilers are available on it's runners),
-        # so we don't want to concretize that root spec again.
+        # so we don't want to concretize that root spec again.  The reason we need
+        # this in the first case (bootstrapped compiler), is that we can't concretize
+        # a spec at this point if we're going to ask spack to "install_missing_compilers".
         tmp_dir=$(mktemp -d)
         TMP_YAML_PATH="${tmp_dir}/root.yaml"
         ROOT_SPEC_YAML=$(spack python -c "import base64 ; import zlib ; print(str(zlib.decompress(base64.b64decode('${SPACK_ROOT_SPEC}')).decode('utf-8')))")
