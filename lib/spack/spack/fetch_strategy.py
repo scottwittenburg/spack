@@ -30,6 +30,7 @@ import copy
 import xml.etree.ElementTree
 from functools import wraps
 from six import string_types, with_metaclass
+from six.moves.urllib.parse import urlparse
 
 import llnl.util.tty as tty
 from llnl.util.filesystem import (
@@ -397,7 +398,9 @@ class URLFetchStrategy(FetchStrategy):
         if not self.archive_file:
             raise NoArchiveFileError("Cannot call archive() before fetching.")
 
-        shutil.copyfile(self.archive_file, destination)
+        # delay import to avoid circular imports
+        from spack.util.web import push_to_url
+        push_to_url(self.archive_file, destination)
 
     @_needs_stage
     def check(self):
@@ -1138,6 +1141,34 @@ def for_package_version(pkg, version):
             return _from_merged_attrs(fetcher, pkg, version)
 
     raise InvalidArgsError(pkg, version, **args)
+
+
+def from_url_scheme(url, *args, **kwargs):
+    """Finds a suitable FetchStrategy by matching its url_attr with the scheme
+       in the given url."""
+
+    url = kwargs.get('url', url)
+    parsed_url = urlparse(url)
+
+    scheme_mapping = (
+            kwargs.get('scheme_mapping') or
+            {
+                'file': 'url',
+                'http': 'url',
+                'https': 'url'
+            })
+
+    scheme = parsed_url.scheme
+    scheme = scheme_mapping.get(scheme, scheme)
+
+    for fetcher in all_strategies:
+        url_attr = getattr(fetcher, 'url_attr', None)
+        if url_attr and url_attr == scheme:
+            return fetcher(url, *args, **kwargs)
+
+    raise ValueError(
+            'No FetchStrategy found for url with scheme: "{}"'.format(
+                parsed_url.scheme))
 
 
 def from_list_url(pkg):

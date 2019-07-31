@@ -5,16 +5,22 @@
 
 from __future__ import print_function
 
+import codecs
+import errno
 import re
 import os
+import os.path
+import shutil
 import ssl
 import sys
 import traceback
 import hashlib
 
+from types import CodeType, FunctionType
+
+from six import PY3
 from six.moves.urllib.request import urlopen, Request
 from six.moves.urllib.error import URLError
-from six.moves.urllib.parse import urljoin
 import multiprocessing.pool
 
 try:
@@ -28,6 +34,7 @@ except ImportError:
     class HTMLParseError(Exception):
         pass
 
+from llnl.util.filesystem import mkdirp
 import llnl.util.tty as tty
 
 import spack.config
@@ -36,7 +43,12 @@ import spack.url
 import spack.stage
 import spack.error
 import spack.util.crypto
+
 from spack.util.compression import ALLOWED_ARCHIVE_TYPES
+from spack.util.s3 import create_s3_session
+from spack.util.url import join as urljoin, parse as urlparse
+
+from spack.s3_handler import open as s3_open
 
 
 # Timeout in seconds for web requests
@@ -86,25 +98,39 @@ else:
             super(NonDaemonPool, self).__init__(*args, **kwargs)
 
 
-def _read_from_url(url, accept_content_type=None):
+__UNABLE_TO_VERIFY_SSL = (
+        lambda pyver: (
+            (pyver < (2, 7, 9)) or
+            ((3,) < pyver < (3, 4, 3))
+        ))(sys.version_info)
+
+def read_from_url(url, accept_content_type=None):
+    parsed_url = urlparse(url)
     context = None
+
     verify_ssl = spack.config.get('config:verify_ssl')
-    pyver = sys.version_info
-    if (pyver < (2, 7, 9) or (3,) < pyver < (3, 4, 3)):
-        if verify_ssl:
-            tty.warn("Spack will not check SSL certificates. You need to "
-                     "update your Python to enable certificate "
-                     "verification.")
-    elif verify_ssl:
+
+    user_expects_verify_ssl = lambda: (
+            verify_ssl and (
+                parsed_url.scheme == 'https' or (
+                    parsed_url.scheme == 's3' and
+                    urlparse(
+                        parsed_url.netloc, scheme='https').scheme == 'https')))
+
+    if __UNABLE_TO_VERIFY_SSL and user_expects_verify_ssl():
+        tty.warn("Spack will not check SSL certificates. You need to update "
+                 "your Python to enable certificate verification.")
+    else:
         # without a defined context, urlopen will not verify the ssl cert for
         # python 3.x
-        context = ssl.create_default_context()
-    else:
-        context = ssl._create_unverified_context()
+        context = (
+                ssl.create_default_context() if verify_ssl else
+                ssl._create_unverified_context())
 
     req = Request(url)
-
-    if accept_content_type:
+    content_type = None
+    is_web_url = parsed_url.scheme in ('http', 'https')
+    if accept_content_type and is_web_url:
         # Make a HEAD request first to check the content type.  This lets
         # us ignore tarballs and gigantic files.
         # It would be nice to do this with the HTTP Accept header to avoid
@@ -113,29 +139,170 @@ def _read_from_url(url, accept_content_type=None):
         req.get_method = lambda: "HEAD"
         resp = _urlopen(req, timeout=_timeout, context=context)
 
-        if "Content-type" not in resp.headers:
-            tty.debug("ignoring page " + url)
-            return None, None
-
-        if not resp.headers["Content-type"].startswith(accept_content_type):
-            tty.debug("ignoring page " + url + " with content type " +
-                      resp.headers["Content-type"])
-            return None, None
+        content_type = resp.headers.get('Content-type')
 
     # Do the real GET request when we know it's just HTML.
     req.get_method = lambda: "GET"
     response = _urlopen(req, timeout=_timeout, context=context)
-    response_url = response.geturl()
 
-    # Read the page and and stick it in the map we'll return
-    page = response.read().decode('utf-8')
+    if accept_content_type and not is_web_url:
+        content_type = response.headers.get('Content-type')
 
-    return response_url, page
+    reject_content_type = (
+            accept_content_type and (
+                content_type is None or
+                not content_type.startswith(accept_content_type)))
+
+    if reject_content_type:
+        tty.debug("ignoring page {0}{1}{2}".format(
+            url,
+            " with content type " if content_type is not None else "",
+            content_type or ""))
+
+        return None, None, None
+
+    return response.geturl(), response.headers, response
 
 
-def read_from_url(url, accept_content_type=None):
-    resp_url, contents = _read_from_url(url, accept_content_type)
-    return contents
+def push_to_url(local_path, remote_path, **kwargs):
+    keep_original = kwargs.get('keep_original', True)
+
+    local_url = urlparse(local_path)
+    if local_url.scheme != 'file':
+        raise ValueError('local path must be a file:// url')
+
+    remote_url = urlparse(remote_path)
+
+    verify_ssl = spack.config.get('config:verify_ssl')
+
+    user_expects_verify_ssl = lambda: (
+            verify_ssl and (
+                remote_url.scheme == 'https' or (
+                    remote_url.scheme == 's3' and
+                    urlparse(
+                        remote_url.netloc, scheme='https').scheme == 'https')))
+
+    if __UNABLE_TO_VERIFY_SSL and user_expects_verify_ssl():
+        tty.warn("Spack will not check SSL certificates. You need to update "
+                 "your Python to enable certificate verification.")
+
+    if remote_url.scheme == 'file':
+        mkdirp(os.path.dirname(remote_url.path))
+        if keep_original:
+            shutil.copy(local_url.path, remote_url.path)
+        else:
+            try:
+                os.rename(local_url.path, remote_url.path)
+            except OSError as e:
+                if e.errno == errno.EXDEV:
+                    # NOTE(opadron): The above move failed because it crosses
+                    # filesystem boundaries.  Copy the file (plus original
+                    # metadata), and then delete the original.  This operation
+                    # needs to be done in separate steps.
+                    shutil.copy2(local_url.path, remote_url.path)
+                    os.remove(local_url.path)
+
+    elif remote_url.scheme == 's3':
+        extra_args = kwargs.get('extra_args', {})
+
+        s3 = create_s3_session(remote_url)
+        s3.upload_file(local_url.path, remote_url.s3_bucket,
+                       remote_url.path, ExtraArgs=extra_args)
+
+        if not keep_original:
+            os.remove(local_url.path)
+
+    else:
+        raise NotImplementedError(
+            'Unrecognized URL scheme: {}'.format(remote_url.scheme))
+
+
+def url_exists(path):
+    url = urlparse(path)
+
+    if url.scheme == 'file':
+        return os.path.exists(url.path)
+
+    if url.scheme == 's3':
+        s3 = create_s3_session(url)
+        from botocore.exceptions import ClientError
+        try:
+            s3.get_object(Bucket=url.s3_bucket, Key=url.path)
+            return True
+        except ClientError as err:
+            if err.response['Error']['Code'] == 'NoSuchKey':
+                return False
+            raise err
+
+    # otherwise, just try to "read" from the URL, and assume that *any*
+    # non-throwing response contains the resource represented by the URL
+    try:
+        read_from_url(url)
+        return True
+    except URLError as err:
+        return False
+
+
+def remove_url(path):
+    url = urlparse(path)
+
+    if url.scheme == 'file':
+        os.remove(url.path)
+        return
+
+    if url.scheme == 's3':
+        s3 = create_s3_session(url)
+        s3.delete_object(Bucket=url.s3_bucket, Key=url.path)
+        return
+
+    # Don't even try for other URL schemes.
+
+
+def _list_s3_objects(client, url, num_entries, start_after=None):
+    list_args = dict(
+            Bucket=url.s3_bucket,
+            Prefix=url.path,
+            MaxKeys=num_entries)
+
+    if start_after is not None:
+        list_args['StartAfter'] = start_after
+
+    result = client.list_objects_v2(**list_args)
+
+    last_key = None
+    if result['IsTruncated']:
+        last_key = result['Contents'][-1]['Key']
+
+    iter = (key for key in
+            (
+                os.path.relpath(entry['Key'], url.path)
+                for entry in result['Contents']
+            )
+            if key != '.')
+
+    return iter, last_key
+
+
+def _iter_s3_prefix(client, url, num_entries=1024):
+    key = None
+    while True:
+        contents, key = _list_s3_objects(
+                client, url, num_entries, start_after=key)
+        for x in contents: yield x
+        if not key:
+            break
+
+
+def list_url(path):
+    url = urlparse(path)
+
+    if url.scheme == 'file':
+        return os.listdir(url.path)
+
+    if url.scheme == 's3':
+        s3 = create_s3_session(url)
+        return list(set(key.split('/', 1)[0]
+                for key in _iter_s3_prefix(create_s3_session(url), url)))
 
 
 def _spider(url, visited, root, depth, max_depth, raise_on_error):
@@ -159,11 +326,11 @@ def _spider(url, visited, root, depth, max_depth, raise_on_error):
         root = re.sub('/index.html$', '', root)
 
     try:
-        response_url, page = _read_from_url(url, 'text/html')
-
-        if not response_url or not page:
+        response_url, _, response = read_from_url(url, 'text/html')
+        if not response_url or not response:
             return pages, links
 
+        page = codecs.getreader('utf-8')(response).read()
         pages[response_url] = page
 
         # Parse out the links in the page
@@ -243,13 +410,63 @@ def _spider_wrapper(args):
     return _spider(*args)
 
 
-def _urlopen(*args, **kwargs):
+# TODO(opadron): There's gotta be a better place for stuff like this.
+CODE_THAT_DOES_NOTHING = (lambda: None).func_code.co_code
+
+def noopify(func):
+    return FunctionType(
+            CodeType(*(
+                [func.func_code.co_argcount] +
+
+                ([
+                    func.func_code.co_kwonlyargcount
+                ] if PY3 else []) +
+
+                [
+                    func.func_code.co_nlocals,
+                    func.func_code.co_stacksize,
+                    func.func_code.co_flags,
+                    CODE_THAT_DOES_NOTHING,
+                    func.func_code.co_consts,
+                    func.func_code.co_names,
+                    func.func_code.co_varnames,
+                    func.func_code.co_filename,
+                    func.func_code.co_name,
+                    func.func_code.co_firstlineno,
+                    func.func_code.co_lnotab,
+                    func.func_code.co_freevars,
+                    func.func_code.co_cellvars
+                ]
+            )),
+
+            func.func_globals,
+            func.func_name,
+            func.func_defaults,
+            func.func_closure)
+
+
+def _urlopen(req, *args, **kwargs):
     """Wrapper for compatibility with old versions of Python."""
-    # We don't pass 'context' parameter to urlopen because it
-    # was introduces only starting versions 2.7.9 and 3.4.3 of Python.
-    if 'context' in kwargs and kwargs['context'] is None:
-        del kwargs['context']
-    return urlopen(*args, **kwargs)
+    url = req
+    try:
+        url = url.get_full_url()
+    except AttributeError:
+        pass
+
+    open_func = (
+            s3_open if urlparse(url).scheme == 's3'
+            else urlopen)
+
+    try:
+        # does nothing (e.g.: only throws if the passed arguments don't match
+        # the original function's signature)
+        noopify(open_func)(req, *args, **kwargs)
+    except TypeError:
+        # We don't pass 'context' parameter because it was only introduced
+        # starting with versions 2.7.9 and 3.4.3 of Python.
+        kwargs.pop('context', None)
+
+    return open_func(req, *args, **kwargs)
 
 
 def spider(root_url, depth=0):
@@ -388,7 +605,7 @@ def get_checksums_for_versions(
             *spack.cmd.elide_list(
                 ["{0:{1}}  {2}".format(str(v), max_len, url_dict[v])
                  for v in sorted_versions]))
-    print()
+    tty.msg('')
 
     archives_to_fetch = tty.get_number(
         "How many would you like to checksum?", default=1, abort='q')

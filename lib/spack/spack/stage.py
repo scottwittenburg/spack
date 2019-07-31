@@ -12,7 +12,6 @@ import tempfile
 import getpass
 from six import string_types
 from six import iteritems
-from six.moves.urllib.parse import urljoin
 
 import llnl.util.tty as tty
 from llnl.util.filesystem import mkdirp, can_access, install, install_tree
@@ -27,6 +26,11 @@ import spack.fetch_strategy as fs
 import spack.util.pattern as pattern
 from spack.util.path import canonicalize_path
 from spack.util.crypto import prefix_bits, bit_length
+from spack.util.url import join as url_join
+from spack.util.config import iter_mirrors
+
+# TODO(opadron): get rid of this once s3_fetch_strategy is merged into FS.py
+from spack import s3_fetch_strategy
 
 _source_path_subdir = 'spack-src'
 _stage_prefix = 'spack-stage-'
@@ -169,7 +173,7 @@ class Stage(object):
         # TODO: fetch/stage coupling needs to be reworked -- the logic
         # TODO: here is convoluted and not modular enough.
         if isinstance(url_or_fetch_strategy, string_types):
-            self.fetcher = fs.from_url(url_or_fetch_strategy)
+            self.fetcher = fs.from_url_scheme(url_or_fetch_strategy)
         elif isinstance(url_or_fetch_strategy, fs.FetchStrategy):
             self.fetcher = url_or_fetch_strategy
         else:
@@ -353,14 +357,8 @@ class Stage(object):
         # TODO: CompositeFetchStrategy here.
         self.skip_checksum_for_mirror = True
         if self.mirror_path:
-            mirrors = spack.config.get('mirrors')
-
-            # Join URLs of mirror roots with mirror paths. Because
-            # urljoin() will strip everything past the final '/' in
-            # the root, so we add a '/' if it is not present.
-            mirror_roots = [root if root.endswith('/') else root + '/'
-                            for root in mirrors.values()]
-            urls = [urljoin(root, self.mirror_path) for root in mirror_roots]
+            urls = [url_join(fetch_url, self.mirror_path)
+                for _, fetch_url, _ in iter_mirrors()]
 
             # If this archive is normally fetched from a tarball URL,
             # then use the same digest.  `spack mirror` ensures that
@@ -379,9 +377,13 @@ class Stage(object):
 
             # Add URL strategies for all the mirrors with the digest
             for url in urls:
-                fetchers.insert(
-                    0, fs.URLFetchStrategy(
+                fetchers.append(fs.from_url_scheme(
                         url, digest, expand=expand, extension=extension))
+                # fetchers.insert(
+                #     0, fs.URLFetchStrategy(
+                #         url, digest, expand=expand, extension=extension))
+
+
             if self.default_fetcher.cachable:
                 fetchers.insert(
                     0, spack.caches.fetch_cache.fetcher(
