@@ -425,6 +425,7 @@ def find_matching_config(spec, ci_mappings):
 
 def release_jobs(parser, args):
     env = ev.get_env(args, 'release-jobs', required=True)
+    # env.concretize()
 
     # FIXME: What's the difference between one that opens with 'spack'
     # and one that opens with 'env'?  This will only handle the former.
@@ -663,7 +664,7 @@ def release_jobs(parser, args):
             'MIRROR_URL': mirror_urls[0],
         },
         'script': './bin/rebuild-index.sh',
-        'tags': ['spack-ci']    # may want a runner to handle this
+        'tags': ['spack-post-ci'] # may want a runner to handle this
     }
     output_object['rebuild-index'] = final_job
     stage_names.append(final_stage)
