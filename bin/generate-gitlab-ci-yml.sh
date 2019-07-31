@@ -64,10 +64,6 @@ fi
 
 cp ${gen_ci_file} "${original_directory}/.gitlab-ci.yml"
 
-# Remove global from here, it's clobbering people git identity config
-git config --global user.email "robot@spack.io"
-git config --global user.name "Build Robot"
-
 commit_msg="Auto-generated commit testing ${current_branch} (${CI_COMMIT_SHA})"
 
 cd ${original_directory}
@@ -80,13 +76,15 @@ git checkout -b ___multi_ci___
 echo "git add"
 git add .gitlab-ci.yml
 echo "git commit"
-git commit -m "$commit_msg"
+git commit --author="Spack Build Bot <robot@spack.io>" -m "$commit_msg"
 echo "git commit-tree/reset"
 # Prepare to send the whole working copy.  Doing this instead should be faster
 # until we decide to come up with a way of automatically keeping the downstream
 # repo in sync with the main one, at which point just pushing a single, new
 # commit with the change would be faster.
-git reset "$( git commit-tree HEAD^{tree} -m ${commit_msg} )"
+git reset "$(
+    GIT_AUTHOR_NAME="Spack Build Bot" GIT_AUTHOR_EMAIL="robot@spack.io" \
+        git commit-tree HEAD^{tree} -m ${commit_msg} )"
 echo "git status"
 git status
 echo "git push"
