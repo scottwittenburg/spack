@@ -367,7 +367,7 @@ if [ "${SPACK_ENABLE_CDASH}" == "True" ] ; then
                     DEP_JOB_CDASH_BUILD_ID=$(<${DEP_JOB_ID_FILE})
                     echo "File ${DEP_JOB_ID_FILE} contained value ${DEP_JOB_CDASH_BUILD_ID}"
                     echo "Relating builds -> ${SPACK_CDASH_BUILD_NAME} (buildid=${JOB_CDASH_BUILD_ID}) depends on ${DEP_PKG_NAME} (buildid=${DEP_JOB_CDASH_BUILD_ID})"
-                    relateBuildsPostBody="$(get_relate_builds_post_data "${CDASH_PROJECT}" ${JOB_CDASH_BUILD_ID} ${DEP_JOB_CDASH_BUILD_ID})"
+                    relateBuildsPostBody="$(get_relate_builds_post_data "${SPACK_CDASH_PROJECT}" ${JOB_CDASH_BUILD_ID} ${DEP_JOB_CDASH_BUILD_ID})"
                     relateBuildsResult=`curl "${DEP_JOB_RELATEBUILDS_URL}" -H "Content-Type: application/json" -H "Accept: application/json" -d "${relateBuildsPostBody}"`
                     echo "Result of curl request: ${relateBuildsResult}"
                 else
