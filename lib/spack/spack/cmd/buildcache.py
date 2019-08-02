@@ -25,7 +25,7 @@ from spack.error import SpecError
 from spack.spec import Spec, save_dependency_spec_yamls
 
 from spack.util.config import lookup_mirror
-from spack.util.url import format as url_format
+from spack.util import url
 
 from spack.cmd import display_specs
 
@@ -207,6 +207,15 @@ def setup_parser(subparser):
     copy.set_defaults(func=buildcache_copy)
 
 
+    # Update buildcache index without copying any additional packages
+    update_index = subparsers.add_parser(
+            'update-index', help=buildcache_update_index.__doc__)
+    update_index.add_argument(
+        '-d', '--mirror-url', default=None,
+        help='Destination mirror url')
+    update_index.set_defaults(func=buildcache_update_index)
+
+
 def find_matching_specs(pkgs, allow_multiple_matches=False, env=None):
     """Returns a list of specs matching the not necessarily
        concretized specs given from cli
@@ -319,7 +328,7 @@ def createtarball(args):
         outdir = args.directory
 
     _, outdir = lookup_mirror(outdir)
-    outdir = url_format(outdir)
+    outdir = url.format(outdir)
 
     signkey = None
     if args.key:
@@ -647,6 +656,19 @@ def buildcache_copy(args):
     if os.path.exists(cdashid_src_path):
         tty.msg('Copying {0}'.format(cdashidfile_rel_path))
         shutil.copyfile(cdashid_src_path, cdashid_dest_path)
+
+
+def buildcache_update_index(args):
+    """Update a buildcache index."""
+    outdir = '.'
+    if args.mirror_url:
+        outdir = args.mirror_url
+
+    _, outdir = lookup_mirror(outdir)
+    outdir = url.format(outdir)
+
+    bindist.generate_package_index(
+            url.join(outdir, bindist.build_cache_relative_path()))
 
 
 def buildcache(parser, args):
