@@ -121,7 +121,7 @@ spack:
       - name: compiler-pkgs
         compiler-agnostic: true
     mappings:
-      - spack-cloud-ubuntu:
+      - # spack-cloud-ubuntu
         match:
           # these are specs, if *any* match the spec under consideration, this
           # 'mapping' will be used to generate the CI job
@@ -135,7 +135,7 @@ spack:
           image:
             name: scottwittenburg/spack_builder_ubuntu_18.04
             entrypoint: [""]
-      - spack-cloud-centos:
+      - # spack-cloud-centos
         match:
           # these are specs, if *any* match the spec under consideration, this
           # 'mapping' will be used to generate the CI job

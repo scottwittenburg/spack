@@ -42,55 +42,51 @@ properties = {
             },
             'mappings': {
                 'type': 'array',
-                'default': {},
-                'additionalProperties': False,
-                'patternProperties': {
-                    r'[\w\d\-_\.]+': {
-                        'type': 'object',
-                        'additionalProperties': False,
-                        'required': ['match', 'runner-attributes'],
-                        'properties': {
-                            'match': {
-                                'type': 'array',
-                                'items': {
-                                    'type': 'string',
-                                },
+                'items': {
+                    'type': 'object',
+                    'additionalProperties': False,
+                    'required': ['match', 'runner-attributes'],
+                    'properties': {
+                        'match': {
+                            'type': 'array',
+                            'items': {
+                                'type': 'string',
                             },
-                            'runner-attributes': {
-                                'type': 'object',
-                                'additionalProperties': True,
-                                'required': ['tags'],
-                                'properties': {
-                                    'image': {
-                                        'oneOf': [
-                                            {
-                                                'type': 'string'
-                                            }, {
-                                                'type': 'object',
-                                                'properties': {
-                                                    'name': {'type': 'string'},
-                                                    'entrypoint': {
-                                                        'type': 'array',
-                                                        'items': {
-                                                            'type': 'string',
-                                                        },
+                        },
+                        'runner-attributes': {
+                            'type': 'object',
+                            'additionalProperties': True,
+                            'required': ['tags'],
+                            'properties': {
+                                'image': {
+                                    'oneOf': [
+                                        {
+                                            'type': 'string'
+                                        }, {
+                                            'type': 'object',
+                                            'properties': {
+                                                'name': {'type': 'string'},
+                                                'entrypoint': {
+                                                    'type': 'array',
+                                                    'items': {
+                                                        'type': 'string',
                                                     },
                                                 },
                                             },
-                                        ],
-                                    },
-                                    'tags': {
-                                        'type': 'array',
-                                        'default': [],
-                                        'items': {'type': 'string'}
-                                    },
-                                    'variables': {
-                                        'type': 'object',
-                                        'default': {},
-                                        'patternProperties': {
-                                            r'[\w\d\-_\.]+': {
-                                                'type': 'string',
-                                            },
+                                        },
+                                    ],
+                                },
+                                'tags': {
+                                    'type': 'array',
+                                    'default': [],
+                                    'items': {'type': 'string'}
+                                },
+                                'variables': {
+                                    'type': 'object',
+                                    'default': {},
+                                    'patternProperties': {
+                                        r'[\w\d\-_\.]+': {
+                                            'type': 'string',
                                         },
                                     },
                                 },
