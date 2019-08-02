@@ -633,6 +633,9 @@ def buildcache_copy(args):
     cdashid_src_path = os.path.join(args.base_dir, cdashidfile_rel_path)
     cdashid_dest_path = os.path.join(dest_root_path, cdashidfile_rel_path)
 
+    # Make sure directory structure exists before attempting to copy
+    os.makedirs(os.path.dirname(tarball_dest_path))
+
     # Now copy the specfile and tarball files to the destination mirror
     tty.msg('Copying {0}'.format(tarball_rel_path))
     shutil.copyfile(tarball_src_path, tarball_dest_path)
