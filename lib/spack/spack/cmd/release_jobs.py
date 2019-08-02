@@ -197,13 +197,13 @@ def _add_dependency(spec_label, dep_label, deps):
 def get_spec_dependencies(specs, deps, spec_labels):
     spec_deps_obj = compute_spec_deps(specs)
 
-    try:
-        validate(spec_deps_obj, specs_deps_schema)
-    except ValidationError as val_err:
-        tty.error('Ill-formed specs dependencies JSON object')
-        tty.error(spec_deps_obj)
-        tty.debug(val_err)
-        return
+    # try:
+    #     validate(spec_deps_obj, specs_deps_schema)
+    # except ValidationError as val_err:
+    #     tty.error('Ill-formed specs dependencies JSON object')
+    #     tty.error(spec_deps_obj)
+    #     tty.debug(val_err)
+    #     return
 
     if spec_deps_obj:
         dependencies = spec_deps_obj['dependencies']
@@ -212,7 +212,7 @@ def get_spec_dependencies(specs, deps, spec_labels):
         for entry in specs:
             spec_labels[entry['label']] = {
                 'spec': Spec(entry['spec']),
-                'rootSpec': Spec(entry['root_spec']),
+                'rootSpec': entry['root_spec'],
             }
 
         for entry in dependencies:
@@ -376,7 +376,8 @@ def compute_spec_deps(spec_list, stream_like=None):
     for spec in spec_list:
         spec.concretize()
 
-        root_spec = get_spec_string(spec)
+        # root_spec = get_spec_string(spec)
+        root_spec = spec
 
         rkey, rlabel = spec_deps_key_label(spec)
 
