@@ -411,7 +411,11 @@ def _spider_wrapper(args):
 
 
 # TODO(opadron): There's gotta be a better place for stuff like this.
-CODE_THAT_DOES_NOTHING = (lambda: None).func_code.co_code
+FUNCTION_THAT_DOES_NOTHING = lambda: None
+
+CODE_THAT_DOES_NOTHING = (
+        getattr(FUNCTION_THAT_DOES_NOTHING, 'func_code', None)
+        or FUNCTION_THAT_DOES_NOTHING.__code__).co_code
 
 def noopify(func):
     return FunctionType(
