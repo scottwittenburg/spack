@@ -7,7 +7,6 @@ import base64
 import json
 import zlib
 
-from jsonschema import validate, ValidationError
 from six import iteritems
 from six.moves.urllib.error import HTTPError, URLError
 from six.moves.urllib.parse import urlencode
@@ -21,7 +20,6 @@ from spack.dependency import all_deptypes
 from spack.error import SpackError
 import spack.hash_types as ht
 from spack.spec import Spec
-from spack.schema.specs_deps import schema as specs_deps_schema
 import spack.util.spack_yaml as syaml
 
 description = "generate release build set as .gitlab-ci.yml"
@@ -197,14 +195,6 @@ def _add_dependency(spec_label, dep_label, deps):
 def get_spec_dependencies(specs, deps, spec_labels):
     spec_deps_obj = compute_spec_deps(specs)
 
-    # try:
-    #     validate(spec_deps_obj, specs_deps_schema)
-    # except ValidationError as val_err:
-    #     tty.error('Ill-formed specs dependencies JSON object')
-    #     tty.error(spec_deps_obj)
-    #     tty.debug(val_err)
-    #     return
-
     if spec_deps_obj:
         dependencies = spec_deps_obj['dependencies']
         specs = spec_deps_obj['specs']
@@ -304,7 +294,7 @@ def print_staging_summary(spec_labels, dependencies, stages):
         stage_index += 1
 
 
-def compute_spec_deps(spec_list, stream_like=None):
+def compute_spec_deps(spec_list):
     """
     Computes all the dependencies for the spec(s) and generates a JSON
     object which provides both a list of unique spec names as well as a
@@ -356,10 +346,6 @@ def compute_spec_deps(spec_list, stream_like=None):
            ]
        }
 
-    The object can be optionally written out to some stream.  This is
-    useful, for example, when we need to concretize and generate the
-    dependencies of a spec in a specific docker container.
-
     """
     deptype = all_deptypes
     spec_labels = {}
@@ -404,9 +390,6 @@ def compute_spec_deps(spec_list, stream_like=None):
         'specs': specs,
         'dependencies': dependencies,
     }
-
-    if stream_like:
-        stream_like.write(json.dumps(deps_json_obj))
 
     return deps_json_obj
 

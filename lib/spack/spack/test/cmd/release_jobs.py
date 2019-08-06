@@ -108,8 +108,7 @@ spack:
     some-mirror: https://my.fake.mirror
   gitlab-ci:
     mappings:
-      - some-runner-mapping:
-        match:
+      - match:
           - archive-files
         runner-attributes:
           tags:
