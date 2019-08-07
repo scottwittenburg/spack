@@ -337,11 +337,12 @@ else
     spack mirror add remote_binary_mirror ${SPACK_MIRROR_URL}
 
     # Now download it
-    NEED_CDASH_ID_FILE=""
+    BUILDCACHE_DL_ARGS=("--spec-yaml" "${SPEC_YAML_PATH}" "--path" "${BUILD_CACHE_DIR}/" )
     if [ "${SPACK_ENABLE_CDASH}" == "True" ] ; then
-        NEED_CDASH_ID_FILE="--require-cdashid"
+        NEED_CDASH_ID_FILE=
+        BUILDCACHE_DL_ARGS+=( "--require-cdashid" )
     fi
-    spack -d buildcache download --spec-yaml "${SPEC_YAML_PATH}" --path "${BUILD_CACHE_DIR}/" "${NEED_CDASH_ID_FILE}"
+    spack -d buildcache download "${BUILDCACHE_DL_ARGS[@]}"
     check_error $? "spack buildcache download"
 fi
 
