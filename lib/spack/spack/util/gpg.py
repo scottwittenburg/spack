@@ -48,9 +48,14 @@ class Gpg(object):
         keys = []
         output = cls.gpg()('--list-secret-keys', '--with-colons',
                            '--fingerprint', output=str)
+        found_sec = False
         for line in output.split('\n'):
-            if line.startswith('fpr'):
-                keys.append(line.split(':')[9])
+            if found_sec:
+                if line.startswith('fpr'):
+                    keys.append(line.split(':')[9])
+                    found_sec = False
+            elif line.startswith('sec'):
+                found_sec = True
         return keys
 
     @classmethod
