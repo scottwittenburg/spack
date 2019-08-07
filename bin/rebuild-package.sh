@@ -110,20 +110,17 @@ begin_logging() {
 
     rm -rf "$JOB_LOG_DIR/cdash_log.txt"
 
-    if false ; then
-        # NOTE: Here, some redirects are set up
-        exec 3>&1 # fd 3 is now a dup of stdout
-        exec 4>&2 # fd 4 is now a dup of stderr
+    # NOTE: Here, some redirects are set up
+    exec 3>&1 # fd 3 is now a dup of stdout
+    exec 4>&2 # fd 4 is now a dup of stderr
 
-        # stdout and stderr are joined and redirected to the log
-        exec &> "$JOB_LOG_DIR/cdash_log.txt"
-    fi
+    # stdout and stderr are joined and redirected to the log
+    exec &> "$JOB_LOG_DIR/cdash_log.txt"
 
     set -x
 }
 
 restore_io() {
-    return
     exec  >&-
     exec 2>&-
 
