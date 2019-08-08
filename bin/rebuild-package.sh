@@ -47,6 +47,7 @@
 ### SPACK_CDASH_PROJECT
 ### SPACK_CDASH_PROJECT_ENC
 ### SPACK_CDASH_BUILD_NAME
+### SPACK_CDASH_SITE
 ### SPACK_RELATED_BUILDS
 ### SPACK_JOB_SPEC_BUILDGROUP
 ###
@@ -294,7 +295,7 @@ if [[ $? -ne 0 ]]; then
 
         # Install package, using the buildcache from the local mirror to
         # satisfy dependencies.
-        BUILD_ID_LINE=`spack -d -k -v "${CUSTOM_CONFIG_SCOPE_ARG}" install --keep-stage --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${SPACK_CDASH_BUILD_NAME}" --cdash-site "Spack AWS Gitlab Instance" --cdash-track "${SPACK_JOB_SPEC_BUILDGROUP}" -f "${SPEC_YAML_PATH}" | grep "buildSummary\\.php"`
+        BUILD_ID_LINE=`spack -d -k -v "${CUSTOM_CONFIG_SCOPE_ARG}" install --keep-stage --cdash-upload-url "${CDASH_UPLOAD_URL}" --cdash-build "${SPACK_CDASH_BUILD_NAME}" --cdash-site "${SPACK_CDASH_SITE}" --cdash-track "${SPACK_JOB_SPEC_BUILDGROUP}" -f "${SPEC_YAML_PATH}" | grep "buildSummary\\.php"`
         check_error $? "spack install"
 
         # By parsing the output of the "spack install" command, we can get the

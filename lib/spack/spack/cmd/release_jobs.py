@@ -591,6 +591,7 @@ def release_jobs(parser, args):
                     job_vars['SPACK_CDASH_PROJECT'] = cdash_project
                     job_vars['SPACK_CDASH_PROJECT_ENC'] = cdash_project_enc
                     job_vars['SPACK_CDASH_BUILD_NAME'] = cdash_build_name
+                    job_vars['SPACK_CDASH_SITE'] = cdash_site
                     job_vars['SPACK_RELATED_BUILDS'] = ';'.join(related_builds)
                     job_vars['SPACK_JOB_SPEC_BUILDGROUP'] = build_group
 
