@@ -339,7 +339,6 @@ else
     # Now download it
     BUILDCACHE_DL_ARGS=("--spec-yaml" "${SPEC_YAML_PATH}" "--path" "${BUILD_CACHE_DIR}/" )
     if [ "${SPACK_ENABLE_CDASH}" == "True" ] ; then
-        NEED_CDASH_ID_FILE=
         BUILDCACHE_DL_ARGS+=( "--require-cdashid" )
     fi
     spack -d buildcache download "${BUILDCACHE_DL_ARGS[@]}"
