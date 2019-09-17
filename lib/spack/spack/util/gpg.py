@@ -32,10 +32,11 @@ class Gpg(object):
     def gpg():
         # TODO: Support loading up a GPG environment from a built gpg.
         gpg = Executable('gpg2')
-        if not os.path.exists(GNUPGHOME):
-            os.makedirs(GNUPGHOME)
-            os.chmod(GNUPGHOME, 0o700)
-        gpg.add_default_env('GNUPGHOME', GNUPGHOME)
+        gnu_pg_home = os.environ.get('GNUPGHOME', GNUPGHOME)
+        if not os.path.exists(gnu_pg_home):
+            os.makedirs(gnu_pg_home)
+            os.chmod(gnu_pg_home, 0o700)
+        gpg.add_default_env('GNUPGHOME', gnu_pg_home)
         return gpg
 
     @classmethod

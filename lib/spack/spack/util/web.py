@@ -297,9 +297,13 @@ def remove_url(url):
 
 
 def _list_s3_objects(client, url, num_entries, start_after=None):
+    url_path = url.path
+    if url_path.startswith('/'):
+        url_path = url_path[1:]
+
     list_args = dict(
         Bucket=url.netloc,
-        Prefix=url.path,
+        Prefix=url_path,
         MaxKeys=num_entries)
 
     if start_after is not None:
@@ -313,7 +317,7 @@ def _list_s3_objects(client, url, num_entries, start_after=None):
 
     iter = (key for key in
             (
-                os.path.relpath(entry['Key'], url.path)
+                os.path.relpath(entry['Key'], url_path)
                 for entry in result['Contents']
             )
             if key != '.')
