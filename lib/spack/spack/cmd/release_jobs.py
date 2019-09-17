@@ -5,6 +5,7 @@
 
 import base64
 import json
+import os
 import zlib
 
 from six import iteritems
@@ -406,8 +407,11 @@ def find_matching_config(spec, ci_mappings):
     return None
 
 
-def release_jobs(parser, args):
-    env = ev.get_env(args, 'release-jobs', required=True)
+def generate_jobs(output_file, print_summary=False, cdash_credentials=None):
+    env = ev.Environment(os.getcwd())
+
+    if not env.active:
+        ev.activate(env)
 
     # FIXME: What's the difference between one that opens with 'spack'
     # and one that opens with 'env'?  This will only handle the former.
@@ -433,8 +437,8 @@ def release_jobs(parser, args):
         cdash_project_enc = proj_enc[eq_idx:]
         cdash_site = ci_cdash['site']
 
-        if args.cdash_credentials:
-            with open(args.cdash_credentials) as fd:
+        if cdash_credentials:
+            with open(cdash_credentials) as fd:
                 cdash_auth_token = fd.read()
                 cdash_auth_token = cdash_auth_token.strip()
 
@@ -473,7 +477,7 @@ def release_jobs(parser, args):
         phase_name = phase['name']
         staged_phases[phase_name] = stage_spec_jobs(env.spec_lists[phase_name])
 
-    if args.print_summary:
+    if print_summary:
         for phase in phases:
             phase_name = phase['name']
             tty.msg('Stages for phase "{0}"'.format(phase_name))
@@ -654,5 +658,9 @@ def release_jobs(parser, args):
 
     output_object['stages'] = stage_names
 
-    with open(args.output_file, 'w') as outf:
+    with open(output_file, 'w') as outf:
         outf.write(syaml.dump(output_object))
+
+
+def release_jobs(parser, args):
+    generate_jobs(args.output_file, args.print_summary, args.cdash_credentials)
