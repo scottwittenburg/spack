@@ -6,4 +6,39 @@
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
 . "$(pwd)/share/spack/setup-env.sh"
-spack -d ci generate
+
+# Gather variables used in dynamic job generation
+GENERATE_ARGS=()
+
+if [[ ! -z "${SPACK_RELEASE_ENVIRONMENT_REPO}" ]]; then
+    GENERATE_ARGS+=( "--env-repo" "${SPACK_RELEASE_ENVIRONMENT_REPO}" )
+fi
+
+if [[ ! -z "${SPACK_RELEASE_ENVIRONMENT_PATH}" ]]; then
+    GENERATE_ARGS+=( "--env-path" "${SPACK_RELEASE_ENVIRONMENT_PATH}" )
+fi
+
+if [[ ! -z "${CDASH_AUTH_TOKEN}" ]]; then
+    GENERATE_ARGS+=( "--cdash-token" "${CDASH_AUTH_TOKEN}" )
+fi
+
+# Generate the .gitlab-ci.yml dynamically
+spack ci generate "${GENERATE_ARGS[@]}"
+
+# Gather variables used to make a commit and push the result to CI repo
+PUSHYAML_ARGS=()
+
+if [[ ! -z "${DOWNSTREAM_CI_REPO}" ]]; then
+    PUSHYAML_ARGS+=( "--downstream-repo" "${DOWNSTREAM_CI_REPO}" )
+fi
+
+if [[ ! -z "${CI_COMMIT_REF_NAME}" ]]; then
+    PUSHYAML_ARGS+=( "--branch-name" "${CI_COMMIT_REF_NAME}" )
+fi
+
+if [[ ! -z "${CI_COMMIT_SHA}" ]]; then
+    PUSHYAML_ARGS+=( "--commit-sha" "${CI_COMMIT_SHA}" )
+fi
+
+# Commit and push the generated file to the CI repo
+spack ci pushyaml "${PUSHYAML_ARGS[@]}"
