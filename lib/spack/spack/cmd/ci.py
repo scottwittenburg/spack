@@ -8,6 +8,7 @@ import shutil
 import sys
 import tempfile
 
+import llnl.util.filesystem as fs
 import llnl.util.tty as tty
 
 import spack.cmd.release_jobs as release_jobs
@@ -19,9 +20,6 @@ section = "packaging"     # TODO: where does this go?  new section?
 level = "long"
 
 
-# We can get rid of this when we no longer need to support Python 2, and
-# at that point we will use tempfile.TemporaryDirectory, after which this
-# was modeled.
 class TemporaryDirectory(object):
     def __init__(self):
         self.temporary_directory = tempfile.mkdtemp()
@@ -117,8 +115,6 @@ def ci_generate(args):
     if not output_file:
         output_file = os.path.join(spack_root, '.gitlab-ci.yml')
 
-    original_directory = os.getcwd()
-
     # Create a temporary working directory
     with TemporaryDirectory() as temp_dir:
         # Write cdash auth token to file system
@@ -133,10 +129,10 @@ def ci_generate(args):
         if not env_repo:
             env_repo_dir = spack_root
         else:
-            os.chdir(temp_dir)
             git = exe.which('git', required=True)
-            clone_args = ['clone', env_repo, 'envrepo']
-            git(*clone_args)
+            with fs.working_dir(temp_dir):
+                clone_args = ['clone', env_repo, 'envrepo']
+                git(*clone_args)
             env_repo_dir = os.path.join(temp_dir, 'envrepo')
 
         gen_ci_dir = os.path.dirname(output_file)
@@ -151,23 +147,20 @@ def ci_generate(args):
                 abs_env_dir))
             sys.exit(1)
 
-        os.chdir(abs_env_dir)
+        with fs.working_dir(abs_env_dir):
+            # Generate the jobs yaml file, optionally creating a buildgroup in
+            # cdash at the same time.
+            release_jobs_args = [output_file, False]
+            if token_file:
+                release_jobs_args.append(token_file)
 
-        # Generate the jobs yaml file, optionally creating a buildgroup in
-        # cdash at the same time.
-        release_jobs_args = [output_file, False]
-        if token_file:
-            release_jobs_args.append(token_file)
-
-        release_jobs.generate_jobs(*release_jobs_args)
+            release_jobs.generate_jobs(*release_jobs_args)
 
         if copy_yaml_to:
             copy_to_dir = os.path.dirname(copy_yaml_to)
             if not os.path.exists(copy_to_dir):
                 os.makedirs(copy_to_dir)
             shutil.copyfile(output_file, copy_yaml_to)
-
-    os.chdir(original_directory)
 
 
 def ci_pushyaml(args):
@@ -186,8 +179,6 @@ def ci_pushyaml(args):
     if not jobs_yaml:
         jobs_yaml = os.path.join(spack_root, '.gitlab-ci.yml')
 
-    original_directory = os.getcwd()
-
     # Create a temporary working directory
     with TemporaryDirectory() as temp_dir:
         repo_root = find_nearest_repo_ancestor(jobs_yaml)
@@ -202,33 +193,31 @@ def ci_pushyaml(args):
 
         # Push a commit with the generated file to the downstream ci repo
         saved_git_dir = os.path.join(temp_dir, 'original-git-dir')
-        os.chdir(repo_root)
 
-        shutil.move('.git', saved_git_dir)
+        with fs.working_dir(repo_root):
+            shutil.move('.git', saved_git_dir)
 
-        git('init', '.')
+            git('init', '.')
 
-        git('config', 'user.email', 'robot@spack.io')
-        git('config', 'user.name', 'Spack Build Bot')
+            git('config', 'user.email', 'robot@spack.io')
+            git('config', 'user.name', 'Spack Build Bot')
 
-        git('add', '.')
+            git('add', '.')
 
-        tty.msg('git commit')
-        commit_message = '{0} {1} ({2})'.format(
-            'Auto-generated commit testing', branch_name, commit_sha)
+            tty.msg('git commit')
+            commit_message = '{0} {1} ({2})'.format(
+                'Auto-generated commit testing', branch_name, commit_sha)
 
-        git('commit', '-m', '{0}'.format(commit_message))
+            git('commit', '-m', '{0}'.format(commit_message))
 
-        tty.msg('git push')
-        git('remote', 'add', 'downstream', downstream_repo)
-        push_to_branch = 'master:multi-ci-{0}'.format(branch_name)
-        git('push', '--force', 'downstream', push_to_branch)
+            tty.msg('git push')
+            git('remote', 'add', 'downstream', downstream_repo)
+            push_to_branch = 'master:multi-ci-{0}'.format(branch_name)
+            git('push', '--force', 'downstream', push_to_branch)
 
-        shutil.rmtree('.git')
-        shutil.move(saved_git_dir, '.git')
-        git('reset', '--hard', 'HEAD')
-
-    os.chdir(original_directory)
+            shutil.rmtree('.git')
+            shutil.move(saved_git_dir, '.git')
+            git('reset', '--hard', 'HEAD')
 
 
 def ci(parser, args):
