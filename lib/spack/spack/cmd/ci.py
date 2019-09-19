@@ -62,27 +62,27 @@ def setup_parser(subparser):
     generate.add_argument(
         '--output-file', default=None,
         help="Absolute path to file where generated jobs file should be " +
-            "written.  The default is ${SPACK_ROOT}/.gitlab-ci.yml")
+             "written.  The default is ${SPACK_ROOT}/.gitlab-ci.yml")
     generate.add_argument(
         '--env-repo', default=None,
         help="Url to repository where environment file lives.  The default " +
-            "is the local spack repo.")
+             "is the local spack repo.")
     generate.add_argument(
         '--env-path', default='',
         help="Relative path to location of spack.yaml environment file, " +
-            "where path is relative to root of environment repository.  The " +
-            "default is the empty string, indicating the file lives at the " +
-            "root of the repository.")
+             "where path is relative to root of environment repository.  " +
+             "The default is the empty string, indicating the file lives at " +
+             "the root of the repository.")
     generate.add_argument(
         '--cdash-token', default=None,
         help="Token to use for registering a (possibly new) buildgroup with " +
-            "CDash, assuming the spack ci environment file includes " +
-            "reporting to one or more CDash instances.  The default is None " +
-            "which prevents CDash build group registration.")
+             "CDash, assuming the spack ci environment file includes " +
+             "reporting to one or more CDash instances.  The default is " +
+             "None, which prevents CDash build group registration.")
     generate.add_argument(
         '--copy-to', default=None,
         help="Absolute path of additional location where generated jobs " +
-            "yaml file should be copied.  Default is not to copy.")
+             "yaml file should be copied.  Default is not to copy.")
     generate.set_defaults(func=ci_generate)
 
     # Commit and push jobs yaml to a downstream CI repo
@@ -90,11 +90,11 @@ def setup_parser(subparser):
     pushyaml.add_argument(
         '--yaml-path', default=None,
         help="Absolute path to jobs yaml file, the default value is " +
-            "${SPACK_ROOT}/.gitlab-ci.yml")
+             "${SPACK_ROOT}/.gitlab-ci.yml")
     pushyaml.add_argument(
         '--downstream-repo', default=None,
         help="Url to repository where commit containing jobs yaml file " +
-            "should be pushed.")
+             "should be pushed.")
     pushyaml.add_argument(
         '--branch-name', default='default-branch',
         help="Name of current branch, used in generation of pushed commit.")
@@ -122,6 +122,7 @@ def ci_generate(args):
     # Create a temporary working directory
     with TemporaryDirectory() as temp_dir:
         # Write cdash auth token to file system
+        token_file = None
         if cdash_auth_token:
             token_file = os.path.join(temp_dir, cdash_auth_token)
             with open(token_file, 'w') as fd:
@@ -163,7 +164,7 @@ def ci_generate(args):
         if copy_yaml_to:
             copy_to_dir = os.path.dirname(copy_yaml_to)
             if not os.path.exists(copy_to_dir):
-                os.makedirs(copy_to_dir);
+                os.makedirs(copy_to_dir)
             shutil.copyfile(output_file, copy_yaml_to)
 
     os.chdir(original_directory)
@@ -194,6 +195,7 @@ def ci_pushyaml(args):
         if not repo_root:
             msg = '{0} not in a git repo, cannot commit/push it'.format(
                 jobs_yaml)
+            tty.error(msg)
             sys.exit(1)
 
         git = exe.which('git', required=True)
