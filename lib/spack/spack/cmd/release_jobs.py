@@ -5,7 +5,6 @@
 
 import base64
 import json
-import os
 import zlib
 
 from six import iteritems
@@ -406,7 +405,4 @@ def find_matching_config(spec, ci_mappings):
                 return ci_mapping['runner-attributes']
     return None
 
-
-def generate_jobs(output_file, print_summary=False, cdash_credentials=None):
-    env = ev.Environment(os.getcwd())
 

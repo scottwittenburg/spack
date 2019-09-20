@@ -11,7 +11,8 @@ import tempfile
 import llnl.util.filesystem as fs
 import llnl.util.tty as tty
 
-import spack.cmd.release_jobs as release_jobs
+import spack.environment as ev
+from spack.main import SpackCommand
 import spack.util.executable as exe
 
 
@@ -147,14 +148,20 @@ def ci_generate(args):
                 abs_env_dir))
             sys.exit(1)
 
-        with fs.working_dir(abs_env_dir):
+        ci_env = ev.Environment(abs_env_dir)
+        with ci_env:
+            release_jobs = SpackCommand('release-jobs')
             # Generate the jobs yaml file, optionally creating a buildgroup in
             # cdash at the same time.
-            release_jobs_args = [output_file, False]
+            release_jobs_args = [
+                '--output-file', output_file,
+            ]
             if token_file:
-                release_jobs_args.append(token_file)
+                release_jobs_args.extend([
+                    '--cdash-credentials', token_file,
+                ])
 
-            release_jobs.generate_jobs(*release_jobs_args)
+            release_jobs(*release_jobs_args)
 
         if copy_yaml_to:
             copy_to_dir = os.path.dirname(copy_yaml_to)
