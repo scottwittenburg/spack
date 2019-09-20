@@ -5,7 +5,6 @@
 
 import base64
 import json
-import os
 import zlib
 
 from six import iteritems
@@ -407,273 +406,253 @@ def find_matching_config(spec, ci_mappings):
     return None
 
 
-def generate_jobs(output_file, print_summary=False, cdash_credentials=None):
-    env = ev.Environment(os.getcwd())
+def release_jobs(parser, args):
+    env = ev.get_env(args, 'release-jobs', required=True)
 
-    needs_deactivate = False
+    # FIXME: What's the difference between one that opens with 'spack'
+    # and one that opens with 'env'?  This will only handle the former.
+    yaml_root = env.yaml['spack']
 
-    try:
-        if not env.active:
-            ev.activate(env)
-            needs_deactivate = True
+    if 'gitlab-ci' not in yaml_root:
+        tty.die('Environment yaml does not have "gitlab-ci" section')
 
-        # FIXME: What's the difference between one that opens with 'spack'
-        # and one that opens with 'env'?  This will only handle the former.
-        yaml_root = env.yaml['spack']
+    ci_mappings = yaml_root['gitlab-ci']['mappings']
 
-        if 'gitlab-ci' not in yaml_root:
-            tty.die('Environment yaml does not have "gitlab-ci" section')
+    build_group = None
+    enable_cdash_reporting = False
+    cdash_auth_token = None
 
-        ci_mappings = yaml_root['gitlab-ci']['mappings']
+    if 'cdash' in yaml_root:
+        enable_cdash_reporting = True
+        ci_cdash = yaml_root['cdash']
+        build_group = ci_cdash['build-group']
+        cdash_url = ci_cdash['url']
+        cdash_project = ci_cdash['project']
+        proj_enc = urlencode({'project': cdash_project})
+        eq_idx = proj_enc.find('=') + 1
+        cdash_project_enc = proj_enc[eq_idx:]
+        cdash_site = ci_cdash['site']
 
-        build_group = None
-        enable_cdash_reporting = False
-        cdash_auth_token = None
+        if args.cdash_credentials:
+            with open(args.cdash_credentials) as fd:
+                cdash_auth_token = fd.read()
+                cdash_auth_token = cdash_auth_token.strip()
 
-        if 'cdash' in yaml_root:
-            enable_cdash_reporting = True
-            ci_cdash = yaml_root['cdash']
-            build_group = ci_cdash['build-group']
-            cdash_url = ci_cdash['url']
-            cdash_project = ci_cdash['project']
-            proj_enc = urlencode({'project': cdash_project})
-            eq_idx = proj_enc.find('=') + 1
-            cdash_project_enc = proj_enc[eq_idx:]
-            cdash_site = ci_cdash['site']
+    ci_mirrors = yaml_root['mirrors']
+    mirror_urls = [url for url in ci_mirrors.values()]
 
-            if cdash_credentials:
-                with open(cdash_credentials) as fd:
-                    cdash_auth_token = fd.read()
-                    cdash_auth_token = cdash_auth_token.strip()
+    bootstrap_specs = []
+    phases = []
+    if 'bootstrap' in yaml_root['gitlab-ci']:
+        for phase in yaml_root['gitlab-ci']['bootstrap']:
+            try:
+                phase_name = phase.get('name')
+                strip_compilers = phase.get('compiler-agnostic')
+            except AttributeError:
+                phase_name = phase
+                strip_compilers = False
+            phases.append({
+                'name': phase_name,
+                'strip-compilers': strip_compilers,
+            })
 
-        ci_mirrors = yaml_root['mirrors']
-        mirror_urls = [url for url in ci_mirrors.values()]
-
-        bootstrap_specs = []
-        phases = []
-        if 'bootstrap' in yaml_root['gitlab-ci']:
-            for phase in yaml_root['gitlab-ci']['bootstrap']:
-                try:
-                    phase_name = phase.get('name')
-                    strip_compilers = phase.get('compiler-agnostic')
-                except AttributeError:
-                    phase_name = phase
-                    strip_compilers = False
-                phases.append({
-                    'name': phase_name,
+            for bs in env.spec_lists[phase_name]:
+                bootstrap_specs.append({
+                    'spec': bs,
+                    'phase-name': phase_name,
                     'strip-compilers': strip_compilers,
                 })
 
-                for bs in env.spec_lists[phase_name]:
-                    bootstrap_specs.append({
-                        'spec': bs,
-                        'phase-name': phase_name,
-                        'strip-compilers': strip_compilers,
-                    })
+    phases.append({
+        'name': 'specs',
+        'strip-compilers': False,
+    })
 
-        phases.append({
-            'name': 'specs',
-            'strip-compilers': False,
-        })
+    staged_phases = {}
+    for phase in phases:
+        phase_name = phase['name']
+        staged_phases[phase_name] = stage_spec_jobs(env.spec_lists[phase_name])
 
-        staged_phases = {}
+    if args.print_summary:
         for phase in phases:
             phase_name = phase['name']
-            staged_phases[phase_name] = stage_spec_jobs(
-                env.spec_lists[phase_name])
+            tty.msg('Stages for phase "{0}"'.format(phase_name))
+            phase_stages = staged_phases[phase_name]
+            print_staging_summary(*phase_stages)
 
-        if print_summary:
-            for phase in phases:
-                phase_name = phase['name']
-                tty.msg('Stages for phase "{0}"'.format(phase_name))
-                phase_stages = staged_phases[phase_name]
-                print_staging_summary(*phase_stages)
+    all_job_names = []
+    output_object = {}
+    job_id = 0
+    stage_id = 0
 
-        all_job_names = []
-        output_object = {}
-        job_id = 0
-        stage_id = 0
+    stage_names = []
 
-        stage_names = []
+    for phase in phases:
+        phase_name = phase['name']
+        strip_compilers = phase['strip-compilers']
 
-        for phase in phases:
-            phase_name = phase['name']
-            strip_compilers = phase['strip-compilers']
+        main_phase = is_main_phase(phase_name)
+        spec_labels, dependencies, stages = staged_phases[phase_name]
 
-            main_phase = is_main_phase(phase_name)
-            spec_labels, dependencies, stages = staged_phases[phase_name]
+        for stage_jobs in stages:
+            stage_name = 'stage-{0}'.format(stage_id)
+            stage_names.append(stage_name)
+            stage_id += 1
 
-            for stage_jobs in stages:
-                stage_name = 'stage-{0}'.format(stage_id)
-                stage_names.append(stage_name)
-                stage_id += 1
+            for spec_label in stage_jobs:
+                release_spec = spec_labels[spec_label]['spec']
+                root_spec = spec_labels[spec_label]['rootSpec']
 
-                for spec_label in stage_jobs:
-                    release_spec = spec_labels[spec_label]['spec']
-                    root_spec = spec_labels[spec_label]['rootSpec']
+                runner_attribs = find_matching_config(root_spec, ci_mappings)
 
-                    runner_attribs = find_matching_config(
-                        root_spec, ci_mappings)
+                if not runner_attribs:
+                    tty.warn('No match found for {0}, skipping it'.format(
+                        release_spec))
+                    continue
 
-                    if not runner_attribs:
-                        tty.warn('No match found for {0}, skipping it'.format(
-                            release_spec))
-                        continue
+                tags = [tag for tag in runner_attribs['tags']]
 
-                    tags = [tag for tag in runner_attribs['tags']]
+                variables = {}
+                if 'variables' in runner_attribs:
+                    variables.update(runner_attribs['variables'])
 
-                    variables = {}
-                    if 'variables' in runner_attribs:
-                        variables.update(runner_attribs['variables'])
+                image_name = None
+                image_entry = None
+                if 'image' in runner_attribs:
+                    build_image = runner_attribs['image']
+                    try:
+                        image_name = build_image.get('name')
+                        entrypoint = build_image.get('entrypoint')
+                        image_entry = [p for p in entrypoint]
+                    except AttributeError:
+                        image_name = build_image
 
-                    image_name = None
-                    image_entry = None
-                    if 'image' in runner_attribs:
-                        build_image = runner_attribs['image']
-                        try:
-                            image_name = build_image.get('name')
-                            entrypoint = build_image.get('entrypoint')
-                            image_entry = [p for p in entrypoint]
-                        except AttributeError:
-                            image_name = build_image
+                osname = str(release_spec.architecture)
+                job_name = get_job_name(phase_name, strip_compilers,
+                                        release_spec, osname, build_group)
 
-                    osname = str(release_spec.architecture)
-                    job_name = get_job_name(phase_name, strip_compilers,
-                                            release_spec, osname, build_group)
+                job_scripts = ['./bin/rebuild-package.sh']
 
-                    job_scripts = ['./bin/rebuild-package.sh']
-
-                    compiler_action = 'NONE'
-                    if len(phases) > 1:
-                        compiler_action = 'FIND_ANY'
-                        if is_main_phase(phase_name):
-                            compiler_action = 'INSTALL_MISSING'
-
-                    job_vars = {
-                        'SPACK_MIRROR_URL': mirror_urls[0],
-                        'SPACK_ROOT_SPEC': format_root_spec(
-                            root_spec, main_phase, strip_compilers),
-                        'SPACK_JOB_SPEC_PKG_NAME': release_spec.name,
-                        'SPACK_COMPILER_ACTION': compiler_action,
-                    }
-
-                    job_dependencies = []
-                    if spec_label in dependencies:
-                        job_dependencies = (
-                            [get_job_name(phase_name, strip_compilers,
-                                          spec_labels[dep_label]['spec'],
-                                          osname, build_group)
-                                for dep_label in dependencies[spec_label]])
-
-                    # This next section helps gitlab make sure the right
-                    # bootstrapped compiler exists in the artifacts buildcache
-                    # by creating an artificial dependency between this spec
-                    # and its compiler.  So, if we are in the main phase, and
-                    # if the compiler we are supposed to use is listed in any
-                    # of the bootstrap spec lists, then we will add one more
-                    # dependency to "job_dependencies" (that compiler).
+                compiler_action = 'NONE'
+                if len(phases) > 1:
+                    compiler_action = 'FIND_ANY'
                     if is_main_phase(phase_name):
-                        compiler_pkg_spec = compilers.pkg_spec_for_compiler(
-                            release_spec.compiler)
-                        for bs in bootstrap_specs:
-                            bs_arch = bs['spec'].architecture
-                            if (bs['spec'].satisfies(compiler_pkg_spec) and
-                                bs_arch == release_spec.architecture):
-                                c_job_name = get_job_name(
-                                    bs['phase-name'],
-                                    bs['strip-compilers'],
-                                    bs['spec'],
-                                    str(bs_arch),
-                                    build_group)
-                                job_dependencies.append(c_job_name)
+                        compiler_action = 'INSTALL_MISSING'
 
-                    if enable_cdash_reporting:
-                        cdash_build_name = get_cdash_build_name(
-                            release_spec, build_group)
-                        all_job_names.append(cdash_build_name)
+                job_vars = {
+                    'SPACK_MIRROR_URL': mirror_urls[0],
+                    'SPACK_ROOT_SPEC': format_root_spec(
+                        root_spec, main_phase, strip_compilers),
+                    'SPACK_JOB_SPEC_PKG_NAME': release_spec.name,
+                    'SPACK_COMPILER_ACTION': compiler_action,
+                }
 
-                        related_builds = []    # Used for relating CDash builds
-                        if spec_label in dependencies:
-                            related_builds = (
-                                [spec_labels[d]['spec'].name
-                                    for d in dependencies[spec_label]])
+                job_dependencies = []
+                if spec_label in dependencies:
+                    job_dependencies = (
+                        [get_job_name(phase_name, strip_compilers,
+                                      spec_labels[dep_label]['spec'],
+                                      osname, build_group)
+                            for dep_label in dependencies[spec_label]])
 
-                        job_vars['SPACK_CDASH_BASE_URL'] = cdash_url
-                        job_vars['SPACK_CDASH_PROJECT'] = cdash_project
-                        job_vars['SPACK_CDASH_PROJECT_ENC'] = cdash_project_enc
-                        job_vars['SPACK_CDASH_BUILD_NAME'] = cdash_build_name
-                        job_vars['SPACK_CDASH_SITE'] = cdash_site
-                        job_vars['SPACK_RELATED_BUILDS'] = ';'.join(
-                            related_builds)
-                        job_vars['SPACK_JOB_SPEC_BUILDGROUP'] = build_group
+                # This next section helps gitlab make sure the right
+                # bootstrapped compiler exists in the artifacts buildcache by
+                # creating an artificial dependency between this spec and its
+                # compiler.  So, if we are in the main phase, and if the
+                # compiler we are supposed to use is listed in any of the
+                # bootstrap spec lists, then we will add one more dependency to
+                # "job_dependencies" (that compiler).
+                if is_main_phase(phase_name):
+                    compiler_pkg_spec = compilers.pkg_spec_for_compiler(
+                        release_spec.compiler)
+                    for bs in bootstrap_specs:
+                        bs_arch = bs['spec'].architecture
+                        if (bs['spec'].satisfies(compiler_pkg_spec) and
+                            bs_arch == release_spec.architecture):
+                            c_job_name = get_job_name(bs['phase-name'],
+                                                      bs['strip-compilers'],
+                                                      bs['spec'],
+                                                      str(bs_arch),
+                                                      build_group)
+                            job_dependencies.append(c_job_name)
 
-                    job_vars['SPACK_ENABLE_CDASH'] = str(
-                        enable_cdash_reporting)
+                if enable_cdash_reporting:
+                    cdash_build_name = get_cdash_build_name(
+                        release_spec, build_group)
+                    all_job_names.append(cdash_build_name)
 
-                    variables.update(job_vars)
+                    related_builds = []      # Used for relating CDash builds
+                    if spec_label in dependencies:
+                        related_builds = (
+                            [spec_labels[d]['spec'].name
+                                for d in dependencies[spec_label]])
 
-                    job_object = {
-                        'stage': stage_name,
-                        'variables': variables,
-                        'script': job_scripts,
-                        'tags': tags,
-                        'artifacts': {
-                            'paths': [
-                                'jobs_scratch_dir',
-                                'cdash_report',
-                                'local_mirror/build_cache',
-                            ],
-                            'when': 'always',
-                        },
-                        'dependencies': job_dependencies,
-                    }
+                    job_vars['SPACK_CDASH_BASE_URL'] = cdash_url
+                    job_vars['SPACK_CDASH_PROJECT'] = cdash_project
+                    job_vars['SPACK_CDASH_PROJECT_ENC'] = cdash_project_enc
+                    job_vars['SPACK_CDASH_BUILD_NAME'] = cdash_build_name
+                    job_vars['SPACK_CDASH_SITE'] = cdash_site
+                    job_vars['SPACK_RELATED_BUILDS'] = ';'.join(related_builds)
+                    job_vars['SPACK_JOB_SPEC_BUILDGROUP'] = build_group
 
-                    if image_name:
-                        job_object['image'] = image_name
-                        if image_entry is not None:
-                            job_object['image'] = {
-                                'name': image_name,
-                                'entrypoint': image_entry,
-                            }
+                job_vars['SPACK_ENABLE_CDASH'] = str(enable_cdash_reporting)
 
-                    output_object[job_name] = job_object
-                    job_id += 1
+                variables.update(job_vars)
 
-        tty.msg('{0} build jobs generated in {1} stages'.format(
-            job_id, stage_id))
+                job_object = {
+                    'stage': stage_name,
+                    'variables': variables,
+                    'script': job_scripts,
+                    'tags': tags,
+                    'artifacts': {
+                        'paths': [
+                            'jobs_scratch_dir',
+                            'cdash_report',
+                            'local_mirror/build_cache',
+                        ],
+                        'when': 'always',
+                    },
+                    'dependencies': job_dependencies,
+                }
 
-        # Use "all_job_names" to populate the build group for this set
-        if enable_cdash_reporting and cdash_auth_token:
-            try:
-                populate_buildgroup(all_job_names, build_group, cdash_project,
-                                    cdash_site, cdash_auth_token, cdash_url)
-            except (SpackError, HTTPError, URLError) as err:
-                tty.warn('Problem populating buildgroup: {0}'.format(err))
-        else:
-            tty.warn('Unable to populate buildgroup without CDash credentials')
+                if image_name:
+                    job_object['image'] = image_name
+                    if image_entry is not None:
+                        job_object['image'] = {
+                            'name': image_name,
+                            'entrypoint': image_entry,
+                        }
 
-        # Add an extra, final job to regenerate the index
-        final_stage = 'stage-rebuild-index'
-        final_job = {
-            'stage': final_stage,
-            'variables': {
-                'MIRROR_URL': mirror_urls[0],
-            },
-            'script': './bin/rebuild-index.sh',
-            'tags': ['spack-post-ci']    # may want a runner to handle this
-        }
-        output_object['rebuild-index'] = final_job
-        stage_names.append(final_stage)
+                output_object[job_name] = job_object
+                job_id += 1
 
-        output_object['stages'] = stage_names
+    tty.msg('{0} build jobs generated in {1} stages'.format(
+        job_id, stage_id))
 
-        with open(output_file, 'w') as outf:
-            outf.write(syaml.dump(output_object))
+    # Use "all_job_names" to populate the build group for this set
+    if enable_cdash_reporting and cdash_auth_token:
+        try:
+            populate_buildgroup(all_job_names, build_group, cdash_project,
+                                cdash_site, cdash_auth_token, cdash_url)
+        except (SpackError, HTTPError, URLError) as err:
+            tty.warn('Problem populating buildgroup: {0}'.format(err))
+    else:
+        tty.warn('Unable to populate buildgroup without CDash credentials')
 
-    finally:
-        if needs_deactivate:
-            ev.deactivate()
+    # Add an extra, final job to regenerate the index
+    final_stage = 'stage-rebuild-index'
+    final_job = {
+        'stage': final_stage,
+        'variables': {
+            'MIRROR_URL': mirror_urls[0],
+        },
+        'script': './bin/rebuild-index.sh',
+        'tags': ['spack-post-ci']    # may want a runner to handle this
+    }
+    output_object['rebuild-index'] = final_job
+    stage_names.append(final_stage)
 
+    output_object['stages'] = stage_names
 
-def release_jobs(parser, args):
-    generate_jobs(args.output_file, args.print_summary, args.cdash_credentials)
+    with open(args.output_file, 'w') as outf:
+        outf.write(syaml.dump(output_object))
