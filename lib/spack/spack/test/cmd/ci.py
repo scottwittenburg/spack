@@ -8,6 +8,7 @@ import pytest
 
 import llnl.util.filesystem as fs
 
+import spack.compilers as compilers
 from spack.main import SpackCommand
 import spack.util.executable as exe
 import spack.util.spack_yaml as syaml
@@ -54,6 +55,8 @@ def get_repo_status(repo_path):
 def test_ci_generate(tmpdir):
     env_repo = 'https://github.com/scottwittenburg/site-specific-release.git'
     env_path = 'test_environment'
+
+    compilers._cache_config_file = []
 
     jobs_yaml_file = tmpdir.join('.gitlab-ci.yml')
 
