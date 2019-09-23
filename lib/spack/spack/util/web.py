@@ -440,7 +440,7 @@ def _urlopen(req, *args, **kwargs):
 
     # We don't pass 'context' parameter because it was only introduced starting
     # with versions 2.7.9 and 3.4.3 of Python.
-    if kwargs.get('context') is not None:
+    if 'context' in kwargs:
         kwargs.pop('context', None)
 
     opener = urlopen
