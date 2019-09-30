@@ -225,8 +225,8 @@ def push_to_url(local_path, remote_path, **kwargs):
         extra_args = kwargs.get('extra_args', {})
 
         s3 = s3_util.create_s3_session(remote_url)
-        s3.upload_file(local_url.path, remote_url.s3_bucket,
-                       remote_url.path, ExtraArgs=extra_args)
+        s3.upload_file(local_url.path, remote_url.netloc,
+                       remote_url.path[1:], ExtraArgs=extra_args)
 
         if not keep_original:
             os.remove(local_url.path)
@@ -246,7 +246,7 @@ def url_exists(path):
         s3 = s3_util.create_s3_session(url)
         from botocore.exceptions import ClientError
         try:
-            s3.get_object(Bucket=url.s3_bucket, Key=url.path)
+            s3.get_object(Bucket=url.netloc, Key=url.path)
             return True
         except ClientError as err:
             if err.response['Error']['Code'] == 'NoSuchKey':
@@ -271,7 +271,7 @@ def remove_url(path):
 
     if url.scheme == 's3':
         s3 = s3_util.create_s3_session(url)
-        s3.delete_object(Bucket=url.s3_bucket, Key=url.path)
+        s3.delete_object(Bucket=url.netloc, Key=url.path)
         return
 
     # Don't even try for other URL schemes.
@@ -279,7 +279,7 @@ def remove_url(path):
 
 def _list_s3_objects(client, url, num_entries, start_after=None):
     list_args = dict(
-            Bucket=url.s3_bucket,
+            Bucket=url.netloc,
             Prefix=url.path,
             MaxKeys=num_entries)
 
