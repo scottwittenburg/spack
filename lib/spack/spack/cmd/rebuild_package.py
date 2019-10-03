@@ -17,6 +17,7 @@ from six.moves.urllib.parse import urlencode
 import llnl.util.tty as tty
 
 import spack.binary_distribution as bindist
+import spack.config as cfg
 from spack.main import SpackCommand
 from spack.spec import Spec, save_dependency_spec_yamls
 import spack.util.spack_yaml as syaml
@@ -27,6 +28,7 @@ level = "long"
 
 
 spack_gpg = SpackCommand('gpg')
+spack_compiler = SpackCommand('compiler')
 # spack_buildcache = SpackCommand('buildcache')
 spack_config = SpackCommand('config')
 spack_mirror = SpackCommand('mirror')
@@ -221,6 +223,21 @@ def import_signing_key(base64_signing_key):
     tty.msg(signing_keys_output)
 
 
+def configure_compilers(compiler_action):
+    if compiler_action == 'INSTALL_MISSING':
+        tty.msg('Make sure bootstrapped compiler will be installed')
+        config = cfg.get('config')
+        config['install_missing_compilers'] = True
+        cfg.set('config', config)
+    elif compiler_action == 'FIND_ANY':
+        tty.msg('Just find any available compiler')
+        output = spack_compiler('find')
+        tty.msg('spack compiler find')
+        tty.msg(output)
+    else:
+        tty.msg('No compiler action to be taken')
+
+
 def rebuild_package(parser, args):
     """ This command represents a gitlab-ci job, corresponding to a single
     release spec.  As such it must first decide whether or not the spec it
@@ -279,138 +296,41 @@ def rebuild_package(parser, args):
         os.dup2(log_fd.fileno(), sys.stdout.fileno())
         os.dup2(log_fd.fileno(), sys.stderr.fileno())
 
-        tty.msg('ci_project_dir: {0}'.format(ci_project_dir))
-        tty.msg('ci_job_name: {0}'.format(ci_job_name))
-        tty.msg('spack_enable_cdash: {0}'.format(spack_enable_cdash))
-        tty.msg('spack_root_spec: {0}'.format(spack_root_spec))
-        tty.msg('spack_mirror_url: {0}'.format(spack_mirror_url))
-        tty.msg('spack_job_spec_pkg_name: {0}'.format(spack_job_spec_pkg_name))
-        tty.msg('spack_compiler_action: {0}'.format(spack_compiler_action))
-        tty.msg('spack_cdash_base_url: {0}'.format(spack_cdash_base_url))
-        tty.msg('spack_cdash_project: {0}'.format(spack_cdash_project))
-        tty.msg('spack_cdash_project_enc: {0}'.format(spack_cdash_project_enc))
-        tty.msg('spack_cdash_build_name: {0}'.format(spack_cdash_build_name))
-        tty.msg('spack_cdash_site: {0}'.format(spack_cdash_site))
-        tty.msg('spack_related_builds: {0}'.format(spack_related_builds))
-        tty.msg('spack_job_spec_buildgroup: {0}'.format(spack_job_spec_buildgroup))
-
         import_signing_key(spack_signing_key)
 
-        # cdash_project_encoded = url_encode_string(cdash_project)
-        # cdash_upload_url = '{0}/submit.php?project={1}'.format(
-        #     cdash_base_url, cdash_project_encoded)
-        # dep_job_relatebuilds_url = '{0}/api/v1/relateBuilds.php'.format(
-        #     cdash_base_url)
+        configure_compilers(spack_compiler_action)
 
-        # # Save complete yaml files for our target spec, as well as for all of
-        # # it's dependencies.
-        # job_spec_name, job_group, spec_yaml_path = save_full_yamls(
-        #     ci_job_name, dependencies, root_spec, spec_dir)
+"""
+        SPEC_YAML_PATH="${SPEC_DIR}/${SPACK_JOB_SPEC_PKG_NAME}.yaml"
+        local spec_names_to_save="${SPACK_JOB_SPEC_PKG_NAME}"
 
-        # # Get the concrete spec for the package we've been tasked with building
-        # with open(spec_yaml_path, 'r') as fd:
-        #     concrete_job_spec = Spec.from_yaml(fd.read())
-
-        # # First check the spec we have been tasked with building
-        # # against the binary on the remote mirror to see if it actually
-        # # needs to be rebuilt
-        # needs_rebuild = bindist.check_specs_against_mirrors(
-        #     {'myMirror': remote_mirror_url}, [concrete_job_spec], None, True)
-
-        # if needs_rebuild:
-        #     # We will need to rebuild the package for this spec, so we should
-        #     # register a build with CDash
-
-        # tty.msg('Building package {0} to push to {1}'.format(
-        #     job_spec_name, remote_mirror_url))
-
-        # # List compilers spack knows about
-        # tty.msg('Compiler Configurations:')
-        # spack_config('get', 'compilers')
-
-        # # Create the build_cache directory if it doesn't exist
-        # os.makedirs(build_cache_dir)
-
-        # # Get buildcache name so we can write a CDash build id file in the right place.
-        # # If we're unable to get the buildcache name, we may have encountered a problem
-        # # concretizing the spec, or some other issue that will eventually cause the job
-        # # to fail.
-        # job_build_cache_entry_name = bindist.tarball_name(concrete_job_spec, '')
-
-
-
-        # # Whether we have to build the spec or download it pre-built, we are
-        # # going to expect to find the cdash build id file sitting in this
-        # # location afterwards.
-        # job_cdash_id_file = os.path.join(build_cache_dir, '{0}.cdashid'.format(
-        #     job_build_cache_entry_name))
-
-        # if needs_rebuild:
-        #     perform_full_rebuild(
-        #         spec_yaml_path, job_spec_name, cdash_upload_url,
-        #         local_mirror_dir)
-
-        # else:
-        #     download_buildcache(
-        #         spec_yaml_path, job_spec_name, build_cache_dir,
-        #         remote_mirror_url)
-
-    # The next step is to relate this job to the jobs it depends on.
-    # QUESTION: Do we need to do this step only if we needed to rebuild
-    # QUESTION: the package?  It seems if the package was already up to
-    # QUESTION: on the mirror, then we should have already related that
-    # QUESTION: build to it's dependencies.
-    # relate_build_to_dependencies()
-
-    """
-    # Show the size of the buildcache and a list of what's in it, directly
-    # in the gitlab log output
-    (
-        restore_io
-        du -sh ${BUILD_CACHE_DIR}
-        find ${BUILD_CACHE_DIR} -maxdepth 3 -type d -ls
-    )
-
-    echo "End of rebuild package script"
-
-
-
-    check_error()
-    {
-        local last_exit_code=$1
-        local last_cmd=$2
-        if [[ ${last_exit_code} -ne 0 ]]; then
-            echo "${last_cmd} exited with code ${last_exit_code}"
-            echo "TERMINATING JOB"
-            exit 1
-        else
-            echo "${last_cmd} completed successfully"
+        if [ "${SPACK_ENABLE_CDASH}" == "True" ] ; then
+            IFS=';' read -ra DEPS <<< "${SPACK_RELATED_BUILDS}"
+            for i in "${DEPS[@]}"; do
+                depPkgName="${i}"
+                spec_names_to_save="${spec_names_to_save} ${depPkgName}"
+                JOB_DEPS_PKG_NAMES+=("${depPkgName}")
+            done
         fi
-    }
 
-    extract_build_id()
-    {
-        LINES_TO_SEARCH=$1
-        regex="buildSummary\.php\?buildid=([[:digit:]]+)"
-        SINGLE_LINE_OUTPUT=$(echo ${LINES_TO_SEARCH} | tr -d '\n')
-
-        if [[ ${SINGLE_LINE_OUTPUT} =~ ${regex} ]]; then
-            echo "${BASH_REMATCH[1]}"
+        if [ "${SPACK_COMPILER_ACTION}" == "FIND_ANY" ]; then
+            # This corresponds to a bootstrapping phase where we need to
+            # rely on any available compiler to build the package (i.e. the
+            # compiler needed to be stripped from the spec), and thus we need
+            # to concretize the root spec again.
+            spack -d buildcache save-yaml --specs "${spec_names_to_save}" --root-spec "${SPACK_ROOT_SPEC}" --yaml-dir "${SPEC_DIR}"
         else
-            echo "NONE"
+            # in this case, either we're relying on Spack to install missing compiler
+            # bootstrapped in a previous phase, or else we only had one phase (like a
+            # site which already knows what compilers are available on it's runners),
+            # so we don't want to concretize that root spec again.  The reason we need
+            # this in the first case (bootstrapped compiler), is that we can't concretize
+            # a spec at this point if we're going to ask spack to "install_missing_compilers".
+            tmp_dir=$(mktemp -d)
+            TMP_YAML_PATH="${tmp_dir}/root.yaml"
+            ROOT_SPEC_YAML=$(spack python -c "import base64 ; import zlib ; print(str(zlib.decompress(base64.b64decode('${SPACK_ROOT_SPEC}')).decode('utf-8')))")
+            echo "${ROOT_SPEC_YAML}" > "${TMP_YAML_PATH}"
+            spack -d buildcache save-yaml --specs "${spec_names_to_save}" --root-spec-yaml "${TMP_YAML_PATH}" --yaml-dir "${SPEC_DIR}"
+            rm -rf ${tmp_dir}
         fi
-    }
-
-    get_relate_builds_post_data()
-    {
-      cat <<EOF
-    {
-      "project": "${1}",
-      "buildid": ${2},
-      "relatedid": ${3},
-      "relationship": "depends on"
-    }
-    EOF
-    }
-
-    """
+"""
