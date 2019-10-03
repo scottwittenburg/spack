@@ -27,9 +27,8 @@
 ###
 ### AWS_ACCESS_KEY_ID
 ### AWS_SECRET_ACCESS_KEY
+### AWS_ENDPOINT_URL
 ### SPACK_SIGNING_KEY
-###
-### SPACK_S3_UPLOAD_MIRROR_URL         // only required in the short term for the cloud case
 ###
 ### The following variabes are defined by the ci generation process and are
 ### required:
@@ -51,6 +50,11 @@
 ### SPACK_RELATED_BUILDS
 ### SPACK_JOB_SPEC_BUILDGROUP
 ###
+
+. "${SPACK_ROOT}/share/spack/setup-env.sh"
+spack rebuild-package
+
+
 
 shopt -s expand_aliases
 
