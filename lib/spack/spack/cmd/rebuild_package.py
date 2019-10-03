@@ -186,6 +186,41 @@ def relate_build_to_dependencies():
     """
 
 
+def import_signing_key(base64_signing_key):
+    if not base64_signing_key:
+        tty.die('No key found for signing/verifying packages')
+
+    tty.msg('hello from import_signing_key')
+
+    # This command has the side-effect of creating the directory referred
+    # to as GNUPGHOME in setup_environment()
+    list_output = spack_gpg('list', output=str)
+
+    tty.msg('spack gpg list:')
+    tty.msg(list_output)
+
+    # Importing the secret key using gpg2 directly should allow both
+    # signing and verification
+    gpg_process = Popen(["gpg2", "--import"], stdin=PIPE)
+    decoded_key = b64decode(base64_signing_key)
+    gpg_out, gpg_err = gpg_process.communicate(decoded_key)
+
+    if gpg_out:
+        tty.msg('gpg2 output: {0}'.format(gpg_out))
+
+    if gpg_err:
+        tty.msg('gpg2 error: {0}'.format(gpg_err))
+
+    # Now print the keys we have for verifying and signing
+    trusted_keys_output = spack_gpg('list', '--trusted', output=str)
+    signing_keys_output = spack_gpg('list', '--signing' ,output=str)
+
+    tty.msg('spack list --trusted')
+    tty.msg(trusted_keys_output)
+    tty.msg('spack list --signing')
+    tty.msg(signing_keys_output)
+
+
 def rebuild_package(parser, args):
     """ This command represents a gitlab-ci job, corresponding to a single
     release spec.  As such it must first decide whether or not the spec it
@@ -213,8 +248,8 @@ def rebuild_package(parser, args):
     spack_related_builds = get_env_var('SPACK_RELATED_BUILDS')
     spack_job_spec_buildgroup = get_env_var('SPACK_JOB_SPEC_BUILDGROUP')
 
-    os.environ['FORCE_UNSAFE_CONFIGURE'] = 1
-    os.environ['GNUPGHOME'] = '{0}/opt/spack/gpg'.format(args.ci_project_dir)
+    os.environ['FORCE_UNSAFE_CONFIGURE'] = '1'
+    os.environ['GNUPGHOME'] = '{0}/opt/spack/gpg'.format(ci_project_dir)
 
     # The following environment variables should have been provided by the CI
     # infrastructre (or some other external source).  The AWS keys are
@@ -235,12 +270,6 @@ def rebuild_package(parser, args):
     local_mirror_dir = os.path.join(ci_project_dir, 'local_mirror')
     build_cache_dir = os.path.join(local_mirror_dir, 'build_cache')
 
-    cdash_project_encoded = url_encode_string(cdash_project)
-    cdash_upload_url = '{0}/submit.php?project={1}'.format(
-        cdash_base_url, cdash_project_encoded)
-    dep_job_relatebuilds_url = '{0}/api/v1/relateBuilds.php'.format(
-        cdash_base_url)
-
     os.makedirs(job_log_dir)
     os.makedirs(spec_dir)
 
@@ -250,83 +279,88 @@ def rebuild_package(parser, args):
         os.dup2(log_fd.fileno(), sys.stdout.fileno())
         os.dup2(log_fd.fileno(), sys.stderr.fileno())
 
-        # Save complete yaml files for our target spec, as well as for all of
-        # it's dependencies.
-        job_spec_name, job_group, spec_yaml_path = save_full_yamls(
-            ci_job_name, dependencies, root_spec, spec_dir)
+        tty.msg('ci_project_dir: {0}'.format(ci_project_dir))
+        tty.msg('ci_job_name: {0}'.format(ci_job_name))
+        tty.msg('spack_enable_cdash: {0}'.format(spack_enable_cdash))
+        tty.msg('spack_root_spec: {0}'.format(spack_root_spec))
+        tty.msg('spack_mirror_url: {0}'.format(spack_mirror_url))
+        tty.msg('spack_job_spec_pkg_name: {0}'.format(spack_job_spec_pkg_name))
+        tty.msg('spack_compiler_action: {0}'.format(spack_compiler_action))
+        tty.msg('spack_cdash_base_url: {0}'.format(spack_cdash_base_url))
+        tty.msg('spack_cdash_project: {0}'.format(spack_cdash_project))
+        tty.msg('spack_cdash_project_enc: {0}'.format(spack_cdash_project_enc))
+        tty.msg('spack_cdash_build_name: {0}'.format(spack_cdash_build_name))
+        tty.msg('spack_cdash_site: {0}'.format(spack_cdash_site))
+        tty.msg('spack_related_builds: {0}'.format(spack_related_builds))
+        tty.msg('spack_job_spec_buildgroup: {0}'.format(spack_job_spec_buildgroup))
 
-        # Get the concrete spec for the package we've been tasked with building
-        with open(spec_yaml_path, 'r') as fd:
-            concrete_job_spec = Spec.from_yaml(fd.read())
+        import_signing_key(spack_signing_key)
 
-        # First check the spec we have been tasked with building
-        # against the binary on the remote mirror to see if it actually
-        # needs to be rebuilt
-        needs_rebuild = bindist.check_specs_against_mirrors(
-            {'myMirror': remote_mirror_url}, [concrete_job_spec], None, True)
+        # cdash_project_encoded = url_encode_string(cdash_project)
+        # cdash_upload_url = '{0}/submit.php?project={1}'.format(
+        #     cdash_base_url, cdash_project_encoded)
+        # dep_job_relatebuilds_url = '{0}/api/v1/relateBuilds.php'.format(
+        #     cdash_base_url)
 
-        if needs_rebuild:
-            # We will need to rebuild the package for this spec, so we should
-            # register a build with CDash
+        # # Save complete yaml files for our target spec, as well as for all of
+        # # it's dependencies.
+        # job_spec_name, job_group, spec_yaml_path = save_full_yamls(
+        #     ci_job_name, dependencies, root_spec, spec_dir)
 
-        tty.msg('Building package {0} to push to {1}'.format(
-            job_spec_name, remote_mirror_url))
+        # # Get the concrete spec for the package we've been tasked with building
+        # with open(spec_yaml_path, 'r') as fd:
+        #     concrete_job_spec = Spec.from_yaml(fd.read())
 
-        # List compilers spack knows about
-        tty.msg('Compiler Configurations:')
-        spack_config('get', 'compilers')
+        # # First check the spec we have been tasked with building
+        # # against the binary on the remote mirror to see if it actually
+        # # needs to be rebuilt
+        # needs_rebuild = bindist.check_specs_against_mirrors(
+        #     {'myMirror': remote_mirror_url}, [concrete_job_spec], None, True)
 
-        # Create the build_cache directory if it doesn't exist
-        os.makedirs(build_cache_dir)
+        # if needs_rebuild:
+        #     # We will need to rebuild the package for this spec, so we should
+        #     # register a build with CDash
 
-        # Get buildcache name so we can write a CDash build id file in the right place.
-        # If we're unable to get the buildcache name, we may have encountered a problem
-        # concretizing the spec, or some other issue that will eventually cause the job
-        # to fail.
-        job_build_cache_entry_name = bindist.tarball_name(concrete_job_spec, '')
+        # tty.msg('Building package {0} to push to {1}'.format(
+        #     job_spec_name, remote_mirror_url))
 
-        # This command has the side-effect of creating the directory referred
-        # to as GNUPGHOME in setup_environment()
-        spack_gpg('list')
+        # # List compilers spack knows about
+        # tty.msg('Compiler Configurations:')
+        # spack_config('get', 'compilers')
 
-        # Importing the secret key using gpg2 directly should allow both
-        # signing and verification
-        gpg_process = Popen(["gpg2 --import"], stdin=PIPE)
-        gpg_out, gpg_err = gpg_process.communicate(
-            b64decode(os.environ['SPACK_SIGNING_KEY']))
+        # # Create the build_cache directory if it doesn't exist
+        # os.makedirs(build_cache_dir)
 
-        if gpg_out:
-            tty.msg('gpg2 output: {0}'.format(gpg_out))
+        # # Get buildcache name so we can write a CDash build id file in the right place.
+        # # If we're unable to get the buildcache name, we may have encountered a problem
+        # # concretizing the spec, or some other issue that will eventually cause the job
+        # # to fail.
+        # job_build_cache_entry_name = bindist.tarball_name(concrete_job_spec, '')
 
-        if gpg_err:
-            tty.msg('gpg2 error: {0}'.format(gpg_err))
 
-        # Now print the keys we have for verifying and signing
-        spack_gpg('list', '--trusted')
-        spack_gpg('list', '--signing')
 
-        # Whether we have to build the spec or download it pre-built, we are
-        # going to expect to find the cdash build id file sitting in this
-        # location afterwards.
-        job_cdash_id_file = os.path.join(build_cache_dir, '{0}.cdashid'.format(
-            job_build_cache_entry_name))
+        # # Whether we have to build the spec or download it pre-built, we are
+        # # going to expect to find the cdash build id file sitting in this
+        # # location afterwards.
+        # job_cdash_id_file = os.path.join(build_cache_dir, '{0}.cdashid'.format(
+        #     job_build_cache_entry_name))
 
-        if needs_rebuild:
-            perform_full_rebuild(
-                spec_yaml_path, job_spec_name, cdash_upload_url,
-                local_mirror_dir)
+        # if needs_rebuild:
+        #     perform_full_rebuild(
+        #         spec_yaml_path, job_spec_name, cdash_upload_url,
+        #         local_mirror_dir)
 
-        else:
-            download_buildcache(
-                spec_yaml_path, job_spec_name, build_cache_dir,
-                remote_mirror_url)
+        # else:
+        #     download_buildcache(
+        #         spec_yaml_path, job_spec_name, build_cache_dir,
+        #         remote_mirror_url)
 
     # The next step is to relate this job to the jobs it depends on.
     # QUESTION: Do we need to do this step only if we needed to rebuild
     # QUESTION: the package?  It seems if the package was already up to
     # QUESTION: on the mirror, then we should have already related that
     # QUESTION: build to it's dependencies.
-    relate_build_to_dependencies()
+    # relate_build_to_dependencies()
 
     """
     # Show the size of the buildcache and a list of what's in it, directly
