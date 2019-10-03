@@ -51,10 +51,14 @@
 ### SPACK_JOB_SPEC_BUILDGROUP
 ###
 
+export GNUPGHOME="${CI_PROJECT_DIR}/opt/spack/gpg"
+export SPACK_ROOT="${CI_PROJECT_DIR}"
 . "${SPACK_ROOT}/share/spack/setup-env.sh"
+
 spack rebuild-package
 
-
+echo "That's all folks!"
+exit 0
 
 shopt -s expand_aliases
 
