@@ -4,20 +4,26 @@
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
 import argparse
-from base64 import b64decode
+from base64
+import datetime
+import json
 import os
 import shutil
 import sys
 from subprocess import Popen, PIPE
 import tempfile
+import zlib
 
 from six import iteritems
 from six.moves.urllib.parse import urlencode
+from six.moves.urllib.request import build_opener, HTTPHandler, Request
 
 import llnl.util.tty as tty
 
 import spack.binary_distribution as bindist
 import spack.config as cfg
+from spack.error import SpackError
+import spack.hash_types as ht
 from spack.main import SpackCommand
 from spack.spec import Spec, save_dependency_spec_yamls
 import spack.util.spack_yaml as syaml
@@ -29,8 +35,8 @@ level = "long"
 
 spack_gpg = SpackCommand('gpg')
 spack_compiler = SpackCommand('compiler')
-# spack_buildcache = SpackCommand('buildcache')
-spack_config = SpackCommand('config')
+spack_buildcache = SpackCommand('buildcache')
+# spack_config = SpackCommand('config')
 spack_mirror = SpackCommand('mirror')
 spack_install = SpackCommand('install')
 
@@ -51,83 +57,6 @@ def url_encode_string(input_string):
     encoded_value = encoded_keyval[eq_idx:]
 
 
-def save_full_yamls(job_name, dependencies, root_spec_name, output_dir):
-    parts_list = job_name.split()
-
-    pkg_name = parts_list[0]
-    pkg_version = parts_list[1]
-    compiler = parts_list[2]
-    os_arch = parts_list[3]
-    release_tag = parts_list[4]
-
-    job_spec_name = '{0}@{1}%{2} arch={3} ({4})'.format(
-        pkg_name, pkg_version, compiler, os_arch, release_tag)
-    job_group = release_tag
-    spec_yaml_path = os.path.join(output_dir, '{0}.yaml'.format(pkg_name))
-
-    job_deps_pkg_names = []
-
-    deps_list = dependencies.split(';')
-    for dep_job_name in deps_list:
-        dep_parts_list = dep_job_name.split()
-        dep_pkg_name = dep_parts_list[0]
-        job_deps_pkg_names.append(dep_pkg_name)
-
-    root_spec = Spec(args.root_spec)
-    root_spec.concretize()
-    root_spec_as_yaml = root_spec.to_yaml(all_deps=True)
-
-    save_dependency_spec_yamls(
-        root_spec_as_yaml, output_dir, job_deps_pkg_names + [pkg_name])
-
-    return job_spec_name, job_group, spec_yaml_path
-
-
-def perform_full_rebuild(spec_yaml_path, job_spec_name, cdash_upload_url,
-    local_mirror_dir):
-    # Configure mirror
-    spack_mirror('add', 'local_artifact_mirror', 'file://{0}'.format(
-        local_mirror_dir))
-
-    job_cdash_id = "NONE"
-
-    # Install package, using the buildcache from the local mirror to
-    # satisfy dependencies.
-    spack_install('install', '--keep-stage',
-        '--cdash-upload-url', cdash_upload_url,
-        '--cdash-build', job_spec_name,
-        '--cdash-site', 'Spack AWS Gitlab Instance'
-        '--cdash-track', job_group,
-        '-f', spec_yaml_path)
-
-    """
-    # Copy some log files into an artifact location
-    stage_dir=$(spack location --stage-dir -f "${SPEC_YAML_PATH}")
-    build_log_file=$(find -L "${stage_dir}" | grep "spack-build\\.out")
-    config_log_file=$(find -L "${stage_dir}" | grep "config\\.log")
-    cp "${build_log_file}" "${JOB_LOG_DIR}/"
-    cp "${config_log_file}" "${JOB_LOG_DIR}/"
-
-    # By parsing the output of the "spack install" command, we can get the
-    # buildid generated for us by CDash
-    JOB_CDASH_ID=$(extract_build_id "${BUILD_ID_LINE}")
-
-    # Create buildcache entry for this package, reading the spec from the yaml
-    # file.
-    spack -d buildcache create --spec-yaml "${SPEC_YAML_PATH}" -a -f -d "${LOCAL_MIRROR}" --no-rebuild-index
-    check_error $? "spack buildcache create"
-
-    # Write the .cdashid file to the buildcache as well
-    echo "${JOB_CDASH_ID}" >> ${JOB_CDASH_ID_FILE}
-
-    # TODO: The upload-s3 command should eventually be replaced with something
-    # like: "spack buildcache put <mirror> <spec>", when that subcommand is
-    # properly implemented.
-    spack -d upload-s3 spec --base-dir "${LOCAL_MIRROR}" --spec-yaml "${SPEC_YAML_PATH}"
-    check_error $? "spack upload-s3 spec"
-    """
-
-
 def download_buildcache(spec_yaml_path, job_spec_name, build_cache_dir,
     remote_mirror_url):
     tty.msg('{0} is up to date on {1}, downloading it'.format(
@@ -139,53 +68,6 @@ def download_buildcache(spec_yaml_path, job_spec_name, build_cache_dir,
     # Now download it
     spack_buildcache('download', '--spec-yaml', spec_yaml_path,
                      '--path', build_cache_dir, '--require-cdashid')
-
-
-
-
-def relate_build_to_dependencies():
-    pass
-    """
-    if [ -f "${JOB_CDASH_ID_FILE}" ]; then
-        JOB_CDASH_BUILD_ID=$(<${JOB_CDASH_ID_FILE})
-
-        if [ "${JOB_CDASH_BUILD_ID}" == "NONE" ]; then
-            echo "ERROR: unable to read this jobs id from ${JOB_CDASH_ID_FILE}"
-            exit 1
-        fi
-
-        # Now get CDash ids for dependencies and "relate" each dependency build
-        # with this jobs build
-        for DEP_PKG_NAME in "${JOB_DEPS_PKG_NAMES[@]}"; do
-            echo "Getting cdash id for dependency --> ${DEP_PKG_NAME} <--"
-            DEP_SPEC_YAML_PATH="${SPEC_DIR}/${DEP_PKG_NAME}.yaml"
-            DEP_JOB_BUILDCACHE_NAME=`spack -d buildcache get-buildcache-name --spec-yaml "${DEP_SPEC_YAML_PATH}"`
-
-            if [[ $? -eq 0 ]]; then
-                DEP_JOB_ID_FILE="${BUILD_CACHE_DIR}/${DEP_JOB_BUILDCACHE_NAME}.cdashid"
-                echo "DEP_JOB_ID_FILE path = ${DEP_JOB_ID_FILE}"
-
-                if [ -f "${DEP_JOB_ID_FILE}" ]; then
-                    DEP_JOB_CDASH_BUILD_ID=$(<${DEP_JOB_ID_FILE})
-                    echo "File ${DEP_JOB_ID_FILE} contained value ${DEP_JOB_CDASH_BUILD_ID}"
-                    echo "Relating builds -> ${JOB_SPEC_NAME} (buildid=${JOB_CDASH_BUILD_ID}) depends on ${DEP_PKG_NAME} (buildid=${DEP_JOB_CDASH_BUILD_ID})"
-                    relateBuildsPostBody="$(get_relate_builds_post_data "${CDASH_PROJECT}" ${JOB_CDASH_BUILD_ID} ${DEP_JOB_CDASH_BUILD_ID})"
-                    relateBuildsResult=`curl "${DEP_JOB_RELATEBUILDS_URL}" -H "Content-Type: application/json" -H "Accept: application/json" -d "${relateBuildsPostBody}"`
-                    echo "Result of curl request: ${relateBuildsResult}"
-                else
-                    echo "ERROR: Did not find expected .cdashid file for dependency: ${DEP_JOB_ID_FILE}"
-                    exit 1
-                fi
-            else
-                echo "ERROR: Unable to get buildcache entry name for ${DEP_SPEC_NAME}"
-                exit 1
-            fi
-        done
-    else
-        echo "ERROR: Did not find expected .cdashid file ${JOB_CDASH_ID_FILE}"
-        exit 1
-    fi
-    """
 
 
 def import_signing_key(base64_signing_key):
@@ -204,7 +86,7 @@ def import_signing_key(base64_signing_key):
     # Importing the secret key using gpg2 directly should allow both
     # signing and verification
     gpg_process = Popen(["gpg2", "--import"], stdin=PIPE)
-    decoded_key = b64decode(base64_signing_key)
+    decoded_key = base64.b64decode(base64_signing_key)
     gpg_out, gpg_err = gpg_process.communicate(decoded_key)
 
     if gpg_out:
@@ -238,6 +120,118 @@ def configure_compilers(compiler_action):
         tty.msg('No compiler action to be taken')
 
 
+def get_concrete_specs(root_spec, job_name, related_builds, compiler_action):
+    spec_map = {
+        'root': None,
+        'job': None,
+        'deps': {},
+    }
+
+    if compiler_action == 'FIND_ANY':
+        # This corresponds to a bootstrapping phase where we need to
+        # rely on any available compiler to build the package (i.e. the
+        # compiler needed to be stripped from the spec when we generated
+        # the job), and thus we need to concretize the root spec again.
+        concrete_root = Spec(root_spec).concretized()
+    else:
+        # in this case, either we're relying on Spack to install missing
+        # compiler bootstrapped in a previous phase, or else we only had one
+        # phase (like a site which already knows what compilers are available
+        # on it's runners), so we don't want to concretize that root spec
+        # again.  The reason we take this path in the first case (bootstrapped
+        # compiler), is that we can't concretize a spec at this point if we're
+        # going to ask spack to "install_missing_compilers".
+        concrete_root = Spec.from_yaml(
+            str(zlib.decompress(base64.b64decode(root_spec)).decode('utf-8')))
+
+    spec_map['root'] = concrete_root
+    spec_map[job_name] = concrete_root[job_name]
+
+    for dep_job_name in related_builds:
+        spec_map['deps'][dep_job_name] = concrete_root[dep_job_name]
+
+    return spec_map
+
+
+def register_cdash_build(build_name, base_url, project, site, track):
+    url = base_url + '/api/v1/addBuild.php'
+    time_stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M')
+    build_stamp = '{0}-{1}'.format(time_stamp, track)
+    payload = {
+        "project": project,
+        "site": site,
+        "name": build_name,
+        "stamp": build_stamp,
+    }
+    enc_data = json.dumps(payload).encode('utf-8')
+
+    headers = {
+        'Content-Type': 'application/json',
+    }
+
+    opener = build_opener(HTTPHandler)
+
+    request = Request(url, data=enc_data, headers=headers)
+
+    response = opener.open(request)
+    response_code = response.getcode()
+
+    if response_code != 200 and response_code != 201:
+        msg = 'Adding build failed (response code = {0}'.format(response_code)
+        raise SpackError(msg)
+
+    response_text = response.read()
+    response_json = json.loads(response_text)
+    build_id = response_json['buildid']
+
+    return (build_id, build_stamp)
+
+    """
+    url = 'http://localhost/CDash/api/v1/addBuild.php'
+
+    # Use this API endpoint to initialize a new build.
+    payload = {
+      "project": "MyProject",
+      "site": "localhost",
+      "name": "MyBuild",
+      "stamp": "20180717-0100-Experimental"
+    }
+    r = requests.post(url, data = payload)
+
+    201: {"buildid":"269"}
+
+    # Repeat this request.
+    # Status is 200 instead of 201 since the build already existed.
+    r = requests.post(url, data = payload)
+    200: {"buildid":"269"}
+    # Verify that required parameters are set.
+    r = requests.post(url, data = {})
+
+    400: {"error":"Valid project required"}
+    r = requests.post(url, data = {"project": "MyProject"})
+
+    400: {"error":"Valid site required"}
+
+    r = requests.post(url, data = {"project": "MyProject", "site": "localhost"})
+
+    400: {"error":"Valid name required"}
+
+    r = requests.post(url, data = {"project": "MyProject", "site": "localhost", "name": "MyBuild"})
+
+    400: {"error":"Valid stamp required"}
+
+    # Attempt to post to a private project without a valid bearer token.
+    r = requests.post(url, data = {"project": "MyPrivateProject", ...})
+
+    401
+    """
+    return build_stamp
+
+
+def relate_cdash_builds(spec_map):
+    pass
+
+
 def rebuild_package(parser, args):
     """ This command represents a gitlab-ci job, corresponding to a single
     release spec.  As such it must first decide whether or not the spec it
@@ -251,19 +245,20 @@ def rebuild_package(parser, args):
 
     ci_project_dir = get_env_var('CI_PROJECT_DIR')
     ci_job_name = get_env_var('CI_JOB_NAME')
-    spack_signing_key = get_env_var('SPACK_SIGNING_KEY')
-    spack_enable_cdash = get_env_var('SPACK_ENABLE_CDASH')
-    spack_root_spec = get_env_var('SPACK_ROOT_SPEC')
-    spack_mirror_url = get_env_var('SPACK_MIRROR_URL')
-    spack_job_spec_pkg_name = get_env_var('SPACK_JOB_SPEC_PKG_NAME')
-    spack_compiler_action = get_env_var('SPACK_COMPILER_ACTION')
-    spack_cdash_base_url = get_env_var('SPACK_CDASH_BASE_URL')
-    spack_cdash_project = get_env_var('SPACK_CDASH_PROJECT')
-    spack_cdash_project_enc = get_env_var('SPACK_CDASH_PROJECT_ENC')
-    spack_cdash_build_name = get_env_var('SPACK_CDASH_BUILD_NAME')
-    spack_cdash_site = get_env_var('SPACK_CDASH_SITE')
-    spack_related_builds = get_env_var('SPACK_RELATED_BUILDS')
-    spack_job_spec_buildgroup = get_env_var('SPACK_JOB_SPEC_BUILDGROUP')
+    signing_key = get_env_var('SPACK_SIGNING_KEY')
+    enable_cdash = get_env_var('SPACK_ENABLE_CDASH')
+    root_spec = get_env_var('SPACK_ROOT_SPEC')
+    remote_mirror_url = get_env_var('SPACK_MIRROR_URL')
+    enable_artifacts_mirror = get_env_var('SPACK_ENABLE_ARTIFACTS_MIRROR')
+    job_spec_pkg_name = get_env_var('SPACK_JOB_SPEC_PKG_NAME')
+    compiler_action = get_env_var('SPACK_COMPILER_ACTION')
+    cdash_base_url = get_env_var('SPACK_CDASH_BASE_URL')
+    cdash_project = get_env_var('SPACK_CDASH_PROJECT')
+    cdash_project_enc = get_env_var('SPACK_CDASH_PROJECT_ENC')
+    cdash_build_name = get_env_var('SPACK_CDASH_BUILD_NAME')
+    cdash_site = get_env_var('SPACK_CDASH_SITE')
+    related_builds = get_env_var('SPACK_RELATED_BUILDS')
+    job_spec_buildgroup = get_env_var('SPACK_JOB_SPEC_BUILDGROUP')
 
     os.environ['FORCE_UNSAFE_CONFIGURE'] = '1'
     os.environ['GNUPGHOME'] = '{0}/opt/spack/gpg'.format(ci_project_dir)
@@ -287,50 +282,86 @@ def rebuild_package(parser, args):
     local_mirror_dir = os.path.join(ci_project_dir, 'local_mirror')
     build_cache_dir = os.path.join(local_mirror_dir, 'build_cache')
 
+    artifact_mirror_url = 'file://' + local_mirror_dir
+
     os.makedirs(job_log_dir)
     os.makedirs(spec_dir)
 
+    job_spec_yaml_path = os.path.join(spec_dir, '{0}.yaml'.format())
     job_log_file = os.path.join(job_log_dir, 'cdash_log.txt')
+
+    cdash_build_id = None
+    cdash_build_stamp = None
 
     with open(job_log_file, 'w') as log_fd:
         os.dup2(log_fd.fileno(), sys.stdout.fileno())
         os.dup2(log_fd.fileno(), sys.stderr.fileno())
 
-        import_signing_key(spack_signing_key)
+        import_signing_key(signing_key)
 
-        configure_compilers(spack_compiler_action)
+        configure_compilers(compiler_action)
 
-"""
-        SPEC_YAML_PATH="${SPEC_DIR}/${SPACK_JOB_SPEC_PKG_NAME}.yaml"
-        local spec_names_to_save="${SPACK_JOB_SPEC_PKG_NAME}"
+        spec_map = get_concrete_specs(
+            root_spec, job_spec_pkg_name, related_builds, compiler_action)
 
-        if [ "${SPACK_ENABLE_CDASH}" == "True" ] ; then
-            IFS=';' read -ra DEPS <<< "${SPACK_RELATED_BUILDS}"
-            for i in "${DEPS[@]}"; do
-                depPkgName="${i}"
-                spec_names_to_save="${spec_names_to_save} ${depPkgName}"
-                JOB_DEPS_PKG_NAMES+=("${depPkgName}")
-            done
-        fi
+        job_spec = spec_map[job_spec_pkg_name]
+        with open(job_spec_yaml_path) as fd:
+            fd.write(job_spec.to_yaml(hash=ht.build_hash))
 
-        if [ "${SPACK_COMPILER_ACTION}" == "FIND_ANY" ]; then
-            # This corresponds to a bootstrapping phase where we need to
-            # rely on any available compiler to build the package (i.e. the
-            # compiler needed to be stripped from the spec), and thus we need
-            # to concretize the root spec again.
-            spack -d buildcache save-yaml --specs "${spec_names_to_save}" --root-spec "${SPACK_ROOT_SPEC}" --yaml-dir "${SPEC_DIR}"
-        else
-            # in this case, either we're relying on Spack to install missing compiler
-            # bootstrapped in a previous phase, or else we only had one phase (like a
-            # site which already knows what compilers are available on it's runners),
-            # so we don't want to concretize that root spec again.  The reason we need
-            # this in the first case (bootstrapped compiler), is that we can't concretize
-            # a spec at this point if we're going to ask spack to "install_missing_compilers".
-            tmp_dir=$(mktemp -d)
-            TMP_YAML_PATH="${tmp_dir}/root.yaml"
-            ROOT_SPEC_YAML=$(spack python -c "import base64 ; import zlib ; print(str(zlib.decompress(base64.b64decode('${SPACK_ROOT_SPEC}')).decode('utf-8')))")
-            echo "${ROOT_SPEC_YAML}" > "${TMP_YAML_PATH}"
-            spack -d buildcache save-yaml --specs "${spec_names_to_save}" --root-spec-yaml "${TMP_YAML_PATH}" --yaml-dir "${SPEC_DIR}"
-            rm -rf ${tmp_dir}
-        fi
-"""
+        if bindist.needs_rebuild(job_spec, remote_mirror_url, True):
+            # Binary on remote mirror is not up to date, we need to rebuild
+            # it.
+            #
+            # 1) add "local artifact mirror" (if enabled), or else add the
+            #      remote binary mirror.  This is where dependencies should
+            #      be installed from.
+            if enable_artifacts_mirror:
+                spack_mirror('add', 'local_mirror', artifact_mirror_url)
+            else:
+                spack_mirror('add', 'remote_mirror', 'remote_mirror_url')
+
+            # 2) build up install arguments
+            install_args = ['--keep-stage']
+
+            # 3) create/register a new build on CDash (if enabled)
+            if enable_cdash:
+                cdash_build_id, cdash_build_stamp = register_cdash_build(
+                    job_spec_pkg_name, cdash_base_url, cdash_project,
+                    cdash_site, job_spec_buildgroup)
+
+                cdash_upload_url = '{0}/submit.php?project={1}'.format(
+                    cdash_base_url, cdash_project_enc)
+
+                install_args.extend([
+                    '--cdash-upload-url', cdash_upload_url,
+                    '--cdash-build', cdash_build_name,
+                    '--cdash-site', 'cdash_site',
+                    '--cdash-stamp', cdash_build_stamp,
+                ])
+
+            install_args.extend('-f', job_spec_yaml_path)
+
+            spack_install(*install_args)
+
+            # 4) create buildcache on remote mirror
+            spack_buildcache('create', '--spec-yaml', job_spec_yaml_path, '-a',
+                '-f', '-d', remote_mirror_url, '--no-rebuild-index')
+
+            # TODO: figure out how to include the .cdashid file in that
+            # buildcache.
+
+            # 5) create buildcache on "local artifact mirror" (if enabled)
+            if enable_artifacts_mirror:
+                spack_buildcache('create', '--spec-yaml', job_spec_yaml_path,
+                    '-a', '-f', '-d', artifact_mirror_url,
+                    '--no-rebuild-index')
+
+            # 6) relate this build to its dependencies on CDash (if enabled)
+            if enable_cdash:
+                relate_cdash_builds(spec_map)
+        else:
+            # There is nothing to do here unless "local artifact mirror" is
+            # enabled, in which case, we need to download the
+            pass
+
+
