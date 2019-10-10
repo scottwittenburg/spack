@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
 import argparse
-from base64
+import base64
 import datetime
 import json
 import os
@@ -21,12 +21,14 @@ from six.moves.urllib.request import build_opener, HTTPHandler, Request
 import llnl.util.tty as tty
 
 import spack.binary_distribution as bindist
+import spack.cmd.buildcache as buildcache
 import spack.config as cfg
 from spack.error import SpackError
 import spack.hash_types as ht
 from spack.main import SpackCommand
 from spack.spec import Spec, save_dependency_spec_yamls
 import spack.util.spack_yaml as syaml
+import spack.util.web as web_util
 
 description = "build (as necessary) a package in the release workflow"
 section = "build"
@@ -39,6 +41,18 @@ spack_buildcache = SpackCommand('buildcache')
 # spack_config = SpackCommand('config')
 spack_mirror = SpackCommand('mirror')
 spack_install = SpackCommand('install')
+
+
+class TemporaryDirectory(object):
+    def __init__(self):
+        self.temporary_directory = tempfile.mkdtemp()
+
+    def __enter__(self):
+        return self.temporary_directory
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        shutil.rmtree(self.temporary_directory)
+        return False
 
 
 def setup_parser(subparser):
@@ -55,19 +69,6 @@ def url_encode_string(input_string):
     encoded_keyval = urlencode({'donotcare': input_string})
     eq_idx = encoded_keyval.find('=') + 1
     encoded_value = encoded_keyval[eq_idx:]
-
-
-def download_buildcache(spec_yaml_path, job_spec_name, build_cache_dir,
-    remote_mirror_url):
-    tty.msg('{0} is up to date on {1}, downloading it'.format(
-        job_spec_name, remote_mirror_url))
-
-    # Configure remote mirror so we can download buildcache entry
-    spack_mirror('add', 'remote_binary_mirror', remote_mirror_url)
-
-    # Now download it
-    spack_buildcache('download', '--spec-yaml', spec_yaml_path,
-                     '--path', build_cache_dir, '--require-cdashid')
 
 
 def import_signing_key(base64_signing_key):
@@ -228,8 +229,76 @@ def register_cdash_build(build_name, base_url, project, site, track):
     return build_stamp
 
 
-def relate_cdash_builds(spec_map):
-    pass
+def relate_cdash_builds(spec_map, cdash_api_url, job_build_id, cdash_project,
+                        cdashids_mirror_url):
+    dep_map = spec_map['deps']
+
+    headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+    }
+
+    for dep_pkg_name in dep_map:
+        tty.msg('Fetching cdashid file for {0}'.format(dep_pkg_name))
+        dep_spec = dep_map[dep_pkg_name]
+        dep_build_id = read_cdashid_from_mirror(dep_spec, cdashids_mirror_url)
+
+        payload = {
+            "project": cdash_project,
+            "buildid": job_build_id,
+            "relatedid": dep_build_id,
+            "relationship": "depends on"
+        }
+
+        enc_data = json.dumps(payload).encode('utf-8')
+
+        opener = build_opener(HTTPHandler)
+
+        request = Request(cdash_api_url, data=enc_data, headers=headers)
+
+        response = opener.open(request)
+        response_code = response.getcode()
+
+        if response_code != 200 and response_code != 201:
+            msg = 'Relate builds ({0} -> {1}) failed (resp code = {2})'.format(
+                job_build_id, dep_build_id, response_code)
+            raise SpackError(msg)
+
+        response_text = response.read()
+        tty.msg('Relate builds response: {0}'.format(response_text))
+
+
+def write_cdashid_to_mirror(cdashid, spec, mirror_url):
+    if not spec.concrete:
+        tty.die('Can only write cdashid for concrete spec to mirror')
+
+    with TemporaryDirectory() as tmpdir:
+        local_cdash_path = os.path.join(tmpdir, 'job.cdashid')
+        with open(local_cdash_path, 'w') as fd:
+            fd.write(cdashid)
+
+        buildcache_name = bindist.tarball_name(spec, '')
+        cdashid_file_name = '{0}.cdashid'.format(buildcache_name)
+        url = os.path.join(
+            mirror_url, bindist.build_cache_relative_path(), cdashid_file_name)
+
+        local_url = 'file://{0}'.format(local_cdash_path)
+        web_util.push_to_url(local_url, mirror_url)
+
+
+def read_cdashid_from_mirror(spec, mirror_url):
+    if not spec.concrete:
+        tty.die('Can only read cdashid for concrete spec from mirror')
+
+    buildcache_name = bindist.tarball_name(spec, '')
+    cdashid_file_name = '{0}.cdashid'.format(buildcache_name)
+    url = os.path.join(
+        mirror_url, bindist.build_cache_relative_path(), cdashid_file_name)
+
+    respUrl, respHeaders, response = web_util.read_from_url(url)
+    contents = response.fp.read()
+
+    return int(contents)
 
 
 def rebuild_package(parser, args):
@@ -347,21 +416,34 @@ def rebuild_package(parser, args):
             spack_buildcache('create', '--spec-yaml', job_spec_yaml_path, '-a',
                 '-f', '-d', remote_mirror_url, '--no-rebuild-index')
 
-            # TODO: figure out how to include the .cdashid file in that
-            # buildcache.
+            if enable_cdash:
+                write_cdashid_to_mirror(
+                    cdash_build_id, job_spec, remote_mirror_url)
 
-            # 5) create buildcache on "local artifact mirror" (if enabled)
+            # 5) create another copy of that buildcache on "local artifact
+            # mirror" (if enabled)
             if enable_artifacts_mirror:
                 spack_buildcache('create', '--spec-yaml', job_spec_yaml_path,
                     '-a', '-f', '-d', artifact_mirror_url,
                     '--no-rebuild-index')
 
+                if enable_cdash:
+                    write_cdashid_to_mirror(
+                        cdash_build_id, job_spec, artifact_mirror_url)
+
             # 6) relate this build to its dependencies on CDash (if enabled)
             if enable_cdash:
-                relate_cdash_builds(spec_map)
+                mirror_url = remote_mirror_url
+                if enable_artifacts_mirror:
+                    mirror_url = artifact_mirror_url
+                post_url = '{0}/api/v1/relateBuilds.php'.format(cdash_base_url)
+                relate_cdash_builds(
+                    spec_map, post_url, cdash_build_id, cdash_project,
+                    mirror_url)
         else:
             # There is nothing to do here unless "local artifact mirror" is
-            # enabled, in which case, we need to download the
-            pass
-
-
+            # enabled, in which case, we need to download the buildcache to
+            # the local artifacts directory to be used by dependent jobs in
+            # subsequent stages
+            if enable_artifacts_mirror:
+                buildcache.download_buildcache_files(job_spec, remote_mirror_url)
