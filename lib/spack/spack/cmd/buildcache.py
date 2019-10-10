@@ -479,6 +479,31 @@ def check_binaries(args):
         configured_mirrors, specs, args.output_file, args.rebuild_on_error))
 
 
+def download_buildcache_files(concrete_spec, mirror_url=None):
+    tarfile_name = bindist.tarball_name(concrete_spec, '.spack')
+    tarball_dir_name = bindist.tarball_directory_name(concrete_spec)
+    tarball_path_name = os.path.join(tarball_dir_name, tarfile_name)
+    local_tarball_path = os.path.join(args.path, tarball_dir_name)
+
+    files_to_fetch = [
+        {
+            'url': tarball_path_name,
+            'path': local_tarball_path,
+            'required': True,
+        }, {
+            'url': bindist.tarball_name(concrete_spec, '.spec.yaml'),
+            'path': args.path,
+            'required': True,
+        }, {
+            'url': bindist.tarball_name(concrete_spec, '.cdashid'),
+            'path': args.path,
+            'required': args.require_cdashid,
+        },
+    ]
+
+    return bindist.download_buildcache_entry(files_to_fetch, mirror_url)
+
+
 def get_tarball(args):
     """Download buildcache entry from a remote mirror to local folder.  This
     command uses the process exit code to indicate its result, specifically,
@@ -495,34 +520,10 @@ def get_tarball(args):
         sys.exit(0)
 
     spec = get_concrete_spec(args)
+    result = download_buildcache_files(spec)
 
-    tarfile_name = bindist.tarball_name(spec, '.spack')
-    tarball_dir_name = bindist.tarball_directory_name(spec)
-    tarball_path_name = os.path.join(tarball_dir_name, tarfile_name)
-    local_tarball_path = os.path.join(args.path, tarball_dir_name)
-
-    files_to_fetch = [
-        {
-            'url': tarball_path_name,
-            'path': local_tarball_path,
-            'required': True,
-        }, {
-            'url': bindist.tarball_name(spec, '.spec.yaml'),
-            'path': args.path,
-            'required': True,
-        }, {
-            'url': bindist.tarball_name(spec, '.cdashid'),
-            'path': args.path,
-            'required': args.require_cdashid,
-        },
-    ]
-
-    result = bindist.download_buildcache_entry(files_to_fetch)
-
-    if result:
-        sys.exit(0)
-
-    sys.exit(1)
+    if not result:
+        sys.exit(1)
 
 
 def get_concrete_spec(args):
