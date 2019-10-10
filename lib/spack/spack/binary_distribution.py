@@ -886,10 +886,15 @@ def _download_buildcache_entry(mirror_root, descriptions):
     return True
 
 
-def download_buildcache_entry(file_descriptions):
-    if not spack.mirror.MirrorCollection():
-        tty.die("Please add a spack mirror to allow " +
+def download_buildcache_entry(file_descriptions, mirror_url=None):
+    if not mirror_url and not spack.mirror.MirrorCollection():
+        tty.die("Please provide or add a spack mirror to allow " +
                 "download of buildcache entries.")
+
+    if mirror_url:
+        mirror_root = os.path.join(
+            mirror_url, _build_cache_relative_path)
+        return _download_buildcache_entry(mirror_root, file_descriptions)
 
     for mirror in spack.mirror.MirrorCollection().values():
         mirror_root = os.path.join(
