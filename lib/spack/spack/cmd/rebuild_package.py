@@ -26,6 +26,7 @@ import spack.config as cfg
 from spack.error import SpackError
 import spack.hash_types as ht
 from spack.main import SpackCommand
+import spack.repo
 from spack.spec import Spec, save_dependency_spec_yamls
 import spack.util.spack_yaml as syaml
 import spack.util.web as web_util
@@ -356,7 +357,7 @@ def rebuild_package(parser, args):
     os.makedirs(job_log_dir)
     os.makedirs(spec_dir)
 
-    job_spec_yaml_path = os.path.join(spec_dir, '{0}.yaml'.format())
+    job_spec_yaml_path = os.path.join(spec_dir, '{0}.yaml'.format(job_spec_pkg_name))
     job_log_file = os.path.join(job_log_dir, 'cdash_log.txt')
 
     cdash_build_id = None
@@ -366,6 +367,8 @@ def rebuild_package(parser, args):
         os.dup2(log_fd.fileno(), sys.stdout.fileno())
         os.dup2(log_fd.fileno(), sys.stderr.fileno())
 
+        tty.msg('job concrete spec path: {0}'.format(job_spec_yaml_path))
+
         import_signing_key(signing_key)
 
         configure_compilers(compiler_action)
@@ -374,8 +377,18 @@ def rebuild_package(parser, args):
             root_spec, job_spec_pkg_name, related_builds, compiler_action)
 
         job_spec = spec_map[job_spec_pkg_name]
-        with open(job_spec_yaml_path) as fd:
+
+        tty.msg('Here is the concrete spec: {0}'.format(job_spec))
+
+        with open(job_spec_yaml_path, 'w') as fd:
             fd.write(job_spec.to_yaml(hash=ht.build_hash))
+
+        tty.msg('Done writing concrete spec')
+
+        ### DEBUG
+        with open(job_spec_yaml_path) as fd:
+            tty.msg('Just wrote this file, reading it, here are the contents:')
+            tty.msg(fd.read())
 
         if bindist.needs_rebuild(job_spec, remote_mirror_url, True):
             # Binary on remote mirror is not up to date, we need to rebuild
@@ -387,13 +400,14 @@ def rebuild_package(parser, args):
             if enable_artifacts_mirror:
                 spack_mirror('add', 'local_mirror', artifact_mirror_url)
             else:
-                spack_mirror('add', 'remote_mirror', 'remote_mirror_url')
+                spack_mirror('add', 'remote_mirror', remote_mirror_url)
 
             # 2) build up install arguments
-            install_args = ['--keep-stage']
+            install_args = ['-v', '--keep-stage']
 
             # 3) create/register a new build on CDash (if enabled)
             if enable_cdash:
+                tty.msg('Registering build with CDash')
                 cdash_build_id, cdash_build_stamp = register_cdash_build(
                     job_spec_pkg_name, cdash_base_url, cdash_project,
                     cdash_site, job_spec_buildgroup)
@@ -404,13 +418,33 @@ def rebuild_package(parser, args):
                 install_args.extend([
                     '--cdash-upload-url', cdash_upload_url,
                     '--cdash-build', cdash_build_name,
-                    '--cdash-site', 'cdash_site',
-                    '--cdash-stamp', cdash_build_stamp,
+                    '--cdash-site', cdash_site,
+                    '--cdash-buildstamp', cdash_build_stamp,
                 ])
 
-            install_args.extend('-f', job_spec_yaml_path)
+            install_args.extend(['-f', job_spec_yaml_path])
 
-            spack_install(*install_args)
+            tty.msg('Installing package')
+
+            try:
+                install_output = spack_install(*install_args, output=str, fail_on_error=False)
+            except Exception as inst:
+                tty.msg('Caught exception during install:')
+                tty.msg(inst)
+
+            tty.msg('install command output:')
+            tty.msg(install_output)
+
+            job_pkg = spack.repo.get(job_spec)
+            stage_dir = job_pkg.stage.path
+            build_env_src = os.path.join(stage_dir, 'spack-build-env.txt')
+            build_out_src = os.path.join(stage_dir, 'spack-build-out.txt')
+            build_env_dst = os.path.join(job_log_dir, 'spack-build-env.txt')
+            build_out_dst = os.path.join(job_log_dir, 'spack-build-out.txt')
+            shutil.copyfile(build_env_src, build_env_dst)
+            shutil.copyfile(build_out_src, build_out_dst)
+
+            tty.msg('Creating buildcache')
 
             # 4) create buildcache on remote mirror
             spack_buildcache('create', '--spec-yaml', job_spec_yaml_path, '-a',
