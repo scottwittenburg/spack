@@ -25,6 +25,7 @@ import spack.cmd.buildcache as buildcache
 import spack.config as cfg
 from spack.error import SpackError
 import spack.hash_types as ht
+import spack.paths as spack_paths
 from spack.main import SpackCommand
 import spack.repo
 from spack.spec import Spec, save_dependency_spec_yamls
@@ -57,7 +58,13 @@ class TemporaryDirectory(object):
 
 
 def setup_parser(subparser):
-    pass
+    subparser.add_argument('--ci-artifact-dir', default=spack_paths.spack_root,
+        help="""Path to where artifacts should be created.  If
+        --enable-artifact-mirror is used, a spack mirror with binaries is also
+        create here.  For gitlab to make use of the artifacts, this path needs
+        to be somewhere under 'CI_PROJECT_DIR'.""")
+    subparser.add_argument('--signing-key', default=None,
+        help="Base64 encoded signing key to sign/verify binaries")
 
 
 def get_env_var(variable_name):
@@ -305,17 +312,20 @@ def read_cdashid_from_mirror(spec, mirror_url):
 def rebuild_package(parser, args):
     """ This command represents a gitlab-ci job, corresponding to a single
     release spec.  As such it must first decide whether or not the spec it
-    has been assigned to build (represented by args.ci_job_name) is up to
-    date on the remote binary mirror.  If it is not (i.e. the full_hash of
-    the spec as computed locally does not match the one stored in the
-    metadata on the mirror), this script will build the package, create a
-    binary cache for it, and then push all related files to the remote binary
-    mirror.  This script also communicates with a remote CDash instance to
-    share status on the package build process. """
+    has been assigned to build is up to date on the remote binary mirror.
+    If it is not (i.e. the full_hash of the spec as computed locally does
+    not match the one stored in the metadata on the mirror), this script will
+    build the package, create a binary cache for it, and then push all related
+    files to the remote binary mirror.  This script also communicates with a
+    remote CDash instance to share status on the package build process.
 
-    ci_project_dir = get_env_var('CI_PROJECT_DIR')
-    ci_job_name = get_env_var('CI_JOB_NAME')
-    signing_key = get_env_var('SPACK_SIGNING_KEY')
+    The spec to be built by this job is represented by essentially two pieces
+    of information: 1) a root spec (possibly already concrete, but maybe still
+    needing to be concretized) and 2) a package name used to index that root
+    spec (once the root is, for certain, concrete)."""
+
+    ci_artifact_dir = args.ci_artifact_dir
+    signing_key = args.signing_key
     enable_cdash = get_env_var('SPACK_ENABLE_CDASH')
     root_spec = get_env_var('SPACK_ROOT_SPEC')
     remote_mirror_url = get_env_var('SPACK_MIRROR_URL')
@@ -331,25 +341,26 @@ def rebuild_package(parser, args):
     job_spec_buildgroup = get_env_var('SPACK_JOB_SPEC_BUILDGROUP')
 
     os.environ['FORCE_UNSAFE_CONFIGURE'] = '1'
-    os.environ['GNUPGHOME'] = '{0}/opt/spack/gpg'.format(ci_project_dir)
+    os.environ['GNUPGHOME'] = '{0}/opt/spack/gpg'.format(ci_artifact_dir)
 
     # The following environment variables should have been provided by the CI
-    # infrastructre (or some other external source).  The AWS keys are
-    # used to upload buildcache entries to S3 using the boto3 api.  We import
-    # the SPACK_SIGNING_KEY using the "gpg2 --import" command, it is used both
-    # for verifying dependency buildcache entries and signing the buildcache
-    # entry we create for our target pkg.
+    # infrastructre (or some other external source) in the case that the remote
+    # mirror is an S3 bucket.  The AWS keys are used to upload buildcache
+    # entries to S3 using the boto3 api.  We import the SPACK_SIGNING_KEY using
+    # the "gpg2 --import" command, it is used both for verifying dependency
+    # buildcache entries and signing the buildcache entry we create for our
+    # target pkg.
     #
     # AWS_ACCESS_KEY_ID
     # AWS_SECRET_ACCESS_KEY
     # AWS_ENDPOINT_URL (only needed for non-AWS S3 implementations)
     # SPACK_SIGNING_KEY
 
-    temp_dir = os.path.join(ci_project_dir, 'jobs_scratch_dir')
+    temp_dir = os.path.join(ci_artifact_dir, 'jobs_scratch_dir')
     job_log_dir = os.path.join(temp_dir, 'logs')
     spec_dir = os.path.join(temp_dir, 'specs')
 
-    local_mirror_dir = os.path.join(ci_project_dir, 'local_mirror')
+    local_mirror_dir = os.path.join(ci_artifact_dir, 'local_mirror')
     build_cache_dir = os.path.join(local_mirror_dir, 'build_cache')
 
     artifact_mirror_url = 'file://' + local_mirror_dir
