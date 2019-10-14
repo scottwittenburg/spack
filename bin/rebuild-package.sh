@@ -28,11 +28,11 @@ export SPACK_ROOT="${CI_PROJECT_DIR}"
 CLI_ARGS=()
 
 if [[ ! -z "${CI_PROJECT_DIR}" ]]; then
-    CLI_ARGS+=( "--ci-project-dir" "${CI_PROJECT_DIR}" )
+    CLI_ARGS+=( "--ci-artifact-dir" "${CI_PROJECT_DIR}" )
 fi
 
-if [[ ! -z "${'SPACK_SIGNING_KEY'}" ]]; then
-    CLI_ARGS+=( "--signing-key" "${'SPACK_SIGNING_KEY'}" )
+if [[ ! -z "${SPACK_SIGNING_KEY}" ]]; then
+    CLI_ARGS+=( "--signing-key" "${SPACK_SIGNING_KEY}" )
 fi
 
 # Execute the command
