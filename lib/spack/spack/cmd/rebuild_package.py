@@ -29,6 +29,7 @@ import spack.paths as spack_paths
 from spack.main import SpackCommand
 import spack.repo
 from spack.spec import Spec, save_dependency_spec_yamls
+import spack.util.executable as exe
 import spack.util.spack_yaml as syaml
 import spack.util.web as web_util
 
@@ -42,7 +43,8 @@ spack_compiler = SpackCommand('compiler')
 spack_buildcache = SpackCommand('buildcache')
 # spack_config = SpackCommand('config')
 spack_mirror = SpackCommand('mirror')
-spack_install = SpackCommand('install')
+# spack_install = SpackCommand('install')
+spack_cmd = exe.which('spack')
 
 
 class TemporaryDirectory(object):
@@ -414,7 +416,7 @@ def rebuild_package(parser, args):
                 spack_mirror('add', 'remote_mirror', remote_mirror_url)
 
             # 2) build up install arguments
-            install_args = ['-v', '--keep-stage']
+            install_args = ['-d', '-v', '-k', 'install', '--keep-stage']
 
             # 3) create/register a new build on CDash (if enabled)
             if enable_cdash:
@@ -438,13 +440,10 @@ def rebuild_package(parser, args):
             tty.msg('Installing package')
 
             try:
-                install_output = spack_install(*install_args, output=str, fail_on_error=False)
+                spack_cmd(*install_args)
             except Exception as inst:
                 tty.msg('Caught exception during install:')
                 tty.msg(inst)
-
-            tty.msg('install command output:')
-            tty.msg(install_output)
 
             job_pkg = spack.repo.get(job_spec)
             stage_dir = job_pkg.stage.path
