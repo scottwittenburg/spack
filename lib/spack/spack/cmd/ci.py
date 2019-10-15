@@ -277,8 +277,12 @@ def ci_rebuild(args):
     related_builds = get_env_var('SPACK_RELATED_BUILDS')
     job_spec_buildgroup = get_env_var('SPACK_JOB_SPEC_BUILDGROUP')
 
+    gpg_home_dir = '{0}/gpg'.format(ci_artifact_dir)
+    if not os.path.exists(gpg_home_dir):
+        os.makedirs(gpg_home_dir)
+
+    os.environ['GNUPGHOME'] = gpg_home_dir
     os.environ['FORCE_UNSAFE_CONFIGURE'] = '1'
-    os.environ['GNUPGHOME'] = '{0}/opt/spack/gpg'.format(ci_artifact_dir)
 
     # The following environment variables should have been provided by the CI
     # infrastructre (or some other external source) in the case that the remote
