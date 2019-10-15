@@ -26,7 +26,7 @@ level = "long"
 
 
 spack_buildcache = SpackCommand('buildcache')
-spack_mirror = SpackCommand('mirror')
+# spack_mirror = SpackCommand('mirror')
 spack_cmd = exe.which('spack')
 
 
@@ -340,9 +340,12 @@ def ci_rebuild(args):
             #      remote binary mirror.  This is where dependencies should
             #      be installed from.
             if enable_artifacts_mirror:
-                spack_mirror('add', 'local_mirror', artifact_mirror_url)
+                # spack_mirror('add', 'local_mirror', artifact_mirror_url)
+                spack_cmd('mirror', 'add', 'local_mirror', artifact_mirror_url)
             else:
-                spack_mirror('add', 'remote_mirror', remote_mirror_url)
+                # spack_mirror('add', 'remote_mirror', remote_mirror_url)
+                # spack_cmd('mirror', 'add', 'remote_mirror', remote_mirror_url)
+                pass
 
             # 2) build up install arguments
             install_args = ['-d', '-v', '-k', 'install', '--keep-stage']
