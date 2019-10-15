@@ -23,6 +23,11 @@ section = "packaging"     # TODO: where does this go?  new section?
 level = "long"
 
 
+spack_buildcache = SpackCommand('buildcache')
+spack_mirror = SpackCommand('mirror')
+spack_cmd = exe.which('spack')
+
+
 class TemporaryDirectory(object):
     def __init__(self):
         self.temporary_directory = tempfile.mkdtemp()

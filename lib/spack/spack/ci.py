@@ -27,9 +27,14 @@ import spack.config as cfg
 from spack.dependency import all_deptypes
 from spack.error import SpackError
 import spack.hash_types as ht
+from spack.main import SpackCommand
 from spack.spec import Spec
 import spack.util.spack_yaml as syaml
 import spack.util.web as web_util
+
+
+spack_gpg = SpackCommand('gpg')
+spack_compiler = SpackCommand('compiler')
 
 
 def _create_buildgroup(opener, headers, url, project, group_name, group_type):
