@@ -14,31 +14,12 @@ from six.moves.urllib.request import build_opener, HTTPHandler, Request
 
 import llnl.util.tty as tty
 
-import spack.environment as ev
 import spack.compilers as compilers
 from spack.dependency import all_deptypes
 from spack.error import SpackError
 import spack.hash_types as ht
 from spack.spec import Spec
 import spack.util.spack_yaml as syaml
-
-description = "generate release build set as .gitlab-ci.yml"
-section = "build"
-level = "long"
-
-
-def setup_parser(subparser):
-    subparser.add_argument(
-        '-o', '--output-file', default=".gitlab-ci.yml",
-        help="path to output file to write")
-
-    subparser.add_argument(
-        '-p', '--print-summary', action='store_true', default=False,
-        help="Print summary of staged jobs to standard output")
-
-    subparser.add_argument(
-        '--cdash-credentials', default=None,
-        help="Path to file containing CDash authentication token")
 
 
 def _create_buildgroup(opener, headers, url, project, group_name, group_type):
@@ -406,9 +387,8 @@ def find_matching_config(spec, ci_mappings):
     return None
 
 
-def release_jobs(parser, args):
-    env = ev.get_env(args, 'release-jobs', required=True)
-
+def generate_gitlab_ci_yaml(env, cdash_credentials_path, print_summary,
+                            output_file):
     # FIXME: What's the difference between one that opens with 'spack'
     # and one that opens with 'env'?  This will only handle the former.
     yaml_root = env.yaml['spack']
@@ -433,8 +413,8 @@ def release_jobs(parser, args):
         cdash_project_enc = proj_enc[eq_idx:]
         cdash_site = ci_cdash['site']
 
-        if args.cdash_credentials:
-            with open(args.cdash_credentials) as fd:
+        if cdash_credentials_path:
+            with open(cdash_credentials_path) as fd:
                 cdash_auth_token = fd.read()
                 cdash_auth_token = cdash_auth_token.strip()
 
@@ -473,7 +453,7 @@ def release_jobs(parser, args):
         phase_name = phase['name']
         staged_phases[phase_name] = stage_spec_jobs(env.spec_lists[phase_name])
 
-    if args.print_summary:
+    if print_summary:
         for phase in phases:
             phase_name = phase['name']
             tty.msg('Stages for phase "{0}"'.format(phase_name))
@@ -654,5 +634,5 @@ def release_jobs(parser, args):
 
     output_object['stages'] = stage_names
 
-    with open(args.output_file, 'w') as outf:
+    with open(output_file, 'w') as outf:
         outf.write(syaml.dump(output_object))
