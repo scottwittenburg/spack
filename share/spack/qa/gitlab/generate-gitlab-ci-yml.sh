@@ -10,14 +10,6 @@
 # Gather variables used in dynamic job generation
 GENERATE_ARGS=()
 
-if [[ ! -z "${SPACK_RELEASE_ENVIRONMENT_REPO}" ]]; then
-    GENERATE_ARGS+=( "--env-repo" "${SPACK_RELEASE_ENVIRONMENT_REPO}" )
-fi
-
-if [[ ! -z "${SPACK_RELEASE_ENVIRONMENT_PATH}" ]]; then
-    GENERATE_ARGS+=( "--env-path" "${SPACK_RELEASE_ENVIRONMENT_PATH}" )
-fi
-
 if [[ ! -z "${CDASH_AUTH_TOKEN}" ]]; then
     GENERATE_ARGS+=( "--cdash-token" "${CDASH_AUTH_TOKEN}" )
 fi

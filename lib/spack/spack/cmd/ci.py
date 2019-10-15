@@ -5,14 +5,12 @@
 
 import os
 import shutil
-import sys
 import tempfile
 
-import llnl.util.filesystem as fs
 import llnl.util.tty as tty
 
+import spack.ci as spack_ci
 import spack.environment as ev
-from spack.main import SpackCommand
 import spack.util.executable as exe
 
 
@@ -35,7 +33,7 @@ class TemporaryDirectory(object):
 
 def get_env_var(variable_name):
     if variable_name in os.environ:
-        return os.environ[variable_name]
+        return os.environ.get(variable_name)
     return None
 
 
@@ -87,10 +85,6 @@ def setup_parser(subparser):
     # Commit and push jobs yaml to a downstream CI repo
     pushyaml = subparsers.add_parser('pushyaml', help=ci_pushyaml.__doc__)
     pushyaml.add_argument(
-        '--yaml-path', default=None,
-        help="Absolute path to jobs yaml file, the default value is " +
-             "${SPACK_ROOT}/.gitlab-ci.yml")
-    pushyaml.add_argument(
         '--downstream-repo', default=None,
         help="Url to repository where commit containing jobs yaml file " +
              "should be pushed.")
@@ -105,16 +99,19 @@ def setup_parser(subparser):
 
 def ci_generate(args):
     """Generate jobs file from a spack environment file containing CI info"""
-    spack_root = get_env_var('SPACK_ROOT')
+    env = ev.get_env(args, 'ci generate', required=True)
 
     output_file = args.output_file
-    env_repo = args.env_repo
-    env_path = args.env_path
     cdash_auth_token = args.cdash_token
     copy_yaml_to = args.copy_to
 
     if not output_file:
-        output_file = os.path.join(spack_root, '.gitlab-ci.yml')
+        gen_ci_dir = os.getcwd()
+        output_file = os.path.join(gen_ci_dir, '.gitlab-ci.yml')
+    else:
+        gen_ci_dir = os.path.dirname(output_file)
+        if not os.path.exists(gen_ci_dir):
+            os.makedirs(gen_ci_dir)
 
     # Create a temporary working directory
     with TemporaryDirectory() as temp_dir:
@@ -125,43 +122,8 @@ def ci_generate(args):
             with open(token_file, 'w') as fd:
                 fd.write('{0}\n'.format(cdash_auth_token))
 
-        # Either spack repo contains environment file, or we need to clone
-        # the repo where it lives.
-        if not env_repo:
-            env_repo_dir = spack_root
-        else:
-            git = exe.which('git', required=True)
-            with fs.working_dir(temp_dir):
-                clone_args = ['clone', env_repo, 'envrepo']
-                git(*clone_args)
-            env_repo_dir = os.path.join(temp_dir, 'envrepo')
-
-        gen_ci_dir = os.path.dirname(output_file)
-        if not os.path.exists(gen_ci_dir):
-            os.makedirs(gen_ci_dir)
-
-        abs_env_dir = os.path.join(env_repo_dir, env_path)
-        spack_yaml_path = os.path.join(abs_env_dir, 'spack.yaml')
-
-        if not os.path.exists(spack_yaml_path):
-            tty.error('ERROR: Cannot find "spack.yaml" file in {0}'.format(
-                abs_env_dir))
-            sys.exit(1)
-
-        ci_env = ev.Environment(abs_env_dir)
-        with ci_env:
-            release_jobs = SpackCommand('release-jobs')
-            # Generate the jobs yaml file, optionally creating a buildgroup in
-            # cdash at the same time.
-            release_jobs_args = [
-                '--output-file', output_file,
-            ]
-            if token_file:
-                release_jobs_args.extend([
-                    '--cdash-credentials', token_file,
-                ])
-
-            release_jobs(*release_jobs_args)
+        # Generate the jobs
+        spack_ci.generate_gitlab_ci_yaml(env, token_file, False, output_file)
 
         if copy_yaml_to:
             copy_to_dir = os.path.dirname(copy_yaml_to)
@@ -171,60 +133,56 @@ def ci_generate(args):
 
 
 def ci_pushyaml(args):
-    """Push the generated jobs yaml file to a remote repository"""
-    spack_root = get_env_var('SPACK_ROOT')
-
+    """Push the generated jobs yaml file to a remote repository.  The file
+    (.gitlab-ci.yaml) is expected to be in the current directory, which should
+     be the root of the repository."""
     downstream_repo = args.downstream_repo
     branch_name = args.branch_name
     commit_sha = args.commit_sha
-    jobs_yaml = args.yaml_path
 
     if not downstream_repo:
-        tty.error('No downstream repo to push to, exiting')
-        sys.exit(1)
+        tty.die('No downstream repo to push to, exiting')
 
-    if not jobs_yaml:
-        jobs_yaml = os.path.join(spack_root, '.gitlab-ci.yml')
+    working_dir = os.getcwd()
+    jobs_yaml = os.path.join(working_dir, '.gitlab-ci.yml')
+    git_dir = os.path.join(working_dir, '.git')
+
+    if not os.path.exists(jobs_yaml):
+        tty.die('.gitlab-ci.yml must exist in current directory')
+
+    if not os.path.exists(git_dir):
+        tty.die('.git directory must exist in current directory')
 
     # Create a temporary working directory
     with TemporaryDirectory() as temp_dir:
-        repo_root = find_nearest_repo_ancestor(jobs_yaml)
-
-        if not repo_root:
-            msg = '{0} not in a git repo, cannot commit/push it'.format(
-                jobs_yaml)
-            tty.error(msg)
-            sys.exit(1)
-
         git = exe.which('git', required=True)
 
         # Push a commit with the generated file to the downstream ci repo
         saved_git_dir = os.path.join(temp_dir, 'original-git-dir')
 
-        with fs.working_dir(repo_root):
-            shutil.move('.git', saved_git_dir)
+        shutil.move('.git', saved_git_dir)
 
-            git('init', '.')
+        git('init', '.')
 
-            git('config', 'user.email', 'robot@spack.io')
-            git('config', 'user.name', 'Spack Build Bot')
+        git('config', 'user.email', 'robot@spack.io')
+        git('config', 'user.name', 'Spack Build Bot')
 
-            git('add', '.')
+        git('add', '.')
 
-            tty.msg('git commit')
-            commit_message = '{0} {1} ({2})'.format(
-                'Auto-generated commit testing', branch_name, commit_sha)
+        tty.msg('git commit')
+        commit_message = '{0} {1} ({2})'.format(
+            'Auto-generated commit testing', branch_name, commit_sha)
 
-            git('commit', '-m', '{0}'.format(commit_message))
+        git('commit', '-m', '{0}'.format(commit_message))
 
-            tty.msg('git push')
-            git('remote', 'add', 'downstream', downstream_repo)
-            push_to_branch = 'master:multi-ci-{0}'.format(branch_name)
-            git('push', '--force', 'downstream', push_to_branch)
+        tty.msg('git push')
+        git('remote', 'add', 'downstream', downstream_repo)
+        push_to_branch = 'master:multi-ci-{0}'.format(branch_name)
+        git('push', '--force', 'downstream', push_to_branch)
 
-            shutil.rmtree('.git')
-            shutil.move(saved_git_dir, '.git')
-            git('reset', '--hard', 'HEAD')
+        shutil.rmtree('.git')
+        shutil.move(saved_git_dir, '.git')
+        git('reset', '--hard', 'HEAD')
 
 
 def ci(parser, args):
