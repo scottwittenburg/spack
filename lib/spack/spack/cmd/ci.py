@@ -312,11 +312,11 @@ def ci_rebuild(args):
 
         tty.msg('job concrete spec path: {0}'.format(job_spec_yaml_path))
 
-        import_signing_key(signing_key)
+        spack_ci.import_signing_key(signing_key)
 
-        configure_compilers(compiler_action)
+        spack_ci.configure_compilers(compiler_action)
 
-        spec_map = get_concrete_specs(
+        spec_map = spack_ci.get_concrete_specs(
             root_spec, job_spec_pkg_name, related_builds, compiler_action)
 
         job_spec = spec_map[job_spec_pkg_name]
@@ -351,7 +351,8 @@ def ci_rebuild(args):
             # 3) create/register a new build on CDash (if enabled)
             if enable_cdash:
                 tty.msg('Registering build with CDash')
-                cdash_build_id, cdash_build_stamp = register_cdash_build(
+                (cdash_build_id,
+                    cdash_build_stamp) = spack_ci.register_cdash_build(
                     cdash_build_name, cdash_base_url, cdash_project,
                     cdash_site, job_spec_buildgroup)
 
@@ -393,7 +394,7 @@ def ci_rebuild(args):
             if enable_cdash:
                 tty.msg('Writing .cdashid ({0}) to remote mirror ({1})'.format(
                     cdash_build_id, remote_mirror_url))
-                write_cdashid_to_mirror(
+                spack_ci.write_cdashid_to_mirror(
                     cdash_build_id, job_spec, remote_mirror_url)
 
             # 5) create another copy of that buildcache on "local artifact
@@ -408,7 +409,7 @@ def ci_rebuild(args):
                 if enable_cdash:
                     tty.msg('Writing .cdashid ({0}) to artifacts ({1})'.format(
                         cdash_build_id, artifact_mirror_url))
-                    write_cdashid_to_mirror(
+                    spack_ci.write_cdashid_to_mirror(
                         cdash_build_id, job_spec, artifact_mirror_url)
 
             # 6) relate this build to its dependencies on CDash (if enabled)
@@ -417,7 +418,7 @@ def ci_rebuild(args):
                 if enable_artifacts_mirror:
                     mirror_url = artifact_mirror_url
                 post_url = '{0}/api/v1/relateBuilds.php'.format(cdash_base_url)
-                relate_cdash_builds(
+                spack_ci.relate_cdash_builds(
                     spec_map, post_url, cdash_build_id, cdash_project,
                     mirror_url)
         else:
