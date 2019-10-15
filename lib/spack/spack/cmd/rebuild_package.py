@@ -430,7 +430,7 @@ def rebuild_package(parser, args):
             if enable_cdash:
                 tty.msg('Registering build with CDash')
                 cdash_build_id, cdash_build_stamp = register_cdash_build(
-                    job_spec_pkg_name, cdash_base_url, cdash_project,
+                    cdash_build_name, cdash_base_url, cdash_project,
                     cdash_site, job_spec_buildgroup)
 
                 cdash_upload_url = '{0}/submit.php?project={1}'.format(
