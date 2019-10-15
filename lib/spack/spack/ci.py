@@ -5,6 +5,7 @@
 
 import base64
 import json
+import os
 import zlib
 
 from six import iteritems
@@ -418,6 +419,25 @@ def generate_gitlab_ci_yaml(env, cdash_credentials_path, print_summary,
                 cdash_auth_token = fd.read()
                 cdash_auth_token = cdash_auth_token.strip()
 
+    # Make sure we use a custom spack if necessary
+    custom_spack_repo = os.environ.get('SPACK_REPO')
+    custom_spack_ref = os.environ.get('SPACK_REF')
+    before_script = None
+    after_script = None
+    if custom_spack_repo:
+        if not custom_spack_ref:
+            custom_spack_ref = 'master'
+        before_script = [
+          'export SPACK_CLONE_LOCATION=$(mktemp -d)',
+          'pushd "${SPACK_CLONE_LOCATION}"',
+          'git clone "${SPACK_REPO}" --branch "${SPACK_REF}"',
+          'popd',
+          '. "${SPACK_CLONE_LOCATION}/spack/share/spack/setup-env.sh"',
+        ]
+        after_script = [
+          'rm -rf "${SPACK_CLONE_LOCATION}"'
+        ]
+
     ci_mirrors = yaml_root['mirrors']
     mirror_urls = [url for url in ci_mirrors.values()]
 
@@ -594,6 +614,12 @@ def generate_gitlab_ci_yaml(env, cdash_credentials_path, print_summary,
                     },
                     'dependencies': job_dependencies,
                 }
+
+                if before_script:
+                    job_object['before_script'] = before_script
+
+                if after_script:
+                    job_object['after_script'] = after_script
 
                 if image_name:
                     job_object['image'] = image_name
