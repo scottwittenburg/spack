@@ -174,6 +174,10 @@ def register_cdash_build(build_name, base_url, project, site, track):
         "name": build_name,
         "stamp": build_stamp,
     }
+
+    tty.msg('Registing cdash build to {0}, payload:'.format(url))
+    tty.msg(payload)
+
     enc_data = json.dumps(payload).encode('utf-8')
 
     headers = {
@@ -501,6 +505,6 @@ def rebuild_package(parser, args):
             # subsequent stages
             tty.msg('No need to rebuild {0}'.format(job_spec_pkg_name))
             if enable_artifacts_mirror:
-                tty.msg('Download builcache for {0}'.format(job_spec_pkg_name))
+                tty.msg('Get buildcache for {0}'.format(job_spec_pkg_name))
                 buildcache.download_buildcache_files(
-                    job_spec, remote_mirror_url)
+                    job_spec, artifact_mirror_url, True, remote_mirror_url)
