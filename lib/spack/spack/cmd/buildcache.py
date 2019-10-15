@@ -479,11 +479,12 @@ def check_binaries(args):
         configured_mirrors, specs, args.output_file, args.rebuild_on_error))
 
 
-def download_buildcache_files(concrete_spec, mirror_url=None):
+def download_buildcache_files(concrete_spec, local_dest, require_cdashid,
+                              mirror_url=None):
     tarfile_name = bindist.tarball_name(concrete_spec, '.spack')
     tarball_dir_name = bindist.tarball_directory_name(concrete_spec)
     tarball_path_name = os.path.join(tarball_dir_name, tarfile_name)
-    local_tarball_path = os.path.join(args.path, tarball_dir_name)
+    local_tarball_path = os.path.join(local_dest, tarball_dir_name)
 
     files_to_fetch = [
         {
@@ -492,12 +493,12 @@ def download_buildcache_files(concrete_spec, mirror_url=None):
             'required': True,
         }, {
             'url': bindist.tarball_name(concrete_spec, '.spec.yaml'),
-            'path': args.path,
+            'path': local_dest,
             'required': True,
         }, {
             'url': bindist.tarball_name(concrete_spec, '.cdashid'),
-            'path': args.path,
-            'required': args.require_cdashid,
+            'path': local_dest,
+            'required': require_cdashid,
         },
     ]
 
@@ -520,7 +521,7 @@ def get_tarball(args):
         sys.exit(0)
 
     spec = get_concrete_spec(args)
-    result = download_buildcache_files(spec)
+    result = download_buildcache_files(spec, args.path, args.require_cdashid)
 
     if not result:
         sys.exit(1)
