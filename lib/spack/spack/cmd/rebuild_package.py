@@ -293,6 +293,10 @@ def write_cdashid_to_mirror(cdashid, spec, mirror_url):
             mirror_url, bindist.build_cache_relative_path(), cdashid_file_name)
 
         local_url = 'file://{0}'.format(local_cdash_path)
+
+        tty.msg('pushing cdashid to url')
+        tty.msg('  local url: {0}'.format(local_url))
+        tty.msg('  remote url: {0}'.format(url))
         web_util.push_to_url(local_url, mirror_url)
 
 
@@ -461,17 +465,23 @@ def rebuild_package(parser, args):
                 '-f', '-d', remote_mirror_url, '--no-rebuild-index')
 
             if enable_cdash:
+                tty.msg('Writing .cdashid ({0}) to remote mirror ({1})'.format(
+                    cdash_build_id, remote_mirror_url))
                 write_cdashid_to_mirror(
                     cdash_build_id, job_spec, remote_mirror_url)
 
             # 5) create another copy of that buildcache on "local artifact
             # mirror" (if enabled)
             if enable_artifacts_mirror:
+                tty.msg('Creating local artifact buildcache in {0}'.format(
+                    artifact_mirror_url))
                 spack_buildcache('create', '--spec-yaml', job_spec_yaml_path,
                     '-a', '-f', '-d', artifact_mirror_url,
                     '--no-rebuild-index')
 
                 if enable_cdash:
+                    tty.msg('Writing .cdashid ({0}) to artifacts ({1})'.format(
+                        cdash_build_id, artifact_mirror_url))
                     write_cdashid_to_mirror(
                         cdash_build_id, job_spec, artifact_mirror_url)
 
@@ -489,5 +499,8 @@ def rebuild_package(parser, args):
             # enabled, in which case, we need to download the buildcache to
             # the local artifacts directory to be used by dependent jobs in
             # subsequent stages
+            tty.msg('No need to rebuild {0}'.format(job_spec_pkg_name))
             if enable_artifacts_mirror:
-                buildcache.download_buildcache_files(job_spec, remote_mirror_url)
+                tty.msg('Download builcache for {0}'.format(job_spec_pkg_name))
+                buildcache.download_buildcache_files(
+                    job_spec, remote_mirror_url)
