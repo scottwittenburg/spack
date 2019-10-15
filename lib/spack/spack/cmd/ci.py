@@ -54,6 +54,43 @@ def setup_parser(subparser):
     setup_parser.parser = subparser
     subparsers = subparser.add_subparsers(help='CI sub-commands')
 
+    start = subparsers.add_parser('start', help=ci_start.__doc__)
+    start.add_argument(
+        '--output-file', default=None,
+        help="Absolute path to file where generated jobs file should be " +
+             "written.  The default is ${SPACK_ROOT}/.gitlab-ci.yml")
+    start.add_argument(
+        '--env-repo', default=None,
+        help="Url to repository where environment file lives.  The default " +
+             "is the local spack repo.")
+    start.add_argument(
+        '--env-path', default='',
+        help="Relative path to location of spack.yaml environment file, " +
+             "where path is relative to root of environment repository.  " +
+             "The default is the empty string, indicating the file lives at " +
+             "the root of the repository.")
+    start.add_argument(
+        '--cdash-token', default=None,
+        help="Token to use for registering a (possibly new) buildgroup with " +
+             "CDash, assuming the spack ci environment file includes " +
+             "reporting to one or more CDash instances.  The default is " +
+             "None, which prevents CDash build group registration.")
+    start.add_argument(
+        '--copy-to', default=None,
+        help="Absolute path of additional location where generated jobs " +
+             "yaml file should be copied.  Default is not to copy.")
+    start.add_argument(
+        '--downstream-repo', default=None,
+        help="Url to repository where commit containing jobs yaml file " +
+             "should be pushed.")
+    start.add_argument(
+        '--branch-name', default='default-branch',
+        help="Name of current branch, used in generation of pushed commit.")
+    start.add_argument(
+        '--commit-sha', default='none',
+        help="SHA of current commit, used in generation of pushed commit.")
+    start.set_defaults(func=ci_start)
+
     # Dynamic generation of the jobs yaml from a spack environment
     generate = subparsers.add_parser('generate', help=ci_generate.__doc__)
     generate.add_argument(
@@ -183,6 +220,13 @@ def ci_pushyaml(args):
         shutil.rmtree('.git')
         shutil.move(saved_git_dir, '.git')
         git('reset', '--hard', 'HEAD')
+
+
+def ci_start(args):
+    """Kicks of the CI process (currently just calls ci_generate() then
+    ci_push())"""
+    ci_generate(args)
+    ci_pushyaml(args)
 
 
 def ci(parser, args):
