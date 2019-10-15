@@ -37,6 +37,18 @@ spack_gpg = SpackCommand('gpg')
 spack_compiler = SpackCommand('compiler')
 
 
+class TemporaryDirectory(object):
+    def __init__(self):
+        self.temporary_directory = tempfile.mkdtemp()
+
+    def __enter__(self):
+        return self.temporary_directory
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        shutil.rmtree(self.temporary_directory)
+        return False
+
+
 def _create_buildgroup(opener, headers, url, project, group_name, group_type):
     data = {
         "newbuildgroup": group_name,

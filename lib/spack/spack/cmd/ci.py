@@ -30,18 +30,6 @@ spack_mirror = SpackCommand('mirror')
 spack_cmd = exe.which('spack')
 
 
-class TemporaryDirectory(object):
-    def __init__(self):
-        self.temporary_directory = tempfile.mkdtemp()
-
-    def __enter__(self):
-        return self.temporary_directory
-
-    def __exit__(self, exc_type, exc_value, exc_traceback):
-        shutil.rmtree(self.temporary_directory)
-        return False
-
-
 def get_env_var(variable_name):
     if variable_name in os.environ:
         return os.environ.get(variable_name)
@@ -177,7 +165,7 @@ def ci_generate(args):
             os.makedirs(gen_ci_dir)
 
     # Create a temporary working directory
-    with TemporaryDirectory() as temp_dir:
+    with spack_ci.TemporaryDirectory() as temp_dir:
         # Write cdash auth token to file system
         token_file = None
         if cdash_auth_token:
@@ -217,7 +205,7 @@ def ci_pushyaml(args):
         tty.die('.git directory must exist in current directory')
 
     # Create a temporary working directory
-    with TemporaryDirectory() as temp_dir:
+    with spack_ci.TemporaryDirectory() as temp_dir:
         git = exe.which('git', required=True)
 
         # Push a commit with the generated file to the downstream ci repo
