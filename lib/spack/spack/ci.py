@@ -3,9 +3,15 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
+import argparse
 import base64
+import datetime
 import json
 import os
+import shutil
+import sys
+from subprocess import Popen, PIPE
+import tempfile
 import zlib
 
 from six import iteritems
@@ -15,12 +21,15 @@ from six.moves.urllib.request import build_opener, HTTPHandler, Request
 
 import llnl.util.tty as tty
 
+import spack.binary_distribution as bindist
 import spack.compilers as compilers
+import spack.config as cfg
 from spack.dependency import all_deptypes
 from spack.error import SpackError
 import spack.hash_types as ht
 from spack.spec import Spec
 import spack.util.spack_yaml as syaml
+import spack.util.web as web_util
 
 
 def _create_buildgroup(opener, headers, url, project, group_name, group_type):
@@ -531,7 +540,7 @@ def generate_gitlab_ci_yaml(env, cdash_credentials_path, print_summary,
                 job_name = get_job_name(phase_name, strip_compilers,
                                         release_spec, osname, build_group)
 
-                job_scripts = ['./bin/rebuild-package.sh']
+                job_scripts = ['spack ci rebuild']
 
                 compiler_action = 'NONE'
                 if len(phases) > 1:
@@ -662,3 +671,247 @@ def generate_gitlab_ci_yaml(env, cdash_credentials_path, print_summary,
 
     with open(output_file, 'w') as outf:
         outf.write(syaml.dump(output_object))
+
+
+def url_encode_string(input_string):
+    encoded_keyval = urlencode({'donotcare': input_string})
+    eq_idx = encoded_keyval.find('=') + 1
+    encoded_value = encoded_keyval[eq_idx:]
+
+
+def import_signing_key(base64_signing_key):
+    if not base64_signing_key:
+        tty.die('No key found for signing/verifying packages')
+
+    tty.msg('hello from import_signing_key')
+
+    # This command has the side-effect of creating the directory referred
+    # to as GNUPGHOME in setup_environment()
+    list_output = spack_gpg('list', output=str)
+
+    tty.msg('spack gpg list:')
+    tty.msg(list_output)
+
+    # Importing the secret key using gpg2 directly should allow both
+    # signing and verification
+    gpg_process = Popen(["gpg2", "--import"], stdin=PIPE)
+    decoded_key = base64.b64decode(base64_signing_key)
+    gpg_out, gpg_err = gpg_process.communicate(decoded_key)
+
+    if gpg_out:
+        tty.msg('gpg2 output: {0}'.format(gpg_out))
+
+    if gpg_err:
+        tty.msg('gpg2 error: {0}'.format(gpg_err))
+
+    # Now print the keys we have for verifying and signing
+    trusted_keys_output = spack_gpg('list', '--trusted', output=str)
+    signing_keys_output = spack_gpg('list', '--signing' ,output=str)
+
+    tty.msg('spack list --trusted')
+    tty.msg(trusted_keys_output)
+    tty.msg('spack list --signing')
+    tty.msg(signing_keys_output)
+
+
+def configure_compilers(compiler_action):
+    if compiler_action == 'INSTALL_MISSING':
+        tty.msg('Make sure bootstrapped compiler will be installed')
+        config = cfg.get('config')
+        config['install_missing_compilers'] = True
+        cfg.set('config', config)
+    elif compiler_action == 'FIND_ANY':
+        tty.msg('Just find any available compiler')
+        output = spack_compiler('find')
+        tty.msg('spack compiler find')
+        tty.msg(output)
+    else:
+        tty.msg('No compiler action to be taken')
+
+
+def get_concrete_specs(root_spec, job_name, related_builds, compiler_action):
+    spec_map = {
+        'root': None,
+        'job': None,
+        'deps': {},
+    }
+
+    if compiler_action == 'FIND_ANY':
+        # This corresponds to a bootstrapping phase where we need to
+        # rely on any available compiler to build the package (i.e. the
+        # compiler needed to be stripped from the spec when we generated
+        # the job), and thus we need to concretize the root spec again.
+        concrete_root = Spec(root_spec).concretized()
+    else:
+        # in this case, either we're relying on Spack to install missing
+        # compiler bootstrapped in a previous phase, or else we only had one
+        # phase (like a site which already knows what compilers are available
+        # on it's runners), so we don't want to concretize that root spec
+        # again.  The reason we take this path in the first case (bootstrapped
+        # compiler), is that we can't concretize a spec at this point if we're
+        # going to ask spack to "install_missing_compilers".
+        concrete_root = Spec.from_yaml(
+            str(zlib.decompress(base64.b64decode(root_spec)).decode('utf-8')))
+
+    spec_map['root'] = concrete_root
+    spec_map[job_name] = concrete_root[job_name]
+
+    for dep_job_name in related_builds:
+        spec_map['deps'][dep_job_name] = concrete_root[dep_job_name]
+
+    return spec_map
+
+
+def register_cdash_build(build_name, base_url, project, site, track):
+    url = base_url + '/api/v1/addBuild.php'
+    time_stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M')
+    build_stamp = '{0}-{1}'.format(time_stamp, track)
+    payload = {
+        "project": project,
+        "site": site,
+        "name": build_name,
+        "stamp": build_stamp,
+    }
+
+    tty.msg('Registing cdash build to {0}, payload:'.format(url))
+    tty.msg(payload)
+
+    enc_data = json.dumps(payload).encode('utf-8')
+
+    headers = {
+        'Content-Type': 'application/json',
+    }
+
+    opener = build_opener(HTTPHandler)
+
+    request = Request(url, data=enc_data, headers=headers)
+
+    response = opener.open(request)
+    response_code = response.getcode()
+
+    if response_code != 200 and response_code != 201:
+        msg = 'Adding build failed (response code = {0}'.format(response_code)
+        raise SpackError(msg)
+
+    response_text = response.read()
+    response_json = json.loads(response_text)
+    build_id = response_json['buildid']
+
+    return (build_id, build_stamp)
+
+    """
+    url = 'http://localhost/CDash/api/v1/addBuild.php'
+
+    # Use this API endpoint to initialize a new build.
+    payload = {
+      "project": "MyProject",
+      "site": "localhost",
+      "name": "MyBuild",
+      "stamp": "20180717-0100-Experimental"
+    }
+    r = requests.post(url, data = payload)
+
+    201: {"buildid":"269"}
+
+    # Repeat this request.
+    # Status is 200 instead of 201 since the build already existed.
+    r = requests.post(url, data = payload)
+    200: {"buildid":"269"}
+    # Verify that required parameters are set.
+    r = requests.post(url, data = {})
+
+    400: {"error":"Valid project required"}
+    r = requests.post(url, data = {"project": "MyProject"})
+
+    400: {"error":"Valid site required"}
+
+    r = requests.post(url, data = {"project": "MyProject", "site": "localhost"})
+
+    400: {"error":"Valid name required"}
+
+    r = requests.post(url, data = {"project": "MyProject", "site": "localhost", "name": "MyBuild"})
+
+    400: {"error":"Valid stamp required"}
+
+    # Attempt to post to a private project without a valid bearer token.
+    r = requests.post(url, data = {"project": "MyPrivateProject", ...})
+
+    401
+    """
+    return build_stamp
+
+
+def relate_cdash_builds(spec_map, cdash_api_url, job_build_id, cdash_project,
+                        cdashids_mirror_url):
+    dep_map = spec_map['deps']
+
+    headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+    }
+
+    for dep_pkg_name in dep_map:
+        tty.msg('Fetching cdashid file for {0}'.format(dep_pkg_name))
+        dep_spec = dep_map[dep_pkg_name]
+        dep_build_id = read_cdashid_from_mirror(dep_spec, cdashids_mirror_url)
+
+        payload = {
+            "project": cdash_project,
+            "buildid": job_build_id,
+            "relatedid": dep_build_id,
+            "relationship": "depends on"
+        }
+
+        enc_data = json.dumps(payload).encode('utf-8')
+
+        opener = build_opener(HTTPHandler)
+
+        request = Request(cdash_api_url, data=enc_data, headers=headers)
+
+        response = opener.open(request)
+        response_code = response.getcode()
+
+        if response_code != 200 and response_code != 201:
+            msg = 'Relate builds ({0} -> {1}) failed (resp code = {2})'.format(
+                job_build_id, dep_build_id, response_code)
+            raise SpackError(msg)
+
+        response_text = response.read()
+        tty.msg('Relate builds response: {0}'.format(response_text))
+
+
+def write_cdashid_to_mirror(cdashid, spec, mirror_url):
+    if not spec.concrete:
+        tty.die('Can only write cdashid for concrete spec to mirror')
+
+    with TemporaryDirectory() as tmpdir:
+        local_cdash_path = os.path.join(tmpdir, 'job.cdashid')
+        with open(local_cdash_path, 'w') as fd:
+            fd.write(cdashid)
+
+        buildcache_name = bindist.tarball_name(spec, '')
+        cdashid_file_name = '{0}.cdashid'.format(buildcache_name)
+        url = os.path.join(
+            mirror_url, bindist.build_cache_relative_path(), cdashid_file_name)
+
+        local_url = 'file://{0}'.format(local_cdash_path)
+
+        tty.msg('pushing cdashid to url')
+        tty.msg('  local url: {0}'.format(local_url))
+        tty.msg('  remote url: {0}'.format(url))
+        web_util.push_to_url(local_url, mirror_url)
+
+
+def read_cdashid_from_mirror(spec, mirror_url):
+    if not spec.concrete:
+        tty.die('Can only read cdashid for concrete spec from mirror')
+
+    buildcache_name = bindist.tarball_name(spec, '')
+    cdashid_file_name = '{0}.cdashid'.format(buildcache_name)
+    url = os.path.join(
+        mirror_url, bindist.build_cache_relative_path(), cdashid_file_name)
+
+    respUrl, respHeaders, response = web_util.read_from_url(url)
+    contents = response.fp.read()
+
+    return int(contents)
