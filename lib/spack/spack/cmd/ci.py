@@ -10,9 +10,11 @@ import tempfile
 
 import llnl.util.tty as tty
 
+import spack.binary_distribution as bindist
 import spack.ci as spack_ci
 import spack.cmd.buildcache as buildcache
 import spack.environment as ev
+import spack.hash_types as ht
 from spack.main import SpackCommand
 import spack.repo
 import spack.util.executable as exe
