@@ -908,15 +908,15 @@ def write_cdashid_to_mirror(cdashid, spec, mirror_url):
 
         buildcache_name = bindist.tarball_name(spec, '')
         cdashid_file_name = '{0}.cdashid'.format(buildcache_name)
-        url = os.path.join(
+        remote_url = os.path.join(
             mirror_url, bindist.build_cache_relative_path(), cdashid_file_name)
 
         local_url = 'file://{0}'.format(local_cdash_path)
 
         tty.msg('pushing cdashid to url')
         tty.msg('  local url: {0}'.format(local_url))
-        tty.msg('  remote url: {0}'.format(url))
-        web_util.push_to_url(local_url, mirror_url)
+        tty.msg('  remote url: {0}'.format(remote_url))
+        web_util.push_to_url(local_url, remote_url)
 
 
 def read_cdashid_from_mirror(spec, mirror_url):
