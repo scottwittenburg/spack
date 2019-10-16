@@ -419,7 +419,7 @@ def ci_rebuild(args):
             # 4) create buildcache on remote mirror
             buildcache._createtarball(env, job_spec_yaml_path, None,
                 remote_mirror_url, None, False, True, False, False,
-                True, True)
+                True, False)
             # spack_cmd('buildcache', 'create', '-a', '-f', '-d',
             #     remote_mirror_url, '--spec-yaml', job_spec_yaml_path,
             #     '--no-rebuild-index')
