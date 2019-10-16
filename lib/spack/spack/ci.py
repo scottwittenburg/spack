@@ -749,7 +749,6 @@ def configure_compilers(compiler_action):
 def get_concrete_specs(root_spec, job_name, related_builds, compiler_action):
     spec_map = {
         'root': None,
-        'job': None,
         'deps': {},
     }
 
@@ -773,8 +772,9 @@ def get_concrete_specs(root_spec, job_name, related_builds, compiler_action):
     spec_map['root'] = concrete_root
     spec_map[job_name] = concrete_root[job_name]
 
-    for dep_job_name in related_builds:
-        spec_map['deps'][dep_job_name] = concrete_root[dep_job_name]
+    if related_builds:
+        for dep_job_name in related_builds.split(';'):
+            spec_map['deps'][dep_job_name] = concrete_root[dep_job_name]
 
     return spec_map
 
