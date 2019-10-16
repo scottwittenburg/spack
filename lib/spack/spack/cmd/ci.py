@@ -269,6 +269,21 @@ def ci_rebuild(args):
     related_builds = get_env_var('SPACK_RELATED_BUILDS')
     job_spec_buildgroup = get_env_var('SPACK_JOB_SPEC_BUILDGROUP')
 
+    tty.msg('ci_artifact_dir = {0}'.format(ci_artifact_dir))
+    tty.msg('enable_cdash = {0}'.format(enable_cdash))
+    tty.msg('root_spec = {0}'.format(root_spec))
+    tty.msg('remote_mirror_url = {0}'.format(remote_mirror_url))
+    tty.msg('enable_artifacts_mirror = {0}'.format(enable_artifacts_mirror))
+    tty.msg('job_spec_pkg_name = {0}'.format(job_spec_pkg_name))
+    tty.msg('compiler_action = {0}'.format(compiler_action))
+    tty.msg('cdash_base_url = {0}'.format(cdash_base_url))
+    tty.msg('cdash_project = {0}'.format(cdash_project))
+    tty.msg('cdash_project_enc = {0}'.format(cdash_project_enc))
+    tty.msg('cdash_build_name = {0}'.format(cdash_build_name))
+    tty.msg('cdash_site = {0}'.format(cdash_site))
+    tty.msg('related_builds = {0}'.format(related_builds))
+    tty.msg('job_spec_buildgroup = {0}'.format(job_spec_buildgroup))
+
     gpg_home_dir = '{0}/gpg'.format(ci_artifact_dir)
     if not os.path.exists(gpg_home_dir):
         os.makedirs(gpg_home_dir)
