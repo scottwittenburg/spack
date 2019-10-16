@@ -25,7 +25,7 @@ section = "packaging"     # TODO: where does this go?  new section?
 level = "long"
 
 
-spack_buildcache = SpackCommand('buildcache')
+# spack_buildcache = SpackCommand('buildcache')
 # spack_mirror = SpackCommand('mirror')
 spack_cmd = exe.which('spack')
 
@@ -347,6 +347,9 @@ def ci_rebuild(args):
                 # spack_cmd('mirror', 'add', 'remote_mirror', remote_mirror_url)
                 pass
 
+            tty.msg('listing spack mirrors:')
+            spack_cmd('mirror', 'list')
+
             # 2) build up install arguments
             install_args = ['-d', '-v', '-k', 'install', '--keep-stage']
 
@@ -390,8 +393,9 @@ def ci_rebuild(args):
             tty.msg('Creating buildcache')
 
             # 4) create buildcache on remote mirror
-            spack_buildcache('create', '--spec-yaml', job_spec_yaml_path, '-a',
-                '-f', '-d', remote_mirror_url, '--no-rebuild-index')
+            spack_cmd('buildcache', 'create', '-a', '-f', '-d',
+                remote_mirror_url, '--spec-yaml', job_spec_yaml_path,
+                '--no-rebuild-index')
 
             if enable_cdash:
                 tty.msg('Writing .cdashid ({0}) to remote mirror ({1})'.format(
@@ -404,8 +408,8 @@ def ci_rebuild(args):
             if enable_artifacts_mirror:
                 tty.msg('Creating local artifact buildcache in {0}'.format(
                     artifact_mirror_url))
-                spack_buildcache('create', '--spec-yaml', job_spec_yaml_path,
-                    '-a', '-f', '-d', artifact_mirror_url,
+                spack_cmd('buildcache', 'create', '-a', '-f', '-d',
+                    artifact_mirror_url, '--spec-yaml', job_spec_yaml_path,
                     '--no-rebuild-index')
 
                 if enable_cdash:
