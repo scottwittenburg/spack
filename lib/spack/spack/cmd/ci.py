@@ -14,6 +14,7 @@ import spack.binary_distribution as bindist
 import spack.ci as spack_ci
 import spack.cmd.buildcache as buildcache
 import spack.environment as ev
+import spack.util.gpg as gpg_util
 import spack.hash_types as ht
 from spack.main import SpackCommand
 import spack.repo
@@ -272,6 +273,8 @@ def ci_rebuild(args):
         os.makedirs(gpg_home_dir)
 
     os.environ['GNUPGHOME'] = gpg_home_dir
+    gpg_util.GNUPGHOME = gpg_home_dir
+
     os.environ['FORCE_UNSAFE_CONFIGURE'] = '1'
 
     # The following environment variables should have been provided by the CI
