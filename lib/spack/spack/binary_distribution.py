@@ -241,27 +241,46 @@ def checksum_tarball(file):
 
 def sign_tarball(key, force, specfile_path):
     # Sign the packages if keys available
+    tty.msg('Inside sign_tarball: key = {0}, force = {1}, specfile_path = {2}'.format(key, force, specfile_path))
     if not has_gnupg2():
         raise NoGpgException(
             "gpg2 is not available in $PATH .\n"
             "Use spack install gnupg and spack load gnupg.")
     else:
         if key is None:
+            tty.msg('Looking for signing keys')
+            tty.msg('  GNUPGHOME = {0}'.format(os.environ.get('GNUPGHOME')))
             keys = Gpg.signing_keys()
             if len(keys) == 1:
                 key = keys[0]
+                tty.msg('Found exactly one key: {0}'.format(key))
             if len(keys) > 1:
+                tty.msg('Whoops, found more than one key, raising PickKeyException')
                 raise PickKeyException(str(keys))
             if len(keys) == 0:
                 msg = "No default key available for signing.\n"
                 msg += "Use spack gpg init and spack gpg create"
                 msg += " to create a default key."
+                tty.msg('Raising NoKeyException with msg:')
+                tty.msg(msg)
                 raise NoKeyException(msg)
+
+    tty.msg('Checking specfile path exists')
+
     if os.path.exists('%s.asc' % specfile_path):
+
+        tty.msg('It does')
+
         if force:
+
+            tty.msg('But you said force so we will remove it')
+
             os.remove('%s.asc' % specfile_path)
         else:
             raise NoOverwriteException('%s.asc' % specfile_path)
+
+    tty.msg('About to sign')
+
     Gpg.sign(key, specfile_path, '%s.asc' % specfile_path)
 
 
@@ -306,6 +325,8 @@ def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
     if not spec.concrete:
         raise ValueError('spec must be concrete to build tarball')
 
+    tty.msg('inside build_tarball')
+
     # set up some paths
     tmpdir = tempfile.mkdtemp()
     cache_prefix = build_cache_prefix(tmpdir)
@@ -319,12 +340,16 @@ def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
     remote_spackfile_path = url_util.join(
         outdir, os.path.relpath(spackfile_path, tmpdir))
 
+    tty.msg('computed some paths')
+
     mkdirp(tarfile_dir)
     if web_util.url_exists(remote_spackfile_path):
         if force:
             web_util.remove_url(remote_spackfile_path)
         else:
             raise NoOverwriteException(url_util.format(remote_spackfile_path))
+
+    tty.msg('created local tarfile dir and checked remote url: {0}'.format(remote_spackfile_path))
 
     # need to copy the spec file so the build cache can be downloaded
     # without concretizing with the current spack packages
@@ -342,6 +367,8 @@ def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
             web_util.remove_url(remote_specfile_path)
         else:
             raise NoOverwriteException(url_util.format(remote_specfile_path))
+
+    tty.msg('checked remote specfile path: {0}'.format(remote_specfile_path))
 
     # make a copy of the install directory to work with
     workdir = os.path.join(tempfile.mkdtemp(), os.path.basename(spec.prefix))
@@ -379,6 +406,8 @@ def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
     # get the sha256 checksum of the tarball
     checksum = checksum_tarball(tarfile_path)
 
+    tty.msg('created and checksummed tarball')
+
     # add sha256 checksum to spec.yaml
     spec_dict = {}
     with open(spec_file, 'r') as inputfile:
@@ -405,24 +434,39 @@ def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
     with open(specfile_path, 'w') as outfile:
         outfile.write(syaml.dump(spec_dict))
 
+    tty.msg('Generated and wrote local specfile')
+
     # sign the tarball and spec file with gpg
     if not unsigned:
+        tty.msg('ok, going to sign that tarball')
         sign_tarball(key, force, specfile_path)
+
+    tty.msg('About to add files to archive')
+
     # put tarball, spec and signature files in .spack archive
     with closing(tarfile.open(spackfile_path, 'w')) as tar:
+        tty.msg('Adding tarfile and specfile')
         tar.add(name='%s' % tarfile_path, arcname='%s' % tarfile_name)
         tar.add(name='%s' % specfile_path, arcname='%s' % specfile_name)
         if not unsigned:
+            tty.msg('Adding asc file')
             tar.add(name='%s.asc' % specfile_path,
                     arcname='%s.asc' % specfile_name)
 
+    tty.msg('tarball should be complete')
+
     # cleanup file moved to archive
     os.remove(tarfile_path)
+    tty.msg('Just removed this path: {0}'.format(tarfile_path))
+
     if not unsigned:
         os.remove('%s.asc' % specfile_path)
+        tty.msg('Just remove another path: {0}'.format('%s.asc' % specfile_path))
 
+    tty.msg('Pushing spackfile ({0}) to ({1})'.format(spackfile_path, remote_spackfile_path))
     web_util.push_to_url(
         spackfile_path, remote_spackfile_path, keep_original=False)
+    tty.msg('Pushing specfile ({0}) to ({1})'.format(specfile_path, remote_specfile_path))
     web_util.push_to_url(
         specfile_path, remote_specfile_path, keep_original=False)
 
