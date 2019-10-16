@@ -271,6 +271,7 @@ def ci_rebuild(args):
     gpg_home_dir = '{0}/gpg'.format(ci_artifact_dir)
     if not os.path.exists(gpg_home_dir):
         os.makedirs(gpg_home_dir)
+        os.chmod(gpg_home_dir, 0o700)
 
     os.environ['GNUPGHOME'] = gpg_home_dir
     gpg_util.GNUPGHOME = gpg_home_dir
