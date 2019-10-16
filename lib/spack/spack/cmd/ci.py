@@ -301,6 +301,10 @@ def ci_rebuild(args):
 
     artifact_mirror_url = 'file://' + local_mirror_dir
 
+    # Clean out scratch directory from last stage
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+
     os.makedirs(job_log_dir)
     os.makedirs(spec_dir)
 
