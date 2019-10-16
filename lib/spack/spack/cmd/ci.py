@@ -251,6 +251,7 @@ def ci_rebuild(args):
     of information: 1) a root spec (possibly already concrete, but maybe still
     needing to be concretized) and 2) a package name used to index that root
     spec (once the root is, for certain, concrete)."""
+    env = ev.get_env(args, 'ci rebuild', required=True)
 
     ci_artifact_dir = get_env_var('CI_PROJECT_DIR')
     signing_key = get_env_var('SPACK_SIGNING_KEY')
@@ -397,9 +398,12 @@ def ci_rebuild(args):
             tty.msg('Creating buildcache')
 
             # 4) create buildcache on remote mirror
-            spack_cmd('buildcache', 'create', '-a', '-f', '-d',
-                remote_mirror_url, '--spec-yaml', job_spec_yaml_path,
-                '--no-rebuild-index')
+            buildcache._createtarball(env, job_spec_yaml_path, None,
+                remote_mirror_url, None, False, True, False, False,
+                True, True)
+            # spack_cmd('buildcache', 'create', '-a', '-f', '-d',
+            #     remote_mirror_url, '--spec-yaml', job_spec_yaml_path,
+            #     '--no-rebuild-index')
 
             if enable_cdash:
                 tty.msg('Writing .cdashid ({0}) to remote mirror ({1})'.format(
@@ -412,9 +416,12 @@ def ci_rebuild(args):
             if enable_artifacts_mirror:
                 tty.msg('Creating local artifact buildcache in {0}'.format(
                     artifact_mirror_url))
-                spack_cmd('buildcache', 'create', '-a', '-f', '-d',
-                    artifact_mirror_url, '--spec-yaml', job_spec_yaml_path,
-                    '--no-rebuild-index')
+                buildcache._createtarball(env, job_spec_yaml_path, None,
+                    remote_mirror_url, None, False, True, False, False,
+                    True, True)
+                # spack_cmd('buildcache', 'create', '-a', '-f', '-d',
+                #     artifact_mirror_url, '--spec-yaml', job_spec_yaml_path,
+                #     '--no-rebuild-index')
 
                 if enable_cdash:
                     tty.msg('Writing .cdashid ({0}) to artifacts ({1})'.format(
