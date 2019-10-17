@@ -310,6 +310,7 @@ def ci_rebuild(args):
     # AWS_ENDPOINT_URL (only needed for non-AWS S3 implementations)
     # SPACK_SIGNING_KEY
 
+    cdash_report_dir = os.path.join(ci_artifact_dir, 'cdash_report')
     temp_dir = os.path.join(ci_artifact_dir, 'jobs_scratch_dir')
     job_log_dir = os.path.join(temp_dir, 'logs')
     spec_dir = os.path.join(temp_dir, 'specs')
@@ -322,6 +323,9 @@ def ci_rebuild(args):
     # Clean out scratch directory from last stage
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
+
+    if os.path.exists(cdash_report_dir):
+        shutil.rmtree(cdash_report_dir)
 
     os.makedirs(job_log_dir)
     os.makedirs(spec_dir)
