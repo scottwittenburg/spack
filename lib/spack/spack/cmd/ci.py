@@ -16,7 +16,7 @@ import spack.cmd.buildcache as buildcache
 import spack.environment as ev
 import spack.util.gpg as gpg_util
 import spack.hash_types as ht
-from spack.main import SpackCommand
+# from spack.main import SpackCommand
 import spack.repo
 import spack.util.executable as exe
 
@@ -28,7 +28,7 @@ level = "long"
 
 # spack_buildcache = SpackCommand('buildcache')
 # spack_mirror = SpackCommand('mirror')
-spack_cmd = exe.which('spack')
+# spack_install = SpackCommand('install')
 
 
 def get_env_var(variable_name):
@@ -292,6 +292,9 @@ def ci_rebuild(args):
     os.environ['GNUPGHOME'] = gpg_home_dir
     gpg_util.GNUPGHOME = gpg_home_dir
 
+    spack_cmd = exe.which('spack')
+    spack_cmd.add_default_env('GNUPGHOME', gpg_home_dir)
+
     os.environ['FORCE_UNSAFE_CONFIGURE'] = '1'
 
     # The following environment variables should have been provided by the CI
@@ -376,6 +379,7 @@ def ci_rebuild(args):
 
             # 2) build up install arguments
             install_args = ['-d', '-v', '-k', 'install', '--keep-stage']
+            # install_args = ['--keep-stage']
 
             # 3) create/register a new build on CDash (if enabled)
             if enable_cdash:
@@ -401,6 +405,7 @@ def ci_rebuild(args):
 
             try:
                 spack_cmd(*install_args)
+                # spack_install(*install_args)
             except Exception as inst:
                 tty.msg('Caught exception during install:')
                 tty.msg(inst)
