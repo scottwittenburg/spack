@@ -330,7 +330,8 @@ def ci_rebuild(args):
     os.makedirs(job_log_dir)
     os.makedirs(spec_dir)
 
-    job_spec_yaml_path = os.path.join(spec_dir, '{0}.yaml'.format(job_spec_pkg_name))
+    job_spec_yaml_path = os.path.join(
+        spec_dir, '{0}.yaml'.format(job_spec_pkg_name))
     job_log_file = os.path.join(job_log_dir, 'cdash_log.txt')
 
     cdash_build_id = None
@@ -344,10 +345,11 @@ def ci_rebuild(args):
 
         spack_ci.import_signing_key(signing_key)
 
-        spack_ci.configure_compilers(compiler_action)
+        real_compilers = spack_ci.configure_compilers(compiler_action)
 
         spec_map = spack_ci.get_concrete_specs(
-            root_spec, job_spec_pkg_name, related_builds, compiler_action)
+            root_spec, job_spec_pkg_name, related_builds, compiler_action,
+            real_compilers)
 
         job_spec = spec_map[job_spec_pkg_name]
 
@@ -362,6 +364,11 @@ def ci_rebuild(args):
         with open(job_spec_yaml_path) as fd:
             tty.msg('Just wrote this file, reading it, here are the contents:')
             tty.msg(fd.read())
+
+        ### DEBUG the root spec
+        root_spec_yaml_path = os.path.join(spec_dir, 'root.yaml')
+        with open(root_spec_yaml_path, 'w') as fd:
+            fd.write(spec_map['root'].to_yaml(hash=ht.build_hash))
 
         if bindist.needs_rebuild(job_spec, remote_mirror_url, True):
             # Binary on remote mirror is not up to date, we need to rebuild

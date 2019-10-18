@@ -742,11 +742,41 @@ def configure_compilers(compiler_action):
         output = spack_compiler('find')
         tty.msg('spack compiler find')
         tty.msg(output)
+        output = spack_compiler('list')
+        tty.msg('spack compiler list')
+        tty.msg(output)
+        compiler_config = cfg.get('compilers')
+        real_compilers = []
+
+        for comp in compiler_config:
+            tty.msg('Next compiler')
+            tty.msg('  {0}'.format(comp))
+            non_empty_path_found = False
+            compiler_paths = comp['compiler']['paths']
+            for c_path in compiler_paths:
+                if compiler_paths[c_path]:
+                    break
+            else:
+                # Never found a "truthy" compiler path for this particular
+                # compiler
+                continue
+            real_compilers.append(comp)
+
+        tty.msg('Found real compilers')
+
+        for real_comp in real_compilers:
+            tty.msg('Next compiler')
+            tty.msg('  {0}'.format(real_comp))
+
+        cfg.set('compilers', real_compilers)
+        return real_compilers
     else:
         tty.msg('No compiler action to be taken')
 
+    return None
 
-def get_concrete_specs(root_spec, job_name, related_builds, compiler_action):
+
+def get_concrete_specs(root_spec, job_name, related_builds, compiler_action, real_compilers = []):
     spec_map = {
         'root': None,
         'deps': {},
@@ -757,7 +787,19 @@ def get_concrete_specs(root_spec, job_name, related_builds, compiler_action):
         # rely on any available compiler to build the package (i.e. the
         # compiler needed to be stripped from the spec when we generated
         # the job), and thus we need to concretize the root spec again.
-        concrete_root = Spec(root_spec).concretized()
+        tty.msg('about to concretize {0}'.format(root_spec))
+        tty.msg('supposedly the only available compilers are:')
+        compiler_config = cfg.get('compilers')
+        for comp in compiler_config:
+            tty.msg('  {0}'.format(comp))
+        if real_compilers:
+            with cfg.override("compilers", real_compilers):
+                tty.msg('Overriding compiler cfg to concretize {0}'.format(
+                    root_spec))
+                concrete_root = Spec(root_spec).concretized()
+        else:
+            concrete_root = Spec(root_spec).concretized()
+        tty.msg('And now here is my concrete root: {0}'.format(concrete_root))
     else:
         # in this case, either we're relying on Spack to install missing
         # compiler bootstrapped in a previous phase, or else we only had one
