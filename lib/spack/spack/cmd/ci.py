@@ -473,9 +473,10 @@ def ci_rebuild(args):
             # subsequent stages
             tty.msg('No need to rebuild {0}'.format(job_spec_pkg_name))
             if enable_artifacts_mirror:
-                tty.msg('Get buildcache for {0}'.format(job_spec_pkg_name))
+                tty.msg('Getting buildcache for {0}'.format(job_spec_pkg_name))
+                tty.msg('Downloading to {0}'.format(build_cache_dir))
                 buildcache.download_buildcache_files(
-                    job_spec, artifact_mirror_url, True, remote_mirror_url)
+                    job_spec, build_cache_dir, True, remote_mirror_url)
 
 
 
