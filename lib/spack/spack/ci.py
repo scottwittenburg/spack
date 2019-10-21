@@ -675,12 +675,14 @@ def generate_gitlab_ci_yaml(env, cdash_credentials_path, print_summary,
     final_stage = 'stage-rebuild-index'
     final_job = {
         'stage': final_stage,
-        'variables': {
-            'MIRROR_URL': mirror_urls[0],
-        },
-        'script': './bin/rebuild-index.sh',
+        'script': 'spack buildcache update-index -d {0}'.format(
+            mirror_urls[0]),
         'tags': ['spack-post-ci']    # may want a runner to handle this
     }
+    if before_script:
+        final_job['before_script'] = before_script
+    if after_script:
+        final_job['after_script'] = after_script
     output_object['rebuild-index'] = final_job
     stage_names.append(final_stage)
 
