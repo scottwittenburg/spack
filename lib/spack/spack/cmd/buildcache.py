@@ -376,12 +376,12 @@ def _createtarball(env, spec_yaml, packages, directory, key, no_deps, force,
 def createtarball(args):
     """create a binary package from an existing install"""
 
-     # restrict matching to current environment if one is active
+    # restrict matching to current environment if one is active
     env = ev.get_env(args, 'buildcache create')
 
     _createtarball(env, args.spec_yaml, args.packages, args.directory,
-        args.key, args.no_deps, args.force, args.rel, args.unsigned,
-        args.allow_root, args.no_rebuild_index)
+                   args.key, args.no_deps, args.force, args.rel, args.unsigned,
+                   args.allow_root, args.no_rebuild_index)
 
 
 def installtarball(args):

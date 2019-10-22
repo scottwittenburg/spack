@@ -3,13 +3,11 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-import argparse
 import base64
 import datetime
 import json
 import os
 import shutil
-import sys
 from subprocess import Popen, PIPE
 import tempfile
 import zlib
@@ -454,14 +452,14 @@ def generate_gitlab_ci_yaml(env, cdash_credentials_path, print_summary,
         if not custom_spack_ref:
             custom_spack_ref = 'master'
         before_script = [
-          'export SPACK_CLONE_LOCATION=$(mktemp -d)',
-          'pushd "${SPACK_CLONE_LOCATION}"',
-          'git clone "${SPACK_REPO}" --branch "${SPACK_REF}"',
-          'popd',
-          '. "${SPACK_CLONE_LOCATION}/spack/share/spack/setup-env.sh"',
+            'export SPACK_CLONE_LOCATION=$(mktemp -d)',
+            'pushd "${SPACK_CLONE_LOCATION}"',
+            'git clone "${SPACK_REPO}" --branch "${SPACK_REF}"',
+            'popd',
+            '. "${SPACK_CLONE_LOCATION}/spack/share/spack/setup-env.sh"',
         ]
         after_script = [
-          'rm -rf "${SPACK_CLONE_LOCATION}"'
+            'rm -rf "${SPACK_CLONE_LOCATION}"'
         ]
 
     ci_mirrors = yaml_root['mirrors']
@@ -696,6 +694,7 @@ def url_encode_string(input_string):
     encoded_keyval = urlencode({'donotcare': input_string})
     eq_idx = encoded_keyval.find('=') + 1
     encoded_value = encoded_keyval[eq_idx:]
+    return encoded_value
 
 
 def import_signing_key(base64_signing_key):
@@ -725,7 +724,7 @@ def import_signing_key(base64_signing_key):
 
     # Now print the keys we have for verifying and signing
     trusted_keys_output = spack_gpg('list', '--trusted', output=str)
-    signing_keys_output = spack_gpg('list', '--signing' ,output=str)
+    signing_keys_output = spack_gpg('list', '--signing', output=str)
 
     tty.msg('spack list --trusted')
     tty.msg(trusted_keys_output)
@@ -753,7 +752,6 @@ def configure_compilers(compiler_action):
         for comp in compiler_config:
             tty.msg('Next compiler')
             tty.msg('  {0}'.format(comp))
-            non_empty_path_found = False
             compiler_paths = comp['compiler']['paths']
             for c_path in compiler_paths:
                 if compiler_paths[c_path]:
@@ -778,7 +776,8 @@ def configure_compilers(compiler_action):
     return None
 
 
-def get_concrete_specs(root_spec, job_name, related_builds, compiler_action, real_compilers = []):
+def get_concrete_specs(root_spec, job_name, related_builds, compiler_action,
+                       real_compilers=[]):
     spec_map = {
         'root': None,
         'deps': {},
@@ -860,47 +859,6 @@ def register_cdash_build(build_name, base_url, project, site, track):
 
     return (build_id, build_stamp)
 
-    """
-    url = 'http://localhost/CDash/api/v1/addBuild.php'
-
-    # Use this API endpoint to initialize a new build.
-    payload = {
-      "project": "MyProject",
-      "site": "localhost",
-      "name": "MyBuild",
-      "stamp": "20180717-0100-Experimental"
-    }
-    r = requests.post(url, data = payload)
-
-    201: {"buildid":"269"}
-
-    # Repeat this request.
-    # Status is 200 instead of 201 since the build already existed.
-    r = requests.post(url, data = payload)
-    200: {"buildid":"269"}
-    # Verify that required parameters are set.
-    r = requests.post(url, data = {})
-
-    400: {"error":"Valid project required"}
-    r = requests.post(url, data = {"project": "MyProject"})
-
-    400: {"error":"Valid site required"}
-
-    r = requests.post(url, data = {"project": "MyProject", "site": "localhost"})
-
-    400: {"error":"Valid name required"}
-
-    r = requests.post(url, data = {"project": "MyProject", "site": "localhost", "name": "MyBuild"})
-
-    400: {"error":"Valid stamp required"}
-
-    # Attempt to post to a private project without a valid bearer token.
-    r = requests.post(url, data = {"project": "MyPrivateProject", ...})
-
-    401
-    """
-    return build_stamp
-
 
 def relate_cdash_builds(spec_map, cdash_api_url, job_build_id, cdash_project,
                         cdashids_mirror_url):
@@ -972,7 +930,7 @@ def read_cdashid_from_mirror(spec, mirror_url):
     url = os.path.join(
         mirror_url, bindist.build_cache_relative_path(), cdashid_file_name)
 
-    respUrl, respHeaders, response = web_util.read_from_url(url)
+    resp_url, resp_headers, response = web_util.read_from_url(url)
     contents = response.fp.read()
 
     return int(contents)

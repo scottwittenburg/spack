@@ -6,7 +6,6 @@
 import os
 import shutil
 import sys
-import tempfile
 
 import llnl.util.tty as tty
 
@@ -186,8 +185,8 @@ def ci_generate(args):
 
 def ci_pushyaml(args):
     """Push the generated jobs yaml file to a remote repository.  The file
-    (.gitlab-ci.yaml) is expected to be in the current directory, which should
-     be the root of the repository."""
+       (.gitlab-ci.yaml) is expected to be in the current directory, which
+       should be the root of the repository."""
     downstream_repo = args.downstream_repo
     branch_name = args.branch_name
     commit_sha = args.commit_sha
@@ -238,19 +237,20 @@ def ci_pushyaml(args):
 
 
 def ci_rebuild(args):
-    """ This command represents a gitlab-ci job, corresponding to a single
-    release spec.  As such it must first decide whether or not the spec it
-    has been assigned to build is up to date on the remote binary mirror.
-    If it is not (i.e. the full_hash of the spec as computed locally does
-    not match the one stored in the metadata on the mirror), this script will
-    build the package, create a binary cache for it, and then push all related
-    files to the remote binary mirror.  This script also communicates with a
-    remote CDash instance to share status on the package build process.
+    """This command represents a gitlab-ci job, corresponding to a single
+       release spec.  As such it must first decide whether or not the spec it
+       has been assigned to build is up to date on the remote binary mirror.
+       If it is not (i.e. the full_hash of the spec as computed locally does
+       not match the one stored in the metadata on the mirror), this script
+       will build the package, create a binary cache for it, and then push all
+       related files to the remote binary mirror.  This script also
+       communicates with a remote CDash instance to share status on the package
+       build process.
 
-    The spec to be built by this job is represented by essentially two pieces
-    of information: 1) a root spec (possibly already concrete, but maybe still
-    needing to be concretized) and 2) a package name used to index that root
-    spec (once the root is, for certain, concrete)."""
+       The spec to be built by this job is represented by essentially two
+       pieces of information: 1) a root spec (possibly already concrete, but
+       maybe still needing to be concretized) and 2) a package name used to
+       index that root spec (once the root is, for certain, concrete)."""
     env = ev.get_env(args, 'ci rebuild', required=True)
 
     ci_artifact_dir = get_env_var('CI_PROJECT_DIR')
@@ -360,12 +360,12 @@ def ci_rebuild(args):
 
         tty.msg('Done writing concrete spec')
 
-        ### DEBUG
+        # DEBUG
         with open(job_spec_yaml_path) as fd:
             tty.msg('Just wrote this file, reading it, here are the contents:')
             tty.msg(fd.read())
 
-        ### DEBUG the root spec
+        # DEBUG the root spec
         root_spec_yaml_path = os.path.join(spec_dir, 'root.yaml')
         with open(root_spec_yaml_path, 'w') as fd:
             fd.write(spec_map['root'].to_yaml(hash=ht.build_hash))
@@ -374,16 +374,10 @@ def ci_rebuild(args):
             # Binary on remote mirror is not up to date, we need to rebuild
             # it.
             #
-            # 1) add "local artifact mirror" (if enabled), or else add the
-            #      remote binary mirror.  This is where dependencies should
-            #      be installed from.
+            # FIXME: ensure mirror precedence causes this local mirror to
+            # be chosen ahead of the remote one when installing deps
             if enable_artifacts_mirror:
-                # spack_mirror('add', 'local_mirror', artifact_mirror_url)
                 spack_cmd('mirror', 'add', 'local_mirror', artifact_mirror_url)
-            else:
-                # spack_mirror('add', 'remote_mirror', remote_mirror_url)
-                # spack_cmd('mirror', 'add', 'remote_mirror', remote_mirror_url)
-                pass
 
             tty.msg('listing spack mirrors:')
             spack_cmd('mirror', 'list')
@@ -433,12 +427,9 @@ def ci_rebuild(args):
             tty.msg('Creating buildcache')
 
             # 4) create buildcache on remote mirror
-            buildcache._createtarball(env, job_spec_yaml_path, None,
-                remote_mirror_url, None, False, True, False, False,
-                True, False)
-            # spack_cmd('buildcache', 'create', '-a', '-f', '-d',
-            #     remote_mirror_url, '--spec-yaml', job_spec_yaml_path,
-            #     '--no-rebuild-index')
+            buildcache._createtarball(
+                env, job_spec_yaml_path, None, remote_mirror_url, None, False,
+                True, False, False, True, False)
 
             if enable_cdash:
                 tty.msg('Writing .cdashid ({0}) to remote mirror ({1})'.format(
@@ -451,12 +442,9 @@ def ci_rebuild(args):
             if enable_artifacts_mirror:
                 tty.msg('Creating local artifact buildcache in {0}'.format(
                     artifact_mirror_url))
-                buildcache._createtarball(env, job_spec_yaml_path, None,
-                    remote_mirror_url, None, False, True, False, False,
-                    True, True)
-                # spack_cmd('buildcache', 'create', '-a', '-f', '-d',
-                #     artifact_mirror_url, '--spec-yaml', job_spec_yaml_path,
-                #     '--no-rebuild-index')
+                buildcache._createtarball(
+                    env, job_spec_yaml_path, None, remote_mirror_url, None,
+                    False, True, False, False, True, True)
 
                 if enable_cdash:
                     tty.msg('Writing .cdashid ({0}) to artifacts ({1})'.format(
@@ -486,10 +474,9 @@ def ci_rebuild(args):
                     job_spec, build_cache_dir, True, remote_mirror_url)
 
 
-
 def ci_start(args):
     """Kicks of the CI process (currently just calls ci_generate() then
-    ci_push())"""
+       ci_push())"""
     ci_generate(args)
     ci_pushyaml(args)
 
