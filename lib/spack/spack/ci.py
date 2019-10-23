@@ -8,7 +8,6 @@ import datetime
 import json
 import os
 import shutil
-from subprocess import Popen, PIPE
 import tempfile
 import zlib
 
@@ -710,17 +709,16 @@ def import_signing_key(base64_signing_key):
     tty.msg('spack gpg list:')
     tty.msg(list_output)
 
-    # Importing the secret key using gpg2 directly should allow both
-    # signing and verification
-    gpg_process = Popen(["gpg2", "--import"], stdin=PIPE)
     decoded_key = base64.b64decode(base64_signing_key)
-    gpg_out, gpg_err = gpg_process.communicate(decoded_key)
 
-    if gpg_out:
-        tty.msg('gpg2 output: {0}'.format(gpg_out))
+    with TemporaryDirectory() as tmpdir:
+        sign_key_path = os.path.join(tmpdir, 'signing_key')
+        with open(sign_key_path, 'w') as fd:
+            fd.write(decoded_key)
 
-    if gpg_err:
-        tty.msg('gpg2 error: {0}'.format(gpg_err))
+        key_import_output = spack_gpg('trust', sign_key_path, output=str)
+        tty.msg('spack gpg trust {0}'.format(sign_key_path))
+        tty.msg(key_import_output)
 
     # Now print the keys we have for verifying and signing
     trusted_keys_output = spack_gpg('list', '--trusted', output=str)

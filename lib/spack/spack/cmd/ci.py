@@ -13,7 +13,6 @@ import spack.binary_distribution as bindist
 import spack.ci as spack_ci
 import spack.cmd.buildcache as buildcache
 import spack.environment as ev
-import spack.util.gpg as gpg_util
 import spack.hash_types as ht
 # from spack.main import SpackCommand
 import spack.repo
@@ -284,16 +283,7 @@ def ci_rebuild(args):
     tty.msg('related_builds = {0}'.format(related_builds))
     tty.msg('job_spec_buildgroup = {0}'.format(job_spec_buildgroup))
 
-    gpg_home_dir = '{0}/gpg'.format(ci_artifact_dir)
-    if not os.path.exists(gpg_home_dir):
-        os.makedirs(gpg_home_dir)
-        os.chmod(gpg_home_dir, 0o700)
-
-    os.environ['GNUPGHOME'] = gpg_home_dir
-    gpg_util.GNUPGHOME = gpg_home_dir
-
     spack_cmd = exe.which('spack')
-    spack_cmd.add_default_env('GNUPGHOME', gpg_home_dir)
 
     os.environ['FORCE_UNSAFE_CONFIGURE'] = '1'
 
