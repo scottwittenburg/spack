@@ -254,7 +254,7 @@ def ci_rebuild(args):
 
     ci_artifact_dir = get_env_var('CI_PROJECT_DIR')
     signing_key = get_env_var('SPACK_SIGNING_KEY')
-    enable_cdash = get_env_var('SPACK_ENABLE_CDASH')
+    spack_enable_cdash = get_env_var('SPACK_ENABLE_CDASH')
     root_spec = get_env_var('SPACK_ROOT_SPEC')
     remote_mirror_url = get_env_var('SPACK_MIRROR_URL')
     enable_artifacts_mirror = get_env_var('SPACK_ENABLE_ARTIFACTS_MIRROR')
@@ -267,6 +267,8 @@ def ci_rebuild(args):
     cdash_site = get_env_var('SPACK_CDASH_SITE')
     related_builds = get_env_var('SPACK_RELATED_BUILDS')
     job_spec_buildgroup = get_env_var('SPACK_JOB_SPEC_BUILDGROUP')
+
+    enable_cdash = True if spack_enable_cdash == 'True' else False
 
     tty.msg('ci_artifact_dir = {0}'.format(ci_artifact_dir))
     tty.msg('enable_cdash = {0}'.format(enable_cdash))
