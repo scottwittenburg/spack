@@ -710,6 +710,8 @@ def import_signing_key(base64_signing_key):
     tty.msg(list_output)
 
     decoded_key = base64.b64decode(base64_signing_key)
+    if isinstance(decoded_key, bytes):
+        decoded_key = decoded_key.decode('utf8')
 
     with TemporaryDirectory() as tmpdir:
         sign_key_path = os.path.join(tmpdir, 'signing_key')
