@@ -136,6 +136,10 @@ def get_job_name(phase, strip_compiler, spec, osarch, build_group):
     format_args.append(spec.name)
     item_idx += 1
 
+    format_str += '/{{{0}}}'.format(item_idx)
+    format_args.append(spec.concretized().dag_hash()[:7])
+    item_idx += 1
+
     format_str += ' {{{0}}}'.format(item_idx)
     format_args.append(spec.version)
     item_idx += 1

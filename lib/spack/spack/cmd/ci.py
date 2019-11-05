@@ -173,7 +173,7 @@ def ci_generate(args):
                 fd.write('{0}\n'.format(cdash_auth_token))
 
         # Generate the jobs
-        spack_ci.generate_gitlab_ci_yaml(env, token_file, False, output_file)
+        spack_ci.generate_gitlab_ci_yaml(env, token_file, True, output_file)
 
         if copy_yaml_to:
             copy_to_dir = os.path.dirname(copy_yaml_to)
