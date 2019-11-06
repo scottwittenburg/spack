@@ -137,7 +137,7 @@ def get_job_name(phase, strip_compiler, spec, osarch, build_group):
     item_idx += 1
 
     format_str += '/{{{0}}}'.format(item_idx)
-    format_args.append(spec.concretized().dag_hash()[:7])
+    format_args.append(spec.dag_hash(7))
     item_idx += 1
 
     format_str += ' {{{0}}}'.format(item_idx)
@@ -415,6 +415,10 @@ def find_matching_config(spec, ci_mappings):
     return None
 
 
+def pkg_name_from_spec_label(spec_label):
+    return spec_label[:spec_label.index('/')]
+
+
 def generate_gitlab_ci_yaml(env, cdash_credentials_path, print_summary,
                             output_file):
     # FIXME: What's the difference between one that opens with 'spack'
@@ -528,8 +532,10 @@ def generate_gitlab_ci_yaml(env, cdash_credentials_path, print_summary,
             stage_id += 1
 
             for spec_label in stage_jobs:
-                release_spec = spec_labels[spec_label]['spec']
+                # release_spec = spec_labels[spec_label]['spec']
                 root_spec = spec_labels[spec_label]['rootSpec']
+                pkg_name = pkg_name_from_spec_label(spec_label)
+                release_spec = root_spec[pkg_name]
 
                 runner_attribs = find_matching_config(root_spec, ci_mappings)
 
@@ -577,11 +583,15 @@ def generate_gitlab_ci_yaml(env, cdash_credentials_path, print_summary,
 
                 job_dependencies = []
                 if spec_label in dependencies:
-                    job_dependencies = (
-                        [get_job_name(phase_name, strip_compilers,
-                                      spec_labels[dep_label]['spec'],
-                                      osname, build_group)
-                            for dep_label in dependencies[spec_label]])
+                    job_dependencies = []
+                    for dep_label in dependencies[spec_label]:
+                        dep_pkg = pkg_name_from_spec_label(dep_label)
+                        dep_spec = spec_labels[dep_label]['rootSpec'][dep_pkg]
+                        dep_job_name = get_job_name(
+                            phase_name, strip_compilers, dep_spec, osname,
+                            build_group)
+                        job_dependencies.append(dep_job_name)
+
 
                 # This next section helps gitlab make sure the right
                 # bootstrapped compiler exists in the artifacts buildcache by
