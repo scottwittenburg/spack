@@ -792,10 +792,10 @@ def needs_rebuild(spec, mirror_url, rebuild_on_errors=False):
     try:
         _, _, yaml_file = web_util.read_from_url(file_path)
         yaml_contents = codecs.getreader('utf-8')(yaml_file).read()
-    except URLError as url_err:
+    except (URLError, web_util.SpackWebError) as url_err:
         err_msg = [
             'Unable to determine whether {0} needs rebuilding,',
-            ' caught URLError attempting to read from {1}.',
+            ' caught exception attempting to read from {1}.',
         ]
         tty.error(''.join(err_msg).format(spec.short_spec, file_path))
         tty.debug(url_err)
