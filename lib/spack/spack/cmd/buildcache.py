@@ -23,6 +23,7 @@ import spack.config
 import spack.repo
 import spack.store
 import spack.util.url as url_util
+import spack.util.web as web_util
 
 from spack.error import SpecError
 from spack.spec import Spec, save_dependency_spec_yamls
@@ -214,6 +215,15 @@ def setup_parser(subparser):
     update_index.add_argument(
         '-d', '--mirror-url', default=None, help='Destination mirror url')
     update_index.set_defaults(func=buildcache_update_index)
+
+    # Copy an entire buildcache from one mirror to another
+    replicate = subparsers.add_parser(
+        'replicate', help=buildcache_replicate.__doc__)
+    replicate.add_argument(
+        '--src-mirror', default=None, help='Source mirror url')
+    replicate.add_argument(
+        '--dest-mirror', default=None, help='Destination mirror url')
+    replicate.set_defaults(func=buildcache_replicate)
 
 
 def find_matching_specs(pkgs, allow_multiple_matches=False, env=None):
@@ -672,6 +682,26 @@ def buildcache_copy(args):
     if os.path.exists(cdashid_src_path):
         tty.msg('Copying {0}'.format(cdashidfile_rel_path))
         shutil.copyfile(cdashid_src_path, cdashid_dest_path)
+
+
+def buildcache_replicate(args):
+    """ Copy everything from the source mirror buildcache into the target
+    mirror buildcache."""
+
+    if not args.src_mirror or not args.dest_mirror:
+        tty.die('Both a source and destination mirror are required')
+
+    src_mirror = spack.mirror.MirrorCollection().lookup(args.src_mirror)
+
+    # import pdb
+    # pdb.set_trace()
+
+    build_cache_url = url_util.join(
+        src_mirror.fetch_url, bindist.build_cache_relative_path())
+
+    file_list = web_util.list_url(build_cache_url)
+
+    print(file_list)
 
 
 def buildcache_update_index(args):
