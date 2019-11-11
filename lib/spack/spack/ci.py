@@ -432,6 +432,10 @@ def generate_gitlab_ci_yaml(env, cdash_credentials_path, print_summary,
 
     ci_mappings = yaml_root['gitlab-ci']['mappings']
 
+    final_job_config = None
+    if 'final-stage-rebuild-index' in yaml_root['gitlab-ci']:
+        final_job_config = yaml_root['gitlab-ci']['final-stage-rebuild-index']
+
     build_group = None
     enable_cdash_reporting = False
     cdash_auth_token = None
@@ -685,20 +689,23 @@ def generate_gitlab_ci_yaml(env, cdash_credentials_path, print_summary,
     else:
         tty.warn('Unable to populate buildgroup without CDash credentials')
 
-    # Add an extra, final job to regenerate the index
-    final_stage = 'stage-rebuild-index'
-    final_job = {
-        'stage': final_stage,
-        'script': 'spack buildcache update-index -d {0}'.format(
-            mirror_urls[0]),
-        'tags': ['spack-post-ci']    # may want a runner to handle this
-    }
-    if before_script:
-        final_job['before_script'] = before_script
-    if after_script:
-        final_job['after_script'] = after_script
-    output_object['rebuild-index'] = final_job
-    stage_names.append(final_stage)
+    if final_job_config:
+        # Add an extra, final job to regenerate the index
+        final_stage = 'stage-rebuild-index'
+        final_job = {
+            'stage': final_stage,
+            'script': 'spack buildcache update-index -d {0}'.format(
+                mirror_urls[0]),
+            'tags': final_job_config['tags']
+        }
+        if final_job_config['image']:
+            final_job['image'] = final_job_config['image']
+        if before_script:
+            final_job['before_script'] = before_script
+        if after_script:
+            final_job['after_script'] = after_script
+        output_object['rebuild-index'] = final_job
+        stage_names.append(final_stage)
 
     output_object['stages'] = stage_names
 
