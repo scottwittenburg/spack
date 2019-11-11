@@ -543,7 +543,8 @@ def generate_gitlab_ci_yaml(env, cdash_credentials_path, print_summary,
                 pkg_name = pkg_name_from_spec_label(spec_label)
                 release_spec = root_spec[pkg_name]
 
-                runner_attribs = find_matching_config(root_spec, ci_mappings)
+                runner_attribs = find_matching_config(
+                    release_spec, ci_mappings)
 
                 if not runner_attribs:
                     tty.warn('No match found for {0}, skipping it'.format(
