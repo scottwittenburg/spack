@@ -420,7 +420,7 @@ def ci_rebuild(args):
 
             # 4) create buildcache on remote mirror
             buildcache._createtarball(
-                env, job_spec_yaml_path, None, remote_mirror_url, None, False,
+                env, job_spec_yaml_path, None, remote_mirror_url, None, True,
                 True, False, False, True, False)
 
             if enable_cdash:
@@ -436,7 +436,7 @@ def ci_rebuild(args):
                     artifact_mirror_url))
                 buildcache._createtarball(
                     env, job_spec_yaml_path, None, remote_mirror_url, None,
-                    False, True, False, False, True, False)
+                    True, True, False, False, True, False)
 
                 if enable_cdash:
                     tty.msg('Writing .cdashid ({0}) to artifacts ({1})'.format(
