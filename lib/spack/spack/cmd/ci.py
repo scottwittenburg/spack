@@ -432,18 +432,21 @@ def ci_rebuild(args):
                        'due to exception: {0}').format(inst)
                 tty.msg(msg)
 
-            tty.msg('Creating buildcache')
+            tty.msg('Creating buildcache on remote mirror')
 
             # 4) create buildcache on remote mirror
             buildcache._createtarball(
                 env, job_spec_yaml_path, None, remote_mirror_url, None, True,
                 True, False, False, True, False)
 
+            tty.msg('Buildcache creation (remote) complete')
+
             if enable_cdash:
                 tty.msg('Writing .cdashid ({0}) to remote mirror ({1})'.format(
                     cdash_build_id, remote_mirror_url))
                 spack_ci.write_cdashid_to_mirror(
                     cdash_build_id, job_spec, remote_mirror_url)
+                tty.msg('Done writing .cdashid to remote mirror')
 
             # 5) create another copy of that buildcache on "local artifact
             # mirror" (if enabled)
@@ -453,12 +456,14 @@ def ci_rebuild(args):
                 buildcache._createtarball(
                     env, job_spec_yaml_path, None, remote_mirror_url, None,
                     True, True, False, False, True, False)
+                tty.msg('Buildcache creation (local artifacts) complete')
 
                 if enable_cdash:
                     tty.msg('Writing .cdashid ({0}) to artifacts ({1})'.format(
                         cdash_build_id, artifact_mirror_url))
                     spack_ci.write_cdashid_to_mirror(
                         cdash_build_id, job_spec, artifact_mirror_url)
+                    tty.msg('Done writing .cdashid to local artifacts mirror')
 
             # 6) relate this build to its dependencies on CDash (if enabled)
             if enable_cdash:
