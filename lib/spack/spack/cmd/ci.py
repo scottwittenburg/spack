@@ -409,6 +409,15 @@ def ci_rebuild(args):
 
             tty.msg('Package installation complete')
 
+            import time
+            carry_on_path = os.path.join(job_log_dir, 'carryon')
+            print('Before carrying on, wait for file to appear: {0}'.format(carry_on_path))
+            while (not os.path.exists(carry_on_path)):
+                sys.stdout.write('.')
+                sys.stdout.flush()
+                time.sleep(5)
+            print('\nFile appeared, carrying on...\n')
+
             try:
                 job_pkg = spack.repo.get(job_spec)
                 tty.msg('job package: {0}'.format(job_pkg))
