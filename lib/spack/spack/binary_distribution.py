@@ -282,6 +282,9 @@ def generate_package_index(cache_prefix):
             if (entry.endswith('.yaml')
                 or entry.endswith('.key')))
 
+        tty.debug('Current buildcache entry list:')
+        tty.debug(file_list)
+
         with open(index_html_path, 'w') as f:
             f.write(BUILD_CACHE_INDEX_TEMPLATE.format(
                 title='Spack Package Index',
@@ -430,8 +433,14 @@ def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
         # create an index.html for the build_cache directory so specs can be
         # found
         if regenerate_index:
-            generate_package_index(url_util.join(
-                outdir, os.path.relpath(cache_prefix, tmpdir)))
+            buildcache_url = url_util.join(
+                outdir, os.path.relpath(cache_prefix, tmpdir))
+            tty.debug('Regenerating buildcache index at {0}'.format(
+                buildcache_url))
+            generate_package_index(buildcache_url)
+    except Exception as inst:
+        tty.error('Caught exception regenerating index')
+        tty.msg(inst)
     finally:
         shutil.rmtree(tmpdir)
 
