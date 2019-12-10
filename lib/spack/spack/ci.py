@@ -577,7 +577,20 @@ def generate_gitlab_ci_yaml(env, cdash_credentials_path, print_summary,
                 job_name = get_job_name(phase_name, strip_compilers,
                                         release_spec, osname, build_group)
 
-                job_scripts = ['spack -d ci rebuild']
+                job_scripts = [
+                    'mkdir -p "$CI_PROJECT_DIR/logs"'
+                    'if which script &>/dev/null'
+                    ' ; then'
+                        ' script --return --quiet'
+                            " -c 'spack -d ci rebuild'"
+                            ' "$CI_PROJECT_DIR/logs/cdash-log.txt"'
+                    ' ; else'
+                        # TODO
+                        # ' spack -d ci rebuild'
+                        ' echo script command missing'
+                        ' exit 1'
+                    ' ; fi'
+                ]
 
                 compiler_action = 'NONE'
                 if len(phases) > 1:
