@@ -10,8 +10,10 @@ import llnl.util.filesystem as fs
 
 import spack
 import spack.ci as ci
+import spack.config
 import spack.environment as ev
 from spack.main import SpackCommand
+# import spack.paths as spack_paths
 import spack.repo as repo
 from spack.spec import Spec
 from spack.test.conftest import MockPackage, MockPackageMultiRepo
@@ -20,11 +22,8 @@ import spack.util.executable as exe
 
 ci_cmd = SpackCommand('ci')
 env_cmd = SpackCommand('env')
+mirror_cmd = SpackCommand('mirror')
 git = exe.which('git', required=True)
-
-
-pytestmark = pytest.mark.usefixtures(
-    'mutable_mock_env_path', 'config', 'mutable_mock_packages')
 
 
 @pytest.fixture()
@@ -32,6 +31,33 @@ def env_deactivate():
     yield
     spack.environment._active_environment = None
     os.environ.pop('SPACK_ENV', None)
+
+
+# @pytest.fixture(scope='function')
+# def tmp_scope(tmpdir, config, mock_packages, monkeypatch):
+#     """Creates a temporary configuration scope"""
+#
+#     base_name = 'internal-testing-scope'
+#     current_overrides = set(
+#         x.name for x in
+#         spack.config.config.matching_scopes(r'^{0}'.format(base_name)))
+#
+#     num_overrides = 0
+#     scope_name = base_name
+#     while scope_name in current_overrides:
+#         scope_name = '{0}{1}'.format(base_name, num_overrides)
+#         num_overrides += 1
+#
+#     real_store = spack.store.store
+#     spack.store.store = spack.store.Store(str(tmpdir.join('opt')))
+#
+#     with spack.config.override(spack.config.InternalConfigScope(scope_name)):
+#         # We use a fake package, so temporarily disable checksumming
+#         with spack.config.override('config:checksum', False):
+#             yield scope_name
+#
+#     tmpdir.join('opt').remove()
+#     spack.store.store = real_store
 
 
 def initialize_new_repo(repo_path, initial_commit=False):
@@ -63,6 +89,10 @@ def get_repo_status(repo_path):
         current_sha = output.split()[0]
 
         return current_branch, current_sha
+
+
+def set_env_var(key, val):
+    os.environ[key] = val
 
 
 def test_specs_staging(config):
@@ -164,6 +194,92 @@ spack:
             contents = f.read()
             assert('archive-files' in contents)
             assert('stages: [stage-0' in contents)
+
+
+# def test_ci_rebuild_basic(tmpdir, mutable_mock_env_path, env_deactivate,
+#                           mock_packages, tmp_scope, capsys):
+#     working_dir = tmpdir.join('working_dir')
+#
+#     mirror_dir = working_dir.join('mirror')
+#     mirror_url = 'file://{0}'.format(mirror_dir.strpath)
+#
+#     print('These are the config scopes:')
+#     print(spack.config.scopes())
+#
+#     with capsys.disabled():
+#         mirror_cmd('add', '--scope', tmp_scope, 'test_mirror', mirror_url)
+#
+#     print('mirror_url: {0}'.format(mirror_url))
+#
+#     signing_key_dir = spack_paths.mock_gpg_keys_path
+#     signing_key_path = os.path.join(signing_key_dir, 'package-signing-key')
+#     with open(signing_key_path) as fd:
+#         signing_key = fd.read()
+#
+#     print('signing_key: \n{0}\n'.format(signing_key))
+#
+#     spack_yaml_contents = """
+# spack:
+#  definitions:
+#    - packages: [archive-files]
+#  specs:
+#    - $packages
+#  mirrors:
+#    test-mirror: {0}
+#  gitlab-ci:
+#    mappings:
+#      - match:
+#          - archive-files
+#        runner-attributes:
+#          tags:
+#            - donotcare
+#          image: donotcare
+#  cdash:
+#    build-group: Not important
+#    url: https://my.fake.cdash
+#    project: Not used
+#    site: Nothing
+# """.format(mirror_url)
+#
+#     print('spack.yaml:\n{0}\n'.format(spack_yaml_contents))
+#
+#     filename = str(tmpdir.join('spack.yaml'))
+#     with open(filename, 'w') as f:
+#         f.write(spack_yaml_contents)
+#
+#     with tmpdir.as_cwd():
+#         env_cmd('create', 'test', './spack.yaml')
+#         outputfile = str(tmpdir.join('.gitlab-ci.yml'))
+#
+#         with ev.read('test'):
+#             ci_cmd('generate', '--output-file', outputfile)
+#
+#         contents = None
+#         with open(outputfile) as f:
+#             contents = f.read()
+#
+#         assert(contents != None)
+#
+#         print('generated yaml contents:\n{0}\n'.format(contents))
+#
+#         # Create environment variables as gitlab would do it
+#         set_env_var('CI_PROJECT_DIR', working_dir.strpath)
+#         set_env_var('SPACK_SIGNING_KEY', signing_key)
+#         set_env_var('SPACK_ENABLE_CDASH', False)
+#         root_spec = get_env_var('SPACK_ROOT_SPEC')
+#         remote_mirror_url = get_env_var('SPACK_MIRROR_URL')
+#         get_env_var('SPACK_ENABLE_ARTIFACTS_MIRROR')
+#         job_spec_pkg_name = get_env_var('SPACK_JOB_SPEC_PKG_NAME')
+#         compiler_action = get_env_var('SPACK_COMPILER_ACTION')
+#         cdash_base_url = get_env_var('SPACK_CDASH_BASE_URL')
+#         cdash_project = get_env_var('SPACK_CDASH_PROJECT')
+#         cdash_project_enc = get_env_var('SPACK_CDASH_PROJECT_ENC')
+#         cdash_build_name = get_env_var('SPACK_CDASH_BUILD_NAME')
+#         cdash_site = get_env_var('SPACK_CDASH_SITE')
+#         related_builds = get_env_var('SPACK_RELATED_BUILDS')
+#         job_spec_buildgroup = get_env_var('SPACK_JOB_SPEC_BUILDGROUP')
+#
+#         assert(False)
 
 
 def test_ci_pushyaml(tmpdir):
