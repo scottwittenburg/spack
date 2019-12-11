@@ -577,19 +577,35 @@ def generate_gitlab_ci_yaml(env, cdash_credentials_path, print_summary,
                 job_name = get_job_name(phase_name, strip_compilers,
                                         release_spec, osname, build_group)
 
+
+                # https://unix.stackexchange.com/a/70675
+                command = ('script --return --quiet'
+                        " -c 'spack -d ci rebuild'"
+                        ' "$CI_PROJECT_DIR/logs/pipeline-log.txt"')
+                command = '( {} ; echo $? >&3 )'.format(command)
+                command = '( {} | head -n 200 >&4 )'.format(command)
+                command = '( {} 3>&1 )'.format(command)
+                command = '( {} | ( read err ; exit $err ) )'.format(command)
+                command = '( {} ) 4>&1'.format(command)
+
                 job_scripts = [
-                    'mkdir -p "$CI_PROJECT_DIR/logs"'
-                    'if which script &>/dev/null'
-                    ' ; then'
-                        ' script --return --quiet'
-                            " -c 'spack -d ci rebuild'"
-                            ' "$CI_PROJECT_DIR/logs/cdash-log.txt"'
-                    ' ; else'
-                        # TODO
-                        # ' spack -d ci rebuild'
-                        ' echo script command missing'
-                        ' exit 1'
-                    ' ; fi'
+                    (
+                        'mkdir -p "$CI_PROJECT_DIR/logs"'
+                        ' ; if which script &>/dev/null'
+                        ' ; then'
+                            ' {COMMAND}'
+                            " ; echo"
+                            " ; echo -n '==> Output may have been truncated.'"
+                            " ; echo -n ' Check pipeline_log.txt for full'"
+                            " ; echo    ' log output.'"
+                            " ; echo"
+                        ' ; else'
+                            # TODO
+                            # ' spack -d ci rebuild'
+                            ' echo script command missing'
+                            ' ; exit 1'
+                        ' ; fi'
+                    ).format(COMMAND=command)
                 ]
 
                 compiler_action = 'NONE'

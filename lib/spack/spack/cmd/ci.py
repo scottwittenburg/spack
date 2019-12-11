@@ -324,7 +324,7 @@ def ci_rebuild(args):
 
     job_spec_yaml_path = os.path.join(
         spec_dir, '{0}.yaml'.format(job_spec_pkg_name))
-    job_log_file = os.path.join(job_log_dir, 'cdash_log.txt')
+    job_log_file = os.path.join(job_log_dir, 'pipeline_log.txt')
 
     cdash_build_id = None
     cdash_build_stamp = None
