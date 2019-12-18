@@ -14,9 +14,10 @@ import llnl.util.tty as tty
 import spack.binary_distribution as bindist
 import spack.ci as spack_ci
 import spack.cmd.buildcache as buildcache
+import spack.config
 import spack.environment as ev
 import spack.hash_types as ht
-# from spack.main import SpackCommand
+import spack.main as spack_main
 import spack.repo
 import spack.util.executable as exe
 
@@ -28,7 +29,7 @@ level = "long"
 
 # spack_buildcache = SpackCommand('buildcache')
 # spack_mirror = SpackCommand('mirror')
-# spack_install = SpackCommand('install')
+spack_install = spack_main.SpackCommand('install')
 
 
 def get_env_var(variable_name):
@@ -242,6 +243,10 @@ def ci_rebuild(args):
     env = ev.get_env(args, 'ci rebuild', required=True)
     yaml_root = ev.config_dict(env.yaml)
 
+    tty.set_debug(True)
+    tty.set_verbose(True)
+    spack.config.set('config:verify_ssl', False, scope='command_line')
+
     # The following environment variables should defined in the CI
     # infrastructre (or some other external source) in the case that the
     # remote mirror is an S3 bucket.  The AWS keys are used to upload
@@ -409,7 +414,8 @@ def ci_rebuild(args):
             tty.debug(mirror_list_output)
 
             # 2) build up install arguments
-            install_args = ['-d', '-v', '-k', 'install', '--keep-stage']
+            # install_args = ['-d', '-v', '-k', 'install', '--keep-stage']
+            install_args = ['--keep-stage']
             # install_args = ['--keep-stage']
 
             # 3) create/register a new build on CDash (if enabled)
@@ -449,7 +455,8 @@ def ci_rebuild(args):
                     first_pass_args.extend(spec_cli_arg)
                     tty.debug('First pass install arguments: {0}'.format(
                         first_pass_args))
-                    spack_cmd(*first_pass_args)
+                    # spack_cmd(*first_pass_args)
+                    spack_install(*first_pass_args)
 
                     # Overwrite the changed environment file so it doesn't
                     # the next install invocation.
@@ -464,7 +471,8 @@ def ci_rebuild(args):
                 second_pass_args.extend(spec_cli_arg)
                 tty.debug('Second pass install arguments: {0}'.format(
                     second_pass_args))
-                spack_cmd(*second_pass_args)
+                # spack_cmd(*second_pass_args)
+                spack_install(*second_pass_args)
             except Exception as inst:
                 tty.error('Caught exception during install:')
                 tty.error(inst)
