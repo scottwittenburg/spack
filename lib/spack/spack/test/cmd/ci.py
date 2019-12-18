@@ -12,6 +12,7 @@ import spack
 import spack.ci as ci
 import spack.config
 import spack.environment as ev
+import spack.hash_types as ht
 import spack.util.gpg as gpg_util
 from spack.main import SpackCommand
 import spack.paths as spack_paths
@@ -25,6 +26,9 @@ import spack.util.spack_yaml as syaml
 ci_cmd = SpackCommand('ci')
 env_cmd = SpackCommand('env')
 mirror_cmd = SpackCommand('mirror')
+gpg_cmd = SpackCommand('gpg')
+install_cmd = SpackCommand('install')
+buildcache_cmd = SpackCommand('buildcache')
 git = exe.which('git', required=True)
 
 
@@ -310,3 +314,83 @@ def test_ci_pushyaml(tmpdir):
         with open('.gitlab-ci.yml') as fd:
             pushed_contents = fd.read()
             assert pushed_contents == fake_yaml_contents
+
+
+@pytest.mark.disable_clean_stage_check
+def test_push_mirror_contents(tmpdir, mutable_mock_env_path, env_deactivate,
+                              install_mockery, mock_packages, mock_fetch,
+                              mock_stage, testing_gpg_directory):
+    working_dir = tmpdir.join('working_dir')
+
+    mirror_dir = working_dir.join('mirror')
+    mirror_url = 'file://{0}'.format(mirror_dir.strpath)
+
+    signing_key_dir = spack_paths.mock_gpg_keys_path
+    signing_key_path = os.path.join(signing_key_dir, 'package-signing-key')
+    with open(signing_key_path) as fd:
+        signing_key = fd.read()
+
+    ci.import_signing_key(signing_key)
+
+    spack_yaml_contents = """
+spack:
+ definitions:
+   - packages: [patchelf]
+ specs:
+   - $packages
+ mirrors:
+   test-mirror: {0}
+""".format(mirror_url)
+
+    print('spack.yaml:\n{0}\n'.format(spack_yaml_contents))
+
+    filename = str(tmpdir.join('spack.yaml'))
+    with open(filename, 'w') as f:
+        f.write(spack_yaml_contents)
+
+    with tmpdir.as_cwd():
+        env_cmd('create', 'test', './spack.yaml')
+        with ev.read('test') as env:
+            spec_map = ci.get_concrete_specs(
+                'patchelf', 'patchelf', '', 'FIND_ANY')
+            concrete_spec = spec_map['patchelf']
+            spec_yaml = concrete_spec.to_yaml(hash=ht.build_hash)
+            yaml_path = str(tmpdir.join('spec.yaml'))
+            with open(yaml_path, 'w') as ypfd:
+                ypfd.write(spec_yaml)
+
+            install_cmd('--keep-stage', yaml_path)
+
+            # env, spec, yaml_path, mirror_url, build_id
+            ci.push_mirror_contents(
+                env, concrete_spec, yaml_path, mirror_url, '42')
+
+            buildcache_list_output = buildcache_cmd('list', output=str)
+
+            assert('patchelf' in buildcache_list_output)
+
+            logs_dir = working_dir.join('logs_dir')
+            if not os.path.exists(logs_dir.strpath):
+                os.makedirs(logs_dir.strpath)
+
+            ci.copy_stage_logs_to_artifacts(concrete_spec, logs_dir.strpath)
+
+            logs_dir_list = os.listdir(logs_dir.strpath)
+
+            assert('spack-build-env.txt' in logs_dir_list)
+            assert('spack-build-out.txt' in logs_dir_list)
+
+            # Also just make sure that if something goes wrong with the
+            # stage logs copy, no exception is thrown
+            ci.copy_stage_logs_to_artifacts(None, logs_dir.strpath)
+
+            dl_dir = working_dir.join('download_dir')
+            if not os.path.exists(dl_dir.strpath):
+                os.makedirs(dl_dir.strpath)
+
+            buildcache_cmd('download', '--spec-yaml', yaml_path, '--path',
+                           dl_dir.strpath, '--require-cdashid')
+
+            dl_dir_list = os.listdir(dl_dir.strpath)
+
+            assert(len(dl_dir_list) == 3)
