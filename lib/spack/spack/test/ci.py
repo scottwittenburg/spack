@@ -165,3 +165,9 @@ def test_read_write_cdash_ids(config, tmp_scope, tmpdir, mock_packages):
     read_cdashid = ci.read_cdashid_from_mirror(mock_spec, mirror_url)
 
     assert(str(read_cdashid) == orig_cdashid)
+
+
+def test_ci_install_package(tmpdir, mutable_mock_env_path, env_deactivate,
+                              install_mockery, mock_packages, mock_fetch,
+                              mock_stage):
+

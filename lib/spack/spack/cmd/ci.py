@@ -388,9 +388,6 @@ def ci_rebuild(args):
         if bindist.needs_rebuild(job_spec, remote_mirror_url, True):
             # Binary on remote mirror is not up to date, we need to rebuild
             # it.
-            #
-            # FIXME: ensure mirror precedence causes this local mirror to
-            # be chosen ahead of the remote one when installing deps
             if enable_artifacts_mirror:
                 mirror_add_output = spack_cmd(
                     'mirror', 'add', 'local_mirror', artifact_mirror_url)
@@ -401,10 +398,7 @@ def ci_rebuild(args):
             tty.debug('listing spack mirrors:')
             tty.debug(mirror_list_output)
 
-            # 2) build up install arguments
-            install_args = ['-d', '-v', '-k', 'install', '--keep-stage']
-
-            # 3) create/register a new build on CDash (if enabled)
+            # Create/register a new build on CDash (if enabled)
             cdash_args = []
             if enable_cdash:
                 tty.debug('Registering build with CDash')
@@ -423,56 +417,24 @@ def ci_rebuild(args):
                     '--cdash-buildstamp', cdash_build_stamp,
                 ]
 
-            spec_cli_arg = [job_spec_yaml_path]
+            # Install the package from source
+            spack_ci.ci_install_package(
+                job_spec, job_spec_yaml_path, cdash_args,
+                env_dst_path, env_src_path)
 
-            tty.debug('Installing package')
-
-            try:
-                # Two-pass install is intended to avoid spack trying to
-                # install from buildcache even though the locally computed
-                # full hash is different than the one stored in the spec.yaml
-                # file on the remote mirror.
-                if job_spec.dependencies():
-                    first_pass_args = install_args + [
-                        '--cache-only',
-                        '--only',
-                        'dependencies',
-                    ]
-                    first_pass_args.extend(spec_cli_arg)
-                    tty.debug('First pass install arguments: {0}'.format(
-                        first_pass_args))
-                    spack_cmd(*first_pass_args)
-
-                    # Overwrite the changed environment file so it doesn't
-                    # the next install invocation.
-                    shutil.copyfile(env_dst_path, env_src_path)
-
-                second_pass_args = install_args + [
-                    '--no-cache',
-                    '--only',
-                    'package',
-                ]
-                second_pass_args.extend(cdash_args)
-                second_pass_args.extend(spec_cli_arg)
-                tty.debug('Second pass install arguments: {0}'.format(
-                    second_pass_args))
-                spack_cmd(*second_pass_args)
-            except Exception as inst:
-                tty.error('Caught exception during install:')
-                tty.error(inst)
-
+            # Copy spack_build_env.txt and spack_build_out.txt to artifacts
             spack_ci.copy_stage_logs_to_artifacts(job_spec, job_log_dir)
 
-            # 4) create buildcache on remote mirror
+            # Create a buildcache from installed package on remote mirror
             spack_ci.push_mirror_contents(env, job_spec, job_spec_yaml_path,
                                           remote_mirror_url, cdash_build_id)
 
-            # 5) create another copy of that buildcache on "local artifact
-            # mirror" (only done if cash reporting is enabled)
+            # Create another copy of the buildcache on "local artifact mirror"
+            # (only done if cash reporting is enabled)
             spack_ci.push_mirror_contents(env, job_spec, job_spec_yaml_path,
                                           artifact_mirror_url, cdash_build_id)
 
-            # 6) relate this build to its dependencies on CDash (if enabled)
+            # Relate this build to its dependencies on CDash (if enabled)
             if enable_cdash:
                 spack_ci.relate_cdash_builds(
                     spec_map, cdash_base_url, cdash_build_id, cdash_project,

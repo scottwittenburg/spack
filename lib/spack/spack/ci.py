@@ -982,3 +982,46 @@ def copy_stage_logs_to_artifacts(job_spec, job_log_dir):
         msg = ('Unable to copy build logs from stage to artifacts '
                'due to exception: {0}').format(inst)
         tty.error(msg)
+
+
+def ci_install_package(spec, concrete_yaml_path, cdash_args,
+                       env_dst_path=None, env_src_path=None):
+    tty.debug('Installing package')
+
+    install_args = ['-d', '-v', '-k', 'install', '--keep-stage']
+    spec_cli_arg = [concrete_yaml_path]
+
+    try:
+        # Two-pass install is intended to avoid spack trying to
+        # install from buildcache even though the locally computed
+        # full hash is different than the one stored in the spec.yaml
+        # file on the remote mirror.
+        if spec.dependencies():
+            first_pass_args = install_args + [
+                '--cache-only',
+                '--only',
+                'dependencies',
+            ]
+            first_pass_args.extend(spec_cli_arg)
+            tty.debug('First pass install arguments: {0}'.format(
+                first_pass_args))
+            spack_cmd(*first_pass_args)
+
+            if env_dst_path and env_src_path:
+                # Overwrite the changed environment file so it doesn't
+                # the next install invocation.
+                shutil.copyfile(env_dst_path, env_src_path)
+
+        second_pass_args = install_args + [
+            '--no-cache',
+            '--only',
+            'package',
+        ]
+        second_pass_args.extend(cdash_args)
+        second_pass_args.extend(spec_cli_arg)
+        tty.debug('Second pass install arguments: {0}'.format(
+            second_pass_args))
+        spack_cmd(*second_pass_args)
+    except Exception as inst:
+        tty.error('Caught exception during install:')
+        tty.error(inst)
