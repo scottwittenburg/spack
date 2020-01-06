@@ -276,6 +276,8 @@ def stage_spec_jobs(specs):
     stages = []
 
     while dependencies:
+        print('Still have unsatisfied dependencies:')
+        print(dependencies)
         dependents = set(dependencies.keys())
         next_stage = unstaged.difference(dependents)
         stages.append(next_stage)
@@ -381,6 +383,11 @@ def compute_spec_deps(spec_list):
         rkey, rlabel = spec_deps_key_label(spec)
 
         for s in spec.traverse(deptype=deptype):
+            if s.external:
+                tty.debug('Will not stage external pkg: {0}'.format(s))
+                continue
+
+            tty.debug('Staging pkg: {0}'.format(s))
             skey, slabel = spec_deps_key_label(s)
             spec_labels[slabel] = {
                 'spec': get_spec_string(s),
@@ -390,6 +397,10 @@ def compute_spec_deps(spec_list):
 
             for d in s.dependencies(deptype=deptype):
                 dkey, dlabel = spec_deps_key_label(d)
+                if d.external:
+                    tty.debug('Will not stage external dep: {0}'.format(d))
+                    continue
+                tty.debug('Staging dep: {0}'.format(s))
                 append_dep(slabel, dlabel)
 
     for l, d in spec_labels.items():
