@@ -462,8 +462,10 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file):
         cdash_site = ci_cdash['site']
 
         if 'SPACK_CDASH_AUTH_TOKEN' in os.environ:
-            tty.verbose("Using CDash auth token from environment")
+            tty.msg('Using CDash auth token from environment')
             cdash_auth_token = os.environ.get('SPACK_CDASH_AUTH_TOKEN')
+        else:
+            tty.msg('No SPACK_CDASH_AUTH_TOKEN variable in environment')
 
     # Make sure we use a custom spack if necessary
     custom_spack_repo = os.environ.get('SPACK_REPO')
