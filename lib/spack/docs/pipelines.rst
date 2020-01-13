@@ -15,20 +15,19 @@ provide a spack environment describing the set of packages you care about,
 and include within that environment file a description of how those packages
 should be mapped to Gitlab runners.  Spack can then generate a ``.gitlab-ci.yml``
 file containing job descriptions for all your packages which can be run by a
-properly configured Gitlab CI instance, to build and deploy binaries, as well
-as optionally report to a CDash instance regarding the health of the builds as
-they evolve over time.
+properly configured Gitlab CI instance.  When run, the generated pipeline will
+build and deploy binaries, and it can optionally report to a CDash instance
+regarding the health of the builds as they evolve over time.
 
 ------------------------------
 Getting started with pipelines
 ------------------------------
 
 It is fairly straightforward to get started with automated build pipelines.  At
-a minimum, you'll need a `CI-enabled Gitlab <https://about.gitlab.com/product/continuous-integration/>`_
-instance with at least one `runner <https://docs.gitlab.com/runner/>`_ configured
-as a pre-requisite.  There is a project where you can see how all of the relevant
-components can be set up for spack pipeline testing using ``docker-compose``,
-located `here <https://github.com/spack/spack-infrastructure/tree/master/gitlab-docker>`_.
+a minimum, you'll need to set up a Gitlab instance (more about Gitlab CI
+`here <https://about.gitlab.com/product/continuous-integration/>`_) and configure
+at least one `runner <https://docs.gitlab.com/runner/>`_.  Then the basic steps
+for setting up a build pipeline are as follows:
 
 #. Create a repository on your gitlab instance
 #. Add a ``spack.yaml`` at the root containing your pipeline environment (see
@@ -50,13 +49,20 @@ located `here <https://github.com/spack/spack-infrastructure/tree/master/gitlab-
 #. Push a commit containing the ``spack.yaml`` and ``.gitlab-ci.yml`` mentioned above
    to the gitlab repository
 
-The ``<custom-tag>``, above, is required to pick one of your configured runners,
+The ``<custom-tag>``, above, is used to pick one of your configured runners,
 while the use of the ``spack ci start`` command implies that runner has an
 appropriate version of spack installed and configured for use.  Of course, there
 are myriad ways to customize the process.  You can configure CDash reporting
 on the progress of your builds, set up S3 buckets to mirror binaries built by
 the pipeline, clone a custom spack repository/ref for use by the pipeline, and
 more.
+
+While it is possible to set up pipelines on gitlab.com, the builds there are
+limited to 60 minutes and generic hardware.  It is also possible to
+`hook up <https://about.gitlab.com/blog/2018/04/24/getting-started-gitlab-ci-gcp>`_
+Gitlab to Google Kubernetes Engine (`GKS <https://cloud.google.com/kubernetes-engine/>`_)
+or Amazon Elastic Kubernetes Service (`EKS <https://aws.amazon.com/eks>`_), though those
+topics are outside the scope of this document.
 
 -----------------------------------
 Spack commands supporting pipelines
@@ -71,6 +77,15 @@ set in order to function properly.  Examples of these are typically secrets
 needed for pipeline operation that should not be visible in a spack environment
 file.  These environment variables are described in more detail
 :ref:`ci_environment_variables`.
+
+.. _cmd_spack_ci:
+
+^^^^^^^^^^^^^^^^^^
+``spack ci``
+^^^^^^^^^^^^^^^^^^
+
+Super-command for functionality related to generating pipelines and executing
+pipeline jobs.
 
 .. _cmd_spack_ci_start:
 
