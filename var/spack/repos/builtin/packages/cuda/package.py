@@ -73,6 +73,13 @@ class Cuda(Package):
     # Mojave support -- only macOS High Sierra 10.13 is supported.
     conflicts('arch=darwin-mojave-x86_64')
 
+    depends_on('libxml2', type='build')
+
+    def setup_build_environment(self, env):
+        libxml2_home  = self.spec['libxml2'].prefix
+        env.set('LIBXML2HOME', libxml2_home)
+        env.append_path('LD_LIBRARY_PATH', libxml2_home.lib)
+
     def setup_run_environment(self, env):
         env.set('CUDA_HOME', self.prefix)
 
