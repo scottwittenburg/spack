@@ -14,6 +14,8 @@ import os
 import pytest
 import json
 
+from jsonschema import validate
+
 import llnl.util.lock as lk
 from llnl.util.tty.colify import colify
 
@@ -24,6 +26,7 @@ import spack.package
 import spack.spec
 from spack.test.conftest import MockPackage, MockPackageMultiRepo
 from spack.util.executable import Executable
+from spack.schema.database_index import schema
 
 
 pytestmark = pytest.mark.db
@@ -419,6 +422,10 @@ def test_005_db_exists(database):
     assert os.path.exists(str(index_file))
     assert os.path.exists(str(lock_file))
 
+    with open(index_file) as fd:
+        index_object = json.load(fd)
+        validate(index_object, schema)
+
 
 def test_010_all_install_sanity(database):
     """Ensure that the install layout reflects what we think it does."""
@@ -695,6 +702,8 @@ def test_regression_issue_8036(mutable_database, usr_folder_exists):
 def test_old_external_entries_prefix(mutable_database):
     with open(spack.store.db._index_path, 'r') as f:
         db_obj = json.loads(f.read())
+
+    validate(db_obj, schema)
 
     s = spack.spec.Spec('externaltool')
     s.concretize()
