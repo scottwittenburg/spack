@@ -291,6 +291,18 @@ def stage_spec_jobs(specs):
     return spec_labels, deps, stages
 
 
+def mark_specs_need_rebuild(spec_labels, dependencies, stages, mirror_url):
+    if not stages:
+        return
+
+    for stage in stages:
+        for job in sorted(stage):
+            s = spec_labels[job]['spec']
+            concrete_s = spec_labels[job]['rootSpec'][s.name]
+            needs_rebuild = bindist.needs_rebuild(concrete_s, mirror_url, True)
+            spec_labels[job]['needsRebuild'] = needs_rebuild
+
+
 def print_staging_summary(spec_labels, dependencies, stages):
     if not stages:
         return
@@ -302,7 +314,8 @@ def print_staging_summary(spec_labels, dependencies, stages):
 
         for job in sorted(stage):
             s = spec_labels[job]['spec']
-            tty.msg('      {0} -> {1}'.format(job, get_spec_string(s)))
+            extra_bit = 'needs rebuild' if spec_labels[job]['needsRebuild'] else 'up to date'
+            tty.msg('      {0} -> {1} ({2})'.format(job, get_spec_string(s), extra_bit))
 
         stage_index += 1
 
@@ -382,7 +395,7 @@ def compute_spec_deps(spec_list):
 
         for s in spec.traverse(deptype=deptype):
             if s.external:
-                tty.msg('Will not stage external pkg: {0}'.format(s))
+                tty.debug('Will not stage external pkg: {0}'.format(s))
                 continue
 
             skey, slabel = spec_deps_key_label(s)
@@ -523,6 +536,13 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
         with spack.concretize.disable_compiler_existence_check():
             staged_phases[phase_name] = stage_spec_jobs(
                 env.spec_lists[phase_name])
+
+    # Run through final set of stages and check rebuild status
+    tty.msg('Checking specs rebuild status')
+    for phase in phases:
+        phase_name = phase['name']
+        phase_stages = staged_phases[phase_name]
+        mark_specs_need_rebuild(*phase_stages, mirror_urls[0])
 
     if print_summary:
         for phase in phases:
