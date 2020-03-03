@@ -864,7 +864,6 @@ def needs_rebuild(spec, mirror_url, rebuild_on_errors=False):
 
     tty.debug('Checking {0}-{1}, dag_hash = {2}, full_hash = {3}'.format(
         pkg_name, pkg_version, pkg_hash, pkg_full_hash))
-    tty.debug(spec.tree())
 
     # Try to retrieve the .spec.yaml directly, based on the known
     # format of the name, in order to determine if the package
