@@ -567,13 +567,22 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
 
         for stage_jobs in stages:
             stage_name = 'stage-{0}'.format(stage_id)
-            stage_names.append(stage_name)
-            stage_id += 1
+            scheduled_job = False
 
             for spec_label in stage_jobs:
                 root_spec = spec_labels[spec_label]['rootSpec']
                 pkg_name = pkg_name_from_spec_label(spec_label)
                 release_spec = root_spec[pkg_name]
+
+                if not spec_labels[spec_label]['needsRebuild']:
+                    tty.msg('Not scheduling {0}, already up to date'.format(
+                        release_spec))
+                    if enable_fast_cache_mirror:
+                        tty.msg('Pre-fetching {0} to cache mirror'.format(
+                            release_spec))
+                    continue
+
+                scheduled_job = True
 
                 runner_attribs = find_matching_config(
                     release_spec, ci_mappings)
@@ -707,6 +716,10 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
 
                 output_object[job_name] = job_object
                 job_id += 1
+
+            if scheduled_job:
+                stage_names.append(stage_name)
+                stage_id += 1
 
     tty.debug('{0} build jobs generated in {1} stages'.format(
         job_id, stage_id))
