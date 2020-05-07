@@ -708,6 +708,10 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
                         'when': 'always',
                     },
                     'needs': job_dependencies,
+                    'retry': {
+                        'max': 2,
+                        'when': 'always',
+                    }
                 }
 
                 length_needs = len(job_dependencies)
