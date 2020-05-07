@@ -6,8 +6,7 @@ pr_pipeline:
     SPACK_REF: ${CI_EXTERNAL_PULL_REQUEST_SOURCE_BRANCH_NAME}
     SPACK_IS_PR_PIPELINE: "True"
   trigger:
-    project: scott/spack-env
-    branch: e4s
+    project: spack/e4s
     strategy: depend
 
 merge_pipeline:
@@ -17,6 +16,5 @@ merge_pipeline:
     SPACK_REPO: https://github.com/spack/spack.git
     SPACK_REF: develop
   trigger:
-    project: scott/spack-env
-    branch: e4s
+    project: spack/e4s
     strategy: depend
