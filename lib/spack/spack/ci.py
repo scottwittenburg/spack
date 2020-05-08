@@ -34,6 +34,21 @@ import spack.util.spack_yaml as syaml
 import spack.util.web as web_util
 
 
+JOB_RETRY_CONDITIONS = [
+    'unknown_failure',
+    'api_failure',
+    'stuck_or_timeout_failure',
+    'runner_system_failure',
+    'missing_dependency_failure',
+    'runner_unsupported',
+    'stale_schedule',
+    'job_execution_timeout',
+    'archived_failure',
+    'unmet_prerequisites',
+    'scheduler_failure',
+    'data_integrity_failure',
+]
+
 spack_gpg = SpackCommand('gpg')
 spack_compiler = SpackCommand('compiler')
 
@@ -710,7 +725,7 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
                     'needs': job_dependencies,
                     'retry': {
                         'max': 2,
-                        'when': 'always',
+                        'when': JOB_RETRY_CONDITIONS,
                     }
                 }
 
