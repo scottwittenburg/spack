@@ -249,6 +249,108 @@ spack:
             assert(filecmp.cmp(orig_file, copy_to_file) is True)
 
 
+def test_ci_generate_pkg_with_deps(tmpdir, mutable_mock_env_path,
+                                   env_deactivate, install_mockery,
+                                   mock_packages):
+    """Make sure we it doesn't break if we configure cdash"""
+    filename = str(tmpdir.join('spack.yaml'))
+    with open(filename, 'w') as f:
+        f.write("""\
+spack:
+  specs:
+    - flatten-deps
+  mirrors:
+    some-mirror: https://my.fake.mirror
+  gitlab-ci:
+    enable-artifacts-buildcache: True
+    mappings:
+      - match:
+          - flatten-deps
+        runner-attributes:
+          tags:
+            - donotcare
+      - match:
+          - dependency-install
+        runner-attributes:
+          tags:
+            - donotcare
+""")
+
+    with tmpdir.as_cwd():
+        env_cmd('create', 'test', './spack.yaml')
+        outputfile = str(tmpdir.join('.gitlab-ci.yml'))
+
+        with ev.read('test'):
+            ci_cmd('generate', '--output-file', outputfile)
+
+        with open(outputfile) as f:
+            contents = f.read()
+            print('generated contents: ')
+            print(contents)
+            yaml_contents = syaml.load(contents)
+            found = []
+            for ci_key in yaml_contents.keys():
+                ci_obj = yaml_contents[ci_key]
+                if 'dependency-install' in ci_key:
+                    assert('stage' in ci_obj)
+                    assert(ci_obj['stage'] == 'stage-0')
+                    found.append('dependency-install')
+                if 'flatten-deps' in ci_key:
+                    assert('stage' in ci_obj)
+                    assert(ci_obj['stage'] == 'stage-1')
+                    found.append('flatten-deps')
+
+            assert('flatten-deps' in found)
+            assert('dependency-install' in found)
+
+
+def test_ci_generate_for_pr_pipeline(tmpdir, mutable_mock_env_path,
+                                     env_deactivate, install_mockery,
+                                     mock_packages):
+    """Make sure we it doesn't break if we configure cdash"""
+    filename = str(tmpdir.join('spack.yaml'))
+    with open(filename, 'w') as f:
+        f.write("""\
+spack:
+  specs:
+    - flatten-deps
+  mirrors:
+    some-mirror: https://my.fake.mirror
+  gitlab-ci:
+    enable-artifacts-buildcache: True
+    mappings:
+      - match:
+          - flatten-deps
+        runner-attributes:
+          tags:
+            - donotcare
+      - match:
+          - dependency-install
+        runner-attributes:
+          tags:
+            - donotcare
+    final-stage-rebuild-index:
+      image: donotcare
+      tags: [donotcare]
+""")
+
+    with tmpdir.as_cwd():
+        env_cmd('create', 'test', './spack.yaml')
+        outputfile = str(tmpdir.join('.gitlab-ci.yml'))
+
+        with ev.read('test'):
+            os.environ['SPACK_IS_PR_PIPELINE'] = 'True'
+            ci_cmd('generate', '--output-file', outputfile)
+
+        with open(outputfile) as f:
+            contents = f.read()
+            print('generated contents: ')
+            print(contents)
+            yaml_contents = syaml.load(contents)
+
+            assert('rebuild-index' not in yaml_contents)
+
+
 def test_ci_generate_with_external_pkg(tmpdir, mutable_mock_env_path,
                                        env_deactivate, install_mockery,
                                        mock_packages):
