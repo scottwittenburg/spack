@@ -7,8 +7,6 @@ import filecmp
 import os
 import pytest
 
-import llnl.util.filesystem as fs
-
 import spack
 import spack.ci as ci
 import spack.config
@@ -46,37 +44,6 @@ def env_deactivate():
     yield
     spack.environment._active_environment = None
     os.environ.pop('SPACK_ENV', None)
-
-
-def initialize_new_repo(repo_path, initial_commit=False):
-    if not os.path.exists(repo_path):
-        os.makedirs(repo_path)
-
-    with fs.working_dir(repo_path):
-        init_args = ['init', '.']
-        # if not initial_commit:
-        #     init_args.append('--bare')
-
-        git(*init_args)
-
-        if initial_commit:
-            readme_contents = "This is the project README\n"
-            readme_path = os.path.join(repo_path, 'README.md')
-            with open(readme_path, 'w') as fd:
-                fd.write(readme_contents)
-            git('add', '.')
-            git('commit', '-m', 'Project initial commit')
-
-
-def get_repo_status(repo_path):
-    with fs.working_dir(repo_path):
-        output = git('rev-parse', '--abbrev-ref', 'HEAD', output=str)
-        current_branch = output.split()[0]
-
-        output = git('rev-parse', 'HEAD', output=str)
-        current_sha = output.split()[0]
-
-        return current_branch, current_sha
 
 
 def set_env_var(key, val):
@@ -282,6 +249,108 @@ spack:
             assert(filecmp.cmp(orig_file, copy_to_file) is True)
 
 
+def test_ci_generate_pkg_with_deps(tmpdir, mutable_mock_env_path,
+                                   env_deactivate, install_mockery,
+                                   mock_packages):
+    """Make sure we it doesn't break if we configure cdash"""
+    filename = str(tmpdir.join('spack.yaml'))
+    with open(filename, 'w') as f:
+        f.write("""\
+spack:
+  specs:
+    - flatten-deps
+  mirrors:
+    some-mirror: https://my.fake.mirror
+  gitlab-ci:
+    enable-artifacts-buildcache: True
+    mappings:
+      - match:
+          - flatten-deps
+        runner-attributes:
+          tags:
+            - donotcare
+      - match:
+          - dependency-install
+        runner-attributes:
+          tags:
+            - donotcare
+""")
+
+    with tmpdir.as_cwd():
+        env_cmd('create', 'test', './spack.yaml')
+        outputfile = str(tmpdir.join('.gitlab-ci.yml'))
+
+        with ev.read('test'):
+            ci_cmd('generate', '--output-file', outputfile)
+
+        with open(outputfile) as f:
+            contents = f.read()
+            print('generated contents: ')
+            print(contents)
+            yaml_contents = syaml.load(contents)
+            found = []
+            for ci_key in yaml_contents.keys():
+                ci_obj = yaml_contents[ci_key]
+                if 'dependency-install' in ci_key:
+                    assert('stage' in ci_obj)
+                    assert(ci_obj['stage'] == 'stage-0')
+                    found.append('dependency-install')
+                if 'flatten-deps' in ci_key:
+                    assert('stage' in ci_obj)
+                    assert(ci_obj['stage'] == 'stage-1')
+                    found.append('flatten-deps')
+
+            assert('flatten-deps' in found)
+            assert('dependency-install' in found)
+
+
+def test_ci_generate_for_pr_pipeline(tmpdir, mutable_mock_env_path,
+                                     env_deactivate, install_mockery,
+                                     mock_packages):
+    """Make sure we it doesn't break if we configure cdash"""
+    filename = str(tmpdir.join('spack.yaml'))
+    with open(filename, 'w') as f:
+        f.write("""\
+spack:
+  specs:
+    - flatten-deps
+  mirrors:
+    some-mirror: https://my.fake.mirror
+  gitlab-ci:
+    enable-artifacts-buildcache: True
+    mappings:
+      - match:
+          - flatten-deps
+        runner-attributes:
+          tags:
+            - donotcare
+      - match:
+          - dependency-install
+        runner-attributes:
+          tags:
+            - donotcare
+    final-stage-rebuild-index:
+      image: donotcare
+      tags: [donotcare]
+""")
+
+    with tmpdir.as_cwd():
+        env_cmd('create', 'test', './spack.yaml')
+        outputfile = str(tmpdir.join('.gitlab-ci.yml'))
+
+        with ev.read('test'):
+            os.environ['SPACK_IS_PR_PIPELINE'] = 'True'
+            ci_cmd('generate', '--output-file', outputfile)
+
+        with open(outputfile) as f:
+            contents = f.read()
+            print('generated contents: ')
+            print(contents)
+            yaml_contents = syaml.load(contents)
+
+            assert('rebuild-index' not in yaml_contents)
+
+
 def test_ci_generate_with_external_pkg(tmpdir, mutable_mock_env_path,
                                        env_deactivate, install_mockery,
                                        mock_packages):
@@ -456,49 +525,6 @@ spack:
                 'rebuild', fail_on_error=False, output=str)
 
             print(rebuild_output)
-
-
-def test_ci_pushyaml(tmpdir):
-    fake_yaml_contents = """generate ci jobs:
-  script:
-    - "./share/spack/qa/gitlab/generate-gitlab-ci-yml.sh"
-  tags:
-    - "spack-pre-ci"
-  artifacts:
-    paths:
-      - ci-generation
-    when: always
- """
-    local_repo_path = tmpdir.join('local_repo')
-    initialize_new_repo(local_repo_path.strpath, True)
-
-    remote_repo_path = tmpdir.join('remote_repo')
-    initialize_new_repo(remote_repo_path.strpath)
-
-    current_branch, current_sha = get_repo_status(local_repo_path.strpath)
-
-    print('local repo info: {0}, {1}'.format(current_branch, current_sha))
-
-    local_jobs_yaml = local_repo_path.join('.gitlab-ci.yml')
-    with local_jobs_yaml.open('w') as f:
-        f.write(fake_yaml_contents)
-
-    pushyaml_args = [
-        'pushyaml',
-        '--downstream-repo', remote_repo_path.strpath,
-        '--branch-name', current_branch,
-        '--commit-sha', current_sha,
-    ]
-
-    with fs.working_dir(local_repo_path.strpath):
-        ci_cmd(*pushyaml_args)
-
-    with fs.working_dir(remote_repo_path.strpath):
-        branch_to_checkout = 'multi-ci-{0}'.format(current_branch)
-        git('checkout', branch_to_checkout)
-        with open('.gitlab-ci.yml') as fd:
-            pushed_contents = fd.read()
-            assert pushed_contents == fake_yaml_contents
 
 
 @pytest.mark.disable_clean_stage_check
