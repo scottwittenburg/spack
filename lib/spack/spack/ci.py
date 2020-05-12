@@ -676,12 +676,30 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
                         bs_arch = bs['spec'].architecture
                         if (bs['spec'].satisfies(compiler_pkg_spec) and
                             bs_arch == release_spec.architecture):
-                            c_job_name = get_job_name(bs['phase-name'],
-                                                      bs['strip-compilers'],
-                                                      bs['spec'],
-                                                      str(bs_arch),
-                                                      build_group)
-                            job_dependencies.append(c_job_name)
+                            # We found the bootstrap compiler this release spec
+                            # should be built with, so for DAG scheduling
+                            # purposes, we will at least add the compiler spec
+                            # to the jobs "needs", but if artifact buildcache
+                            # is enabled, we'll have to add all transtive deps
+                            # of the compiler as well.
+                            if enable_artifacts_buildcache:
+                                transitive_deps = get_all_deps(bs['spec'])
+                                for trans_dep in transitive_deps:
+                                    dep_job_name = get_job_name(
+                                        phase_name, strip_compilers, trans_dep,
+                                        osname, build_group)
+                                    job_dependencies.append({
+                                        'job': dep_job_name,
+                                        'artifacts': True,
+                                    })
+                            else:
+                                c_job_name = get_job_name(
+                                    bs['phase-name'], bs['strip-compilers'],
+                                    bs['spec'], str(bs_arch), build_group)
+                                job_dependencies.append({
+                                    'job': c_job_name,
+                                    'artifacts': False,
+                                })
 
                 if enable_cdash_reporting:
                     cdash_build_name = get_cdash_build_name(
