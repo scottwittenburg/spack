@@ -16,6 +16,8 @@ from six.moves.urllib.error import HTTPError, URLError
 from six.moves.urllib.parse import urlencode
 from six.moves.urllib.request import build_opener, HTTPHandler, Request
 
+from ordereddict_backport import OrderedDict
+
 import llnl.util.tty as tty
 
 import spack
@@ -450,8 +452,6 @@ def get_all_deps(concrete_spec):
     deps_set = set()
     for s in concrete_spec.traverse(deptype=all_deptypes):
         deps_set.add(s)
-        for d in s.dependencies(deptype=all_deptypes):
-            deps_set.add(d)
     return deps_set
 
 
@@ -696,7 +696,7 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
 
                     job_vars['SPACK_CDASH_BUILD_NAME'] = cdash_build_name
                     job_vars['SPACK_RELATED_BUILDS_CDASH'] = ';'.join(
-                        related_builds)
+                        sorted(related_builds))
 
                 variables.update(job_vars)
 
@@ -722,7 +722,7 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
                         'paths': artifact_paths,
                         'when': 'always',
                     },
-                    'needs': job_dependencies,
+                    'needs': sorted(job_dependencies, key=lambda d: d['job']),
                     'retry': {
                         'max': 2,
                         'when': JOB_RETRY_CONDITIONS,
@@ -787,8 +787,12 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
 
     output_object['stages'] = stage_names
 
+    sorted_output = OrderedDict()
+    for output_key, output_value in sorted(output_object.items()):
+        sorted_output[output_key] = output_value
+
     with open(output_file, 'w') as outf:
-        outf.write(syaml.dump_config(output_object, default_flow_style=True))
+        outf.write(syaml.dump_config(sorted_output, default_flow_style=True))
 
 
 def url_encode_string(input_string):
