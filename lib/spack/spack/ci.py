@@ -16,8 +16,6 @@ from six.moves.urllib.error import HTTPError, URLError
 from six.moves.urllib.parse import urlencode
 from six.moves.urllib.request import build_opener, HTTPHandler, Request
 
-from ordereddict_backport import OrderedDict
-
 import llnl.util.tty as tty
 
 import spack
@@ -805,7 +803,7 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
 
     output_object['stages'] = stage_names
 
-    sorted_output = OrderedDict()
+    sorted_output = {}
     for output_key, output_value in sorted(output_object.items()):
         sorted_output[output_key] = output_value
 
