@@ -499,6 +499,7 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
             'pushd ./spack && git checkout "{0}" && popd'.format(
                 custom_spack_ref),
             '. "./spack/share/spack/setup-env.sh"',
+            'spack env activate .',
         ]
         after_script = [
             'rm -rf "./spack"'
