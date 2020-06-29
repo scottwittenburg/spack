@@ -55,6 +55,10 @@ BUILD_CACHE_INDEX_TEMPLATE = '''
 
 BUILD_CACHE_INDEX_ENTRY_TEMPLATE = '  <li><a href="{path}">{path}</a></li>'
 
+PUBLIC_READ_ARGS = {
+  'ACL': 'public-read'
+}
+
 
 class NoOverwriteException(spack.error.SpackError):
     """
@@ -318,11 +322,14 @@ def generate_package_index(cache_prefix):
         with open(index_json_path, 'w') as f:
             db._write_to_file(f)
 
+        s3_extra_args = {'ContentType': 'application/json'}
+        s3_extra_args.update(PUBLIC_READ_ARGS)
+
         web_util.push_to_url(
             index_json_path,
             url_util.join(cache_prefix, 'index.json'),
             keep_original=False,
-            extra_args={'ContentType': 'application/json'})
+            extra_args=s3_extra_args)
     finally:
         shutil.rmtree(tmpdir)
 
@@ -462,9 +469,11 @@ def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
         os.remove('%s.asc' % specfile_path)
 
     web_util.push_to_url(
-        spackfile_path, remote_spackfile_path, keep_original=False)
+        spackfile_path, remote_spackfile_path, keep_original=False,
+        extra_args=PUBLIC_READ_ARGS)
     web_util.push_to_url(
-        specfile_path, remote_specfile_path, keep_original=False)
+        specfile_path, remote_specfile_path, keep_original=False,
+        extra_args=PUBLIC_READ_ARGS)
 
     tty.msg('Buildache for "%s" written to \n %s' %
             (spec, remote_spackfile_path))
