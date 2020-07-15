@@ -152,7 +152,7 @@ def _do_fake_install(pkg):
     dump_packages(pkg.spec, packages_dir)
 
 
-def _packages_needed_to_bootstrap_compiler(pkg):
+def _packages_needed_to_bootstrap_compiler(compiler, architecture, pkgs):
     """
     Return a list of packages required to bootstrap `pkg`s compiler
 
@@ -169,21 +169,21 @@ def _packages_needed_to_bootstrap_compiler(pkg):
             (``True``) or one of its dependencies (``False``).  The list
             will be empty if there are no compilers.
     """
-    tty.debug('Bootstrapping {0} compiler for {1}'
-              .format(pkg.spec.compiler, package_id(pkg)))
+    tty.debug('Bootstrapping {0} compiler'.format(compiler))
     compilers = spack.compilers.compilers_for_spec(
-        pkg.spec.compiler, arch_spec=pkg.spec.architecture)
+        compiler, arch_spec=architecture)
     if compilers:
         return []
 
-    dep = spack.compilers.pkg_spec_for_compiler(pkg.spec.compiler)
-    dep.architecture = pkg.spec.architecture
+    dep = spack.compilers.pkg_spec_for_compiler(compiler)
+    dep.architecture = architecture
     # concrete CompilerSpec has less info than concrete Spec
     # concretize as Spec to add that information
     dep.concretize()
     # mark compiler as depended-on by the package that uses it
-    dep._dependents[pkg.name] = spack.spec.DependencySpec(
-        pkg.spec, dep, ('build',))
+    for pkg in pkgs:
+        dep._dependents[pkg.name] = spack.spec.DependencySpec(
+            pkg.spec, dep, ('build',))
     packages = [(s.package, False) for
                 s in dep.traverse(order='post', root=False)]
     packages.append((dep.package, True))
@@ -660,14 +660,14 @@ class PackageInstaller(object):
         return '{0} ({1}): {2}; {3}; {4}'.format(
             self.pkg_id, self.pid, tasks, installed, failed)
 
-    def _add_bootstrap_compilers(self, pkg):
+    def _add_bootstrap_compilers(self, compiler, architecture, pkgs):
         """
         Add bootstrap compilers and dependencies to the build queue.
 
         Args:
             pkg (PackageBase): the package with possible compiler dependencies
         """
-        packages = _packages_needed_to_bootstrap_compiler(pkg)
+        packages = _packages_needed_to_bootstrap_compiler(compiler, architecture, pkgs)
         for (comp_pkg, is_compiler) in packages:
             if package_id(comp_pkg) not in self.build_tasks:
                 self._push_task(comp_pkg, is_compiler, 0, 0, STATUS_ADDED)
@@ -993,13 +993,40 @@ class PackageInstaller(object):
         install_compilers = spack.config.get(
             'config:install_missing_compilers', False)
 
+        # Bootstrap compilers first
+        if install_deps and install_compilers:
+            packages_per_compiler = {}
+
+            for dep in self.spec.traverse(order='post', root=False):
+                dep_pkg = dep.package
+                compiler = dep_pkg.spec.compiler
+                arch = dep_pkg.spec.architecture
+                if compiler not in packages_per_compiler:
+                    packages_per_compiler[compiler] = {}
+
+                if arch not in packages_per_compiler[compiler]:
+                    packages_per_compiler[compiler][arch] = []
+
+                packages_per_compiler[compiler][arch].append(dep_pkg)
+
+            compiler = self.pkg.spec.compiler
+            arch = self.pkg.spec.architecture
+
+            if compiler not in packages_per_compiler:
+                packages_per_compiler[compiler] = {}
+
+            if arch not in packages_per_compiler[compiler]:
+                packages_per_compiler[compiler][arch] = []
+
+            packages_per_compiler[compiler][arch].append(self.pkg)
+
+            for compiler, archs in packages_per_compiler.items():
+                for arch, packages in archs.items():
+                    self._add_bootstrap_compilers(compiler, arch, packages)
+
         if install_deps:
             for dep in self.spec.traverse(order='post', root=False):
                 dep_pkg = dep.package
-
-                # First push any missing compilers (if requested)
-                if install_compilers:
-                    self._add_bootstrap_compilers(dep_pkg)
 
                 if package_id(dep_pkg) not in self.build_tasks:
                     self._push_task(dep_pkg, False, 0, 0, STATUS_ADDED)
@@ -1008,11 +1035,6 @@ class PackageInstaller(object):
                 # associated with another process in this parallel build
                 # of the spec.
                 spack.store.db.clear_failure(dep, force=False)
-
-            # Push any missing compilers (if requested) as part of the
-            # package dependencies.
-            if install_compilers:
-                self._add_bootstrap_compilers(self.pkg)
 
         if install_package and self.pkg_id not in self.build_tasks:
             # Be sure to clear any previous failure
@@ -1665,6 +1687,10 @@ class BuildTask(object):
         # Set of dependents
         self.dependents = set(package_id(d.package) for d
                               in self.spec.dependents())
+
+        tty.debug('Pkg id {0} has the following dependents:'.format(self.pkg_id))
+        for dep_id in self.dependents:
+            tty.debug('- {0}'.format(dep_id))
 
         # Set of dependencies
         #
