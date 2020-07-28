@@ -43,6 +43,13 @@ _shell_unset_strings = {
 }
 
 
+DEFAULT_ENVIRONMENT_FILTERS = [
+  re.compile('key', re.I),
+  re.compile('secret', re.I),
+  re.compile('token', re.I),
+]
+
+
 def is_system_path(path):
     """Predicate that given a path returns True if it is a system path,
     False otherwise.
@@ -121,9 +128,33 @@ def env_var_to_source_line(var, val):
     return source_line
 
 
-def dump_environment(path, environment=None):
-    """Dump an environment dictionary to a source-able file."""
+def filter_env_vars(environ, filter_list):
+    clean_environ = {}
+
+    for var, val in environ.items():
+        if not any([regex.search(var) for regex in filter_list]):
+            clean_environ[var] = val
+
+    return clean_environ
+
+def dump_environment(path, environment=None,
+                     filter_list=DEFAULT_ENVIRONMENT_FILTERS):
+    """Dump an environment dictionary to a source-able file.path,
+    False otherwise.
+
+    Args:
+        path (str): path to a file to write
+        environment (dict): Optional dictionary to use instead of
+            os.environ
+        filter_list (list): Filter environment keys through this
+            list of regular expressions before dumping.
+
+    Returns:
+        True or False
+    """
     use_env = environment or os.environ
+    if filter_list:
+        use_env = filter_env_vars(use_env, filter_list)
     hidden_vars = set(['PS1', 'PWD', 'OLDPWD', 'TERM_SESSION_ID'])
 
     with open(path, 'w') as env_file:
