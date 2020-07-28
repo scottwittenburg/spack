@@ -7,6 +7,7 @@ import base64
 import datetime
 import json
 import os
+import re
 import shutil
 import tempfile
 import zlib
@@ -17,6 +18,7 @@ from six.moves.urllib.parse import urlencode
 from six.moves.urllib.request import build_opener, HTTPHandler, Request
 
 import llnl.util.tty as tty
+from llnl.util.filesystem import mkdirp, working_dir, find, copy
 
 import spack
 import spack.binary_distribution as bindist
@@ -29,6 +31,7 @@ import spack.hash_types as ht
 from spack.main import SpackCommand
 import spack.repo
 from spack.spec import Spec
+import spack.util.compression as compression
 import spack.util.spack_yaml as syaml
 import spack.util.web as web_util
 
@@ -1060,3 +1063,64 @@ def copy_stage_logs_to_artifacts(job_spec, job_log_dir):
         msg = ('Unable to copy build logs from stage to artifacts '
                'due to exception: {0}').format(inst)
         tty.error(msg)
+
+
+def copy_env_to_artifacts(spack_yaml_path, scratch_dir):
+    env_artifact_dir = os.path.join(scratch_dir, 'env')
+    mkdirp(env_artifact_dir)
+    env_artifact_file = os.path.join(env_artifact_dir, 'spack.yaml')
+    tty.debug('Copying {0} to {1}'.format(spack_yaml_path, env_artifact_file))
+    copy(spack_yaml_path, env_artifact_file)
+
+
+def setup_repro_env(repro_bundle_path):
+    build_env_filename = 'spack-build-env.txt'
+    repro_env_var_list = [
+        'CI_PROJECT_DIR',
+        'SPACK_SIGNING_KEY',
+        'SPACK_ROOT_SPEC',
+        'SPACK_JOB_SPEC_PKG_NAME',
+        'SPACK_COMPILER_ACTION',
+        'SPACK_CDASH_BUILD_NAME',
+        'SPACK_RELATED_BUILDS_CDASH',
+        'SPACK_IS_PR_PIPELINE',
+    ]
+
+    env_value_regex = re.compile('^[^\\=]+=([^;]+);')
+
+    decompress = compression.decompressor_for(repro_bundle_path)
+
+    dumped_env_path = None
+
+    artifacts_dir = os.path.join(os.getcwd(), 'extracted-artifacts')
+    mkdirp(artifacts_dir)
+    with working_dir(artifacts_dir):
+        decompress(repro_bundle_path)
+        dumped_env_path = find(artifacts_dir, build_env_filename)
+
+    if not dumped_env_path or len(dumped_env_path) <= 0:
+        tty.die('Unable to find {0} in bundle'.format(dumped_env_path))
+
+    spack_yaml = find(artifacts_dir, 'spack.yaml')
+    if not spack_yaml or len(spack_yaml) <= 0:
+        tty.die('Unable to find "spack.yaml" in bundle')
+
+    found_env_vars = {}
+
+    with open(dumped_env_path[0]) as fd:
+        for line in fd:
+            for want_env_key in repro_env_var_list:
+                if line.startswith(want_env_key):
+                    m = env_value_regex.search(line)
+                    if not m:
+                        tty.die('Missing environment value in {0}'.format(
+                            line))
+                    found_env_vars[want_env_key] = m.group(1)
+
+    repro_dir = os.path.join(os.getcwd(), 'repro-ci-build')
+    mkdirp(repro_dir)
+    copy(spack_yaml[0], repro_dir)
+    found_env_vars['CI_PROJECT_DIR'] = repro_dir
+
+    for env_key, env_val in found_env_vars.items():
+        os.environ[env_key] = env_val

@@ -68,6 +68,11 @@ def setup_parser(subparser):
     # Check a spec against mirror. Rebuild, create buildcache and push to
     # mirror (if necessary).
     rebuild = subparsers.add_parser('rebuild', help=ci_rebuild.__doc__)
+    rebuild.add_argument(
+        '--repro-artifacts', default=None,
+        help="Path to location of downloaded artifacts bundle from a "
+             "job run in CI.  Providing this argument will populate "
+             "needed environment variables and run the build locally.")
     rebuild.set_defaults(func=ci_rebuild)
 
 
@@ -142,6 +147,11 @@ def ci_rebuild(args):
     #
     # SPACK_SIGNING_KEY
 
+    repro_bundle_path = args.repro_artifacts
+    if repro_bundle_path:
+        spack_ci.setup_repro_env(repro_bundle_path)
+        os.chdir(os.environ.get('CI_PROJECT_DIR'))
+
     ci_artifact_dir = get_env_var('CI_PROJECT_DIR')
     signing_key = get_env_var('SPACK_SIGNING_KEY')
     root_spec = get_env_var('SPACK_ROOT_SPEC')
@@ -150,6 +160,15 @@ def ci_rebuild(args):
     cdash_build_name = get_env_var('SPACK_CDASH_BUILD_NAME')
     related_builds = get_env_var('SPACK_RELATED_BUILDS_CDASH')
     pr_env_var = get_env_var('SPACK_IS_PR_PIPELINE')
+
+    cdash_report_dir = os.path.join(ci_artifact_dir, 'cdash_report')
+    temp_dir = os.path.join(ci_artifact_dir, 'jobs_scratch_dir')
+    job_log_dir = os.path.join(temp_dir, 'logs')
+    spec_dir = os.path.join(temp_dir, 'specs')
+
+    if not repro_bundle_path:
+        spack_yaml_path = env.manifest_path
+        spack_ci.copy_env_to_artifacts(spack_yaml_path, temp_dir)
 
     gitlab_ci = None
     if 'gitlab-ci' in yaml_root:
@@ -193,11 +212,6 @@ def ci_rebuild(args):
     tty.debug('compiler_action = {0}'.format(compiler_action))
 
     spack_cmd = exe.which('spack')
-
-    cdash_report_dir = os.path.join(ci_artifact_dir, 'cdash_report')
-    temp_dir = os.path.join(ci_artifact_dir, 'jobs_scratch_dir')
-    job_log_dir = os.path.join(temp_dir, 'logs')
-    spec_dir = os.path.join(temp_dir, 'specs')
 
     local_mirror_dir = os.path.join(ci_artifact_dir, 'local_mirror')
     build_cache_dir = os.path.join(local_mirror_dir, 'build_cache')
