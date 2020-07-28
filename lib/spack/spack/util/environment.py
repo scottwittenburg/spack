@@ -44,9 +44,9 @@ _shell_unset_strings = {
 
 
 DEFAULT_ENVIRONMENT_FILTERS = [
-  re.compile('key', re.I),
-  re.compile('secret', re.I),
-  re.compile('token', re.I),
+    re.compile('key', re.I),
+    re.compile('secret', re.I),
+    re.compile('token', re.I),
 ]
 
 
@@ -136,6 +136,7 @@ def filter_env_vars(environ, filter_list):
             clean_environ[var] = val
 
     return clean_environ
+
 
 def dump_environment(path, environment=None,
                      filter_list=DEFAULT_ENVIRONMENT_FILTERS):
