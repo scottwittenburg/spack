@@ -26,6 +26,7 @@ import spack.cmd
 import spack.config as config
 import spack.database as spack_db
 import spack.fetch_strategy as fs
+import spack.util.file_cache as file_cache
 import spack.util.gpg
 import spack.relocate as relocate
 import spack.util.spack_yaml as syaml
@@ -36,22 +37,196 @@ from spack.spec import Spec
 from spack.stage import Stage
 from spack.util.gpg import Gpg
 
+
+#: default root, relative to the Spack install path
+default_manager_root = os.path.join(spack.paths.opt_path, 'spack')
+
 _build_cache_relative_path = 'build_cache'
 
-BUILD_CACHE_INDEX_TEMPLATE = '''
-<html>
-<head>
-  <title>{title}</title>
-</head>
-<body>
-<ul>
-{path_list}
-</ul>
-</body>
-</html>
-'''
 
-BUILD_CACHE_INDEX_ENTRY_TEMPLATE = '  <li><a href="{path}">{path}</a></li>'
+class BuildCacheManager(object):
+    """
+    The BuildCacheManager stores and manages both:
+
+    1. cached buildcache index files (the index.json describing the built
+    specs available on a mirror)
+
+    2. a cache of all the conrcrete built specs available on all the
+    configured mirrors.
+
+    TODO:
+
+        - Use spack.util.FileCache for cached index files and contents.json (use transactions)
+        - implement the invalidate_built_spec_cache() method
+        - in update_local_index_cache(), finish handling mirros not yet in our cache
+        - decide when, aside from just on init, we will update the built_spec_cache from the cached indices
+    """
+
+    def __init__(self, cache_root=None):
+        self._cache_root = default_manager_root
+        if cache_root:
+            self._cache_root = cache_root
+
+        self._index_cache_root = os.path.join(self._cache_root, 'indices')
+
+        # self._index_cache = file_cache.FileCache(root=self._index_cache_root)
+
+        self._local_index_cache = {}
+        self._read_local_index_cache()
+
+        self._built_spec_cache = {}
+        self.init_built_spec_cache()
+
+    def _read_local_index_cache(self):
+        contents_path = os.path.join(self._index_cache_root, 'contents.json')
+        with open(contents_path) as fd:
+            self._local_index_cache = json.load(fd)
+
+    def _write_local_index_cache(self):
+        contents_path = os.path.join(self._index_cache_root, 'contents.json')
+        with open(contents_path, 'w') as fd:
+            json.dump(self._local_index_cache, fd)
+
+    def init_built_spec_cache(self):
+        for mirror_url in self._local_index_cache:
+            index_hash = cache_item[mirror_url]['index_hash']
+            index_path = cache_item[mirror_url]['index_path']
+
+            cached_index_path = os.path.join(
+                self._index_cache_root, index_path)
+
+            tty.debug('Inserting built specs from cache {0}'
+                  .format(cached_index_path))
+
+            self.insert_specs(cached_index_path, mirror_url)
+
+    def insert_specs(self, index_file_path, mirror_url):
+        tmpdir = tempfile.mkdtemp()
+
+        try:
+            db_root_dir = os.path.join(tmpdir, 'db_root')
+            db = spack_db.Database(None, db_dir=db_root_dir,
+                                   enable_transaction_locking=False)
+
+            db._read_from_file(index_file_path)
+            spec_list = db.query_local(installed=False)
+
+            for indexed_spec in spec_list:
+                indexed_spec_dag_hash = indexed_spec.dag_hash()
+                if indexed_spec_dag_hash not in self._built_spec_cache:
+                    self._built_spec_cache[indexed_spec_dag_hash] = []
+                self._built_spec_cache[indexed_spec_dag_hash].append({
+                    "mirror_url": mirror_url,
+                    "spec": indexed_spec,
+                })
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def update_local_index_cache(self):
+        configured_mirrors = spack.mirror.MirrorCollection()
+
+        keys_to_remove = []
+
+        # First compare the mirror urls we know about in the cache
+        # to the configured mirrors.  If we have a cached index for
+        # a mirror which is no longer configured, we should remove it
+        # from the cache.  For any cached indices which *do* actually
+        # correspond to configured mirrors, we need to check if the
+        # cache is still good, or needs to be updated
+        for cached_mirror_url in self._local_index_cache:
+            cached_index_hash = self._local_index_cache['index_hash']
+            cached_index_path = self._local_index_cache['index_path']
+            config_mirror_url = configured_mirrors.get(cached_mirror_url, None)
+            if config_mirror_url:
+                # Cached index corresponds to a currently configured mirror
+                mirror_index_hash_url = os.path.join(
+                    config_mirror_url.fetch_url, _build_cache_relative_path,
+                    'index.json.hash')
+                index_hash = None
+                try:
+                    _, _, fs = web_util.read_from_url(
+                        mirror_index_hash_url, 'application/json')
+                    index_hash = codecs.getreader('utf-8')(fs).read()
+                except (URLError, web_util.SpackWebError) as url_err:
+                    tty.debug('Unable to read index hash {0}'.format(
+                        mirror_index_hash_url), url_err, 1)
+
+                if not index_hash or index_hash != cached_index_hash:
+                    # Need to fetch the index and update the local caches
+                    self.fetch_and_cache_index(
+                        config_mirror_url.fetch_url, index_hash)
+                    self.invalidate_built_spec_cache()
+            else:
+                # No longer have this mirror, cached index should be removed
+                keys_to_remove.append(cached_mirror_url)
+                path_to_remove = os.path.join(self._index_cache_root
+                                              cached_index_path)
+                os.remove(path_to_remove)
+
+
+        for mirror_url in keys_to_remove:
+            del self._local_index_cache[mirror_url]
+
+        # Iterate the configured mirrors now.  Any mirror urls we do not
+        # already have in our cache must be fetched, stored, and represented
+        # locally.
+        for mirror in spack.mirror.MirrorCollection().values():
+            mirror_url = mirror.fetch_url
+
+        # First remove any entries that do not correspond to locally
+        # configured mirrors
+
+    def fetch_and_cache_index(self, mirror_url, expect_hash):
+        index_fetch_url = url_util.join(
+            mirror_url, _build_cache_relative_path, 'index.json')
+        hash_fetch_url = url_util.join(
+            mirror_url, _build_cache_relative_path, 'index.json.hash')
+
+        tty.debug('Finding buildcaches at {0}'
+                  .format(url_util.format(fetch_url_build_cache)))
+
+        index_url = url_util.join(fetch_url_build_cache, 'index.json')
+
+        # Fetch index itself
+        try:
+            _, _, fs = web_util.read_from_url(
+                index_fetch_url, 'application/json')
+            index_object = codecs.getreader('utf-8')(fs).read()
+        except (URLError, web_util.SpackWebError) as url_err:
+            tty.error('Failed to read index {0}'.format(
+                index_fetch_url), url_err, 1)
+            return
+
+        # Fetch the hash (we could just write the hash we received as arg,
+        # but we compute it locally and compare as a check)
+        try:
+            _, _, fs = web_util.read_from_url(
+                hash_fetch_url, 'text/plain')
+            fetched_hash = codecs.getreader('utf-8')(fs).read()
+        except (URLError, web_util.SpackWebError) as url_err:
+            tty.error('Failed to read index hash {0}'.format(
+                hash_fetch_url), url_err, 1)
+            return
+
+        locally_computed_hash = hashlib.sha256(
+            index_object.encode('utf-8')).hexdigest()
+
+        if locally_computed_hash != expect_hash:
+            tty.error('Computed hash ({0}) did not match remote ({1})'.format(
+                locally_computed_hash, expect_hash))
+            return
+
+        local_index_name = 'index_{0}.json'.format(expect_hash[:10])
+        local_index_path = os.path.join(
+            self._index_cache_root, local_index_name)
+
+        with open(local_index_path, 'w') as fd:
+            fd.write(index_object)
+
+        self._local_index_cache[mirror_url] = {
+            'index_hash': locally_computed_hash,
+            'index_path': local_index_name,
+        }
 
 
 class NoOverwriteException(spack.error.SpackError):
