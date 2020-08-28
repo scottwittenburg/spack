@@ -19,6 +19,7 @@ import json
 
 from six.moves.urllib.error import URLError
 
+import llnl.util.lang
 import llnl.util.tty as tty
 from llnl.util.filesystem import mkdirp
 
@@ -44,9 +45,9 @@ default_manager_root = os.path.join(spack.paths.opt_path, 'spack')
 _build_cache_relative_path = 'build_cache'
 
 
-class BuildCacheManager(object):
+class BinaryDistributionCacheManager(object):
     """
-    The BuildCacheManager stores and manages both:
+    The BinaryDistributionCacheManager stores and manages both:
 
     1. cached buildcache index files (the index.json describing the built
     specs available on a mirror)
@@ -69,7 +70,10 @@ class BuildCacheManager(object):
 
         self._index_cache_root = os.path.join(self._cache_root, 'indices')
 
-        # self._index_cache = file_cache.FileCache(root=self._index_cache_root)
+        self._index_file_cache = file_cache.FileCache(self._index_cache_root)
+
+        self._index_contents_key = 'contents.json'
+        self._index_file_cache.init_entry(self._index_contents_key)
 
         self._local_index_cache = {}
         self._read_local_index_cache()
@@ -78,29 +82,26 @@ class BuildCacheManager(object):
         self.init_built_spec_cache()
 
     def _read_local_index_cache(self):
-        contents_path = os.path.join(self._index_cache_root, 'contents.json')
-        with open(contents_path) as fd:
-            self._local_index_cache = json.load(fd)
+        cache_key = self._index_contents_key
+        with self._index_file_cache.read_transaction(cache_key) as cache_file:
+            self._local_index_cache = json.load(cache_file)
 
     def _write_local_index_cache(self):
-        contents_path = os.path.join(self._index_cache_root, 'contents.json')
-        with open(contents_path, 'w') as fd:
-            json.dump(self._local_index_cache, fd)
+        cache_key = self._index_contents_key
+        with self._index_file_cache.write_transaction(cache_key) as cache_file:
+            json.dump(self._local_index_cache, cache_file)
 
     def init_built_spec_cache(self):
         for mirror_url in self._local_index_cache:
-            index_hash = cache_item[mirror_url]['index_hash']
-            index_path = cache_item[mirror_url]['index_path']
+            cached_index_hash = cache_item[mirror_url]['index_hash']
+            cached_index_path = cache_item[mirror_url]['index_path']
 
-            cached_index_path = os.path.join(
-                self._index_cache_root, index_path)
-
-            tty.debug('Inserting built specs from cache {0}'
+            tty.debug('Inserting built specs from cache key {0}'
                   .format(cached_index_path))
 
-            self.insert_specs(cached_index_path, mirror_url)
+            self.insert_built_specs(cached_index_path, mirror_url)
 
-    def insert_specs(self, index_file_path, mirror_url):
+    def insert_built_specs(self, cache_key, mirror_url):
         tmpdir = tempfile.mkdtemp()
 
         try:
@@ -108,7 +109,10 @@ class BuildCacheManager(object):
             db = spack_db.Database(None, db_dir=db_root_dir,
                                    enable_transaction_locking=False)
 
-            db._read_from_file(index_file_path)
+            self._index_file_cache.init_entry(cache_key)
+            with self._index_file_cache.read_transaction(cache_key) as cache_file:
+                db._read_from_file(cache_file)
+
             spec_list = db.query_local(installed=False)
 
             for indexed_spec in spec_list:
@@ -122,70 +126,129 @@ class BuildCacheManager(object):
         finally:
             shutil.rmtree(tmpdir)
 
+    def get_all_built_specs(self):
+        self.update_local_index_cache()
+        for dag_hash in self._built_spec_cache:
+            # in the absence of further information, all concrete specs
+            # with the same DAG hash are equivalent, so we can just
+            # return the first one in the list.
+            if len(built_spec_cache[dag_hash]) > 0:
+                yield built_spec_cache[dag_hash][0]['spec']
+
+    def find_built_spec(self, spec):
+        """Find the built spec corresponding to ``spec``.
+
+        If the spec can be found among the confighured binary mirrors, an
+        object is returned that contains the concrete spec and the mirror url
+        where it can be found.  Otherwise, ``None`` is returned.
+
+        Args:
+            spec (Spec): Concrete spec to find
+
+        Returns:
+            An list of objects containing the found specs mirror url where
+                each can be found:
+
+                .. code-block:: JSON
+
+                    [
+                        {
+                            "spec": <concrete-spec>,
+                            "mirror_url": <mirror-root-url>
+                        }, ...
+                    ]
+        """
+        find_hash = spec.dag_hash()
+        if find_hash not in self._built_spec_cache:
+            return None
+
+        return self._built_spec_cache[find_hash]
+
+
     def update_local_index_cache(self):
+        """ Make sure local cache of buildcache index files is up to date."""
         configured_mirrors = spack.mirror.MirrorCollection()
+        items_to_remove = []
 
-        keys_to_remove = []
+        # First compare the mirror urls currently present in the cache to the
+        # configured mirrors.  If we have a cached index for a mirror which is
+        # no longer configured, we should remove it from the cache.  For any
+        # cached indices corresponding to currently configured mirrors, we need
+        # to check if the cache is still good, or needs to be updated.
+        # Finally, if there are configured mirrors for which we don't have a
+        # cache entry, we need to fetch and cache the indices from those
+        # mirrors.
 
-        # First compare the mirror urls we know about in the cache
-        # to the configured mirrors.  If we have a cached index for
-        # a mirror which is no longer configured, we should remove it
-        # from the cache.  For any cached indices which *do* actually
-        # correspond to configured mirrors, we need to check if the
-        # cache is still good, or needs to be updated
         for cached_mirror_url in self._local_index_cache:
             cached_index_hash = self._local_index_cache['index_hash']
             cached_index_path = self._local_index_cache['index_path']
             config_mirror_url = configured_mirrors.get(cached_mirror_url, None)
             if config_mirror_url:
-                # Cached index corresponds to a currently configured mirror
-                mirror_index_hash_url = os.path.join(
-                    config_mirror_url.fetch_url, _build_cache_relative_path,
-                    'index.json.hash')
-                index_hash = None
-                try:
-                    _, _, fs = web_util.read_from_url(
-                        mirror_index_hash_url, 'application/json')
-                    index_hash = codecs.getreader('utf-8')(fs).read()
-                except (URLError, web_util.SpackWebError) as url_err:
-                    tty.debug('Unable to read index hash {0}'.format(
-                        mirror_index_hash_url), url_err, 1)
-
-                if not index_hash or index_hash != cached_index_hash:
-                    # Need to fetch the index and update the local caches
-                    self.fetch_and_cache_index(
-                        config_mirror_url.fetch_url, index_hash)
-                    self.invalidate_built_spec_cache()
+                # May need to fetch the index and update the local caches
+                self.fetch_and_cache_index(
+                    config_mirror_url.fetch_url, cached_index_hash)
             else:
                 # No longer have this mirror, cached index should be removed
-                keys_to_remove.append(cached_mirror_url)
-                path_to_remove = os.path.join(self._index_cache_root
+                items_to_remove.append({
+                    'url': cached_mirror_url,
+                    'cache_key': os.path.join(self._index_cache_root,
                                               cached_index_path)
-                os.remove(path_to_remove)
+                })
 
-
-        for mirror_url in keys_to_remove:
-            del self._local_index_cache[mirror_url]
+        # Clean up items to be removed, identified above
+        for item in items_to_remove:
+            url = item['ur']
+            cache_key = item['cache_key']
+            self._index_file_cache.remove(cache_key)
+            del self._local_index_cache[url]
 
         # Iterate the configured mirrors now.  Any mirror urls we do not
         # already have in our cache must be fetched, stored, and represented
         # locally.
-        for mirror in spack.mirror.MirrorCollection().values():
+        for mirror in configured_mirrors.values():
             mirror_url = mirror.fetch_url
+            if mirror_url not in self._local_index_cache:
+                # Need to fetch the index and update the local caches
+                self.fetch_and_cache_index(mirror_url)
 
-        # First remove any entries that do not correspond to locally
-        # configured mirrors
+    def fetch_and_cache_index(self, mirror_url, expect_hash=None,
+                              update_spec_cache=True):
+        """ Fetch a buildcache index file from a remote mirror and cache it.
 
-    def fetch_and_cache_index(self, mirror_url, expect_hash):
+        If we already have a cached index from this mirror, then we first
+        check if the hash has changed, and we avoid fetching it if not.
+
+        Args:
+            mirror_url (str): Base url of mirror
+            expect_hash (str): If provided, this hash will be compared against
+                the index hash we retrieve from the mirror, to determine if we
+                need to fetch the index or not.
+            update_spec_cache (bool): Whether or not to update the cache of
+                specs if we needed to fetch the index.
+        """
         index_fetch_url = url_util.join(
             mirror_url, _build_cache_relative_path, 'index.json')
         hash_fetch_url = url_util.join(
             mirror_url, _build_cache_relative_path, 'index.json.hash')
 
-        tty.debug('Finding buildcaches at {0}'
-                  .format(url_util.format(fetch_url_build_cache)))
+        # Fetch the hash first so we can check if we actually need to fetch
+        # the index itself.
+        try:
+            _, _, fs = web_util.read_from_url(
+                hash_fetch_url, 'text/plain')
+            fetched_hash = codecs.getreader('utf-8')(fs).read()
+        except (URLError, web_util.SpackWebError) as url_err:
+            tty.error('Failed to read index hash {0}'.format(
+                hash_fetch_url), url_err, 1)
+            return
 
-        index_url = url_util.join(fetch_url_build_cache, 'index.json')
+        # IF we were expecting some hash and found that we got it, we're done
+        if expect_hash and fetched_hash == expect_hash:
+            tty.debug('Cached index for {0} already up to date'.format(
+                mirror_url))
+            return
+
+        tty.debug('Fetching index from {0}'.format(index_fetch_url))
 
         # Fetch index itself
         try:
@@ -197,36 +260,38 @@ class BuildCacheManager(object):
                 index_fetch_url), url_err, 1)
             return
 
-        # Fetch the hash (we could just write the hash we received as arg,
-        # but we compute it locally and compare as a check)
-        try:
-            _, _, fs = web_util.read_from_url(
-                hash_fetch_url, 'text/plain')
-            fetched_hash = codecs.getreader('utf-8')(fs).read()
-        except (URLError, web_util.SpackWebError) as url_err:
-            tty.error('Failed to read index hash {0}'.format(
-                hash_fetch_url), url_err, 1)
+        locally_computed_hash = compute_hash(index_object)
+
+        if locally_computed_hash != fetched_hash:
+            msg_tmpl = ('Computed hash ({0}) did not match remote ({1}), '
+                        'indicating error in index transmission')
+            tty.error(msg_tmpl.format(locally_computed_hash, expect_hash))
             return
 
-        locally_computed_hash = hashlib.sha256(
-            index_object.encode('utf-8')).hexdigest()
-
-        if locally_computed_hash != expect_hash:
-            tty.error('Computed hash ({0}) did not match remote ({1})'.format(
-                locally_computed_hash, expect_hash))
-            return
-
-        local_index_name = 'index_{0}.json'.format(expect_hash[:10])
-        local_index_path = os.path.join(
-            self._index_cache_root, local_index_name)
-
-        with open(local_index_path, 'w') as fd:
-            fd.write(index_object)
+        cache_key = 'index_{0}.json'.format(locally_computed_hash[:10])
+        with self._index_file_cache.write_transaction(cache_key) as cache_file:
+            json.dump(index_object, cache_file)
 
         self._local_index_cache[mirror_url] = {
             'index_hash': locally_computed_hash,
-            'index_path': local_index_name,
+            'index_path': cache_key,
         }
+
+        if update_spec_cache:
+            self.insert_built_specs(cache_key, mirror_url)
+
+
+def _cache_manager():
+    """Get the singleton store instance."""
+    cache_root = spack.config.get(
+        'config:binary_distribution_cache_root', default_root)
+    cache_root = spack.util.path.canonicalize_path(cache_root)
+
+    return BinaryDistributionCacheManager(cache_root)
+
+
+#: Singleton cache_manager instance
+cache_manager = llnl.util.lang.Singleton(_cache_manager)
 
 
 class NoOverwriteException(spack.error.SpackError):
@@ -290,6 +355,10 @@ class NewLayoutException(spack.error.SpackError):
 
     def __init__(self, msg):
         super(NewLayoutException, self).__init__(msg)
+
+
+def compute_hash(data):
+    return hashlib.sha256(data.encode('utf-8')).hexdigest()
 
 
 def build_cache_relative_path():
@@ -459,6 +528,9 @@ def generate_package_index(cache_prefix):
     cache_prefix.  This page contains a link for each binary package (*.yaml)
     and public key (*.key) under cache_prefix.
     """
+    # TODO: cnnsider that if cache_prefix points to mirror url we have locally
+    # TODO: configured, we could create a cache entry for the tndex we generate
+    # TODO: here, and save the need to fetch/cache it later.
     tmpdir = tempfile.mkdtemp()
     db_root_dir = os.path.join(tmpdir, 'db_root')
     db = spack_db.Database(None, db_dir=db_root_dir,
