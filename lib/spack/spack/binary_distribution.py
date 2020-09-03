@@ -563,11 +563,29 @@ def generate_package_index(cache_prefix):
         with open(index_json_path, 'w') as f:
             db._write_to_file(f)
 
+        # Read the index back in and compute it's hash
+        with open(index_json_path) as f:
+            index_string = f.read()
+            index_hash = compute_hash(index_string)
+
+        # Write the hash out to a local file
+        index_hash_path = os.path.join(db_root_dir, 'index.json.hash')
+        with open(index_hash_path, 'w') as f:
+            f.write(index_hash)
+
+        # Push the index itself
         web_util.push_to_url(
             index_json_path,
             url_util.join(cache_prefix, 'index.json'),
             keep_original=False,
             extra_args={'ContentType': 'application/json'})
+
+        # Push the hash
+        web_util.push_to_url(
+            index_hash_path,
+            url_util.join(cache_prefix, 'index.json.hash'),
+            keep_original=False,
+            extra_args={'ContentType': 'text/plain'})
     finally:
         shutil.rmtree(tmpdir)
 
