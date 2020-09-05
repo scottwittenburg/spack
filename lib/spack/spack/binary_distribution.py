@@ -793,10 +793,20 @@ def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
     return None
 
 
-def download_tarball(spec):
+def download_tarball(spec, url=None):
     """
     Download binary tarball for given package into stage area
     Return True if successful
+
+    Args:
+        spec (Spec): Concrete spec
+        url (str): If provided, this is the preferred url, other configured
+            mirrors will only be used if the tarball can't be retrieved from
+            this preferred url.
+
+    Returns:
+        Path to the downloaded tarball, or ``None`` if the tarball could not
+            be downloaded from any configured mirrors.
     """
     if not spack.mirror.MirrorCollection():
         tty.die("Please add a spack mirror to allow " +
@@ -804,10 +814,17 @@ def download_tarball(spec):
 
     tarball = tarball_path_name(spec, '.spack')
 
-    for mirror in spack.mirror.MirrorCollection().values():
-        url = url_util.join(
-            mirror.fetch_url, _build_cache_relative_path, tarball)
+    urls_to_try = []
 
+    if url:
+        urls_to_try.append(url)
+
+    for mirror in spack.mirror.MirrorCollection().values():
+        if not url or url != mirror.fetch_url:
+            urls_to_try.append(url_util.join(
+                mirror.fetch_url, _build_cache_relative_path, tarball))
+
+    for try_url in urls_to_try:
         # stage the tarball into standard place
         stage = Stage(url, name="build_cache", keep=True)
         stage.create()
@@ -817,6 +834,8 @@ def download_tarball(spec):
         except fs.FetchError:
             continue
 
+    # If we arrive here, something went wrong, maybe this should be an
+    # exception?
     return None
 
 
