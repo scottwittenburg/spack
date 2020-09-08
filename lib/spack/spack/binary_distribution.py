@@ -90,8 +90,6 @@ class BinaryDistributionCacheManager(object):
                 with self._index_file_cache.read_transaction(cache_key) as cache_file:
                     self._local_index_cache = json.load(cache_file)
 
-            self.update_local_index_cache()
-
     @property
     def spec_cache(self):
         """The cache of specs and mirrors they live on"""
@@ -99,6 +97,7 @@ class BinaryDistributionCacheManager(object):
 
     def _write_local_index_cache(self):
         tty.debug('_write_local_index_cache')
+        self._init_local_index_cache()
         cache_key = self._index_contents_key
         with self._index_file_cache.write_transaction(cache_key) as (old, new):
             json.dump(self._local_index_cache, new)
@@ -122,6 +121,8 @@ class BinaryDistributionCacheManager(object):
         self._built_spec_cache_invalid = False
 
     def _associate_built_specs_with_mirror(self, cache_key, mirror_url):
+        self._init_local_index_cache()
+
         tmpdir = tempfile.mkdtemp()
 
         try:
