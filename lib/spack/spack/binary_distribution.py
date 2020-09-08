@@ -1184,15 +1184,19 @@ def get_spec(spec=None, force=False, full_hash_match=False):
         return filtered_candidates
 
     candidates = cache_manager.find_built_spec(spec)
+    print('got {0} candidates'.format(len(candidates) if candidates is not None else 'no'))
     if candidates:
         results = filter_candidates(candidates)
+        print('filtering candidates left {0} results'.format(len(results)))
 
     # Maybe we just didn't have the latest information from the mirror, so
     # try to fetch directly.
     if not results:
+        print('Since we did not get anything the first way, try the direct approach')
         results = try_direct_fetch(spec,
                                    force=force,
                                    full_hash_match=full_hash_match)
+        print('direct approach yielded {0} results'.format(len(results)))
         if results:
             cache_manager.update_spec(spec, results)
 
