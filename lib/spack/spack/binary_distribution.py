@@ -317,7 +317,10 @@ class BinaryDistributionCacheManager(object):
             tty.error(msg_tmpl.format(locally_computed_hash, expect_hash))
             return
 
-        cache_key = 'index_{0}.json'.format(locally_computed_hash[:10])
+        url_hash = compute_hash(mirror_url)
+
+        cache_key = '{0}_{1}.json'.format(
+            url_hash[:10], locally_computed_hash[:10])
         self._index_file_cache.init_entry(cache_key)
         with self._index_file_cache.write_transaction(cache_key) as (old, new):
             new.write(index_object_str)
