@@ -1181,11 +1181,14 @@ def get_spec(spec=None, force=False, full_hash_match=False):
         for candidate in possibles:
             if lenient or spec.full_hash() == candidate['spec'].full_hash():
                 filtered_candidates.append(candidate)
+        return filtered_candidates
 
     candidates = cache_manager.find_built_spec(spec)
     if candidates:
         results = filter_candidates(candidates)
 
+    # Maybe we just didn't have the latest information from the mirror, so
+    # try to fetch directly.
     if not results:
         results = try_direct_fetch(spec,
                                    force=force,
