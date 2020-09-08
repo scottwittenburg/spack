@@ -215,7 +215,8 @@ class BinaryDistributionCacheManager(object):
         """ Make sure local cache of buildcache index files is up to date."""
         self._init_local_index_cache()
 
-        configured_mirrors = spack.mirror.MirrorCollection()
+        mirrors = spack.mirror.MirrorCollection()
+        configured_mirror_urls = [m.fetch_url for m in mirrors.values()]
         items_to_remove = []
 
         # First compare the mirror urls currently present in the cache to the
@@ -234,11 +235,10 @@ class BinaryDistributionCacheManager(object):
             cache_entry = self._local_index_cache[cached_mirror_url]
             cached_index_hash = cache_entry['index_hash']
             cached_index_path = cache_entry['index_path']
-            config_mirror_url = configured_mirrors.get(cached_mirror_url, None)
-            if config_mirror_url:
+            if cached_mirror_url in configured_mirror_urls:
                 # May need to fetch the index and update the local caches
                 self.fetch_and_cache_index(
-                    config_mirror_url.fetch_url, expect_hash=cached_index_hash)
+                    cached_mirror_url, expect_hash=cached_index_hash)
             else:
                 # No longer have this mirror, cached index should be removed
                 items_to_remove.append({
@@ -257,8 +257,7 @@ class BinaryDistributionCacheManager(object):
         # Iterate the configured mirrors now.  Any mirror urls we do not
         # already have in our cache must be fetched, stored, and represented
         # locally.
-        for mirror in configured_mirrors.values():
-            mirror_url = mirror.fetch_url
+        for mirror_url in configured_mirror_urls:
             if mirror_url not in self._local_index_cache:
                 # Need to fetch the index and update the local caches
                 self.fetch_and_cache_index(mirror_url)
