@@ -228,6 +228,9 @@ class BinaryDistributionCacheManager(object):
         # mirrors.
 
         for cached_mirror_url in self._local_index_cache:
+            import pdb
+            pdb.set_trace()
+
             cache_entry = self._local_index_cache[cached_mirror_url]
             cached_index_hash = cache_entry['index_hash']
             cached_index_path = cache_entry['index_path']
