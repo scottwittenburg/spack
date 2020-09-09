@@ -1153,11 +1153,8 @@ def try_direct_fetch(spec, force=False, full_hash_match=False):
         fetched_spec._mark_concrete()
 
         # Do not recompute the full hash for the fetched spec, instead just
-        # read the property out of the yaml (since it doesn't result in the
-        # "_full_hash" property getting set on the spec).
-        fetched_spec_full_hash = syaml.load(fetched_spec_yaml)['full_hash']
-
-        if lenient or fetched_spec_full_hash == spec.full_hash():
+        # read the property.
+        if lenient or fetched_spec._full_hash == spec.full_hash():
             print('  YES, {0} == {1}'.format(fetched_spec._full_hash, spec.full_hash()))
             found_specs.append({
                 'mirror_url': mirror.fetch_url,
