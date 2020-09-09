@@ -820,7 +820,8 @@ def download_tarball(spec, url=None):
     urls_to_try = []
 
     if url:
-        urls_to_try.append(url)
+        urls_to_try.append(url_util.join(
+                url, _build_cache_relative_path, tarball))
 
     for mirror in spack.mirror.MirrorCollection().values():
         if not url or url != mirror.fetch_url:
@@ -829,7 +830,7 @@ def download_tarball(spec, url=None):
 
     for try_url in urls_to_try:
         # stage the tarball into standard place
-        stage = Stage(url, name="build_cache", keep=True)
+        stage = Stage(try_url, name="build_cache", keep=True)
         stage.create()
         try:
             stage.fetch()
@@ -1132,6 +1133,9 @@ def try_direct_fetch(spec, force=False, full_hash_match=False):
     specfile_name = tarball_name(spec, '.spec.yaml')
     lenient = not full_hash_match
     found_specs = []
+
+    print('looking for {0}, full_hash_match = {1}'.format(
+        specfile_name, full_hash_match))
 
     for mirror in spack.mirror.MirrorCollection().values():
         buildcache_fetch_url = url_util.join(

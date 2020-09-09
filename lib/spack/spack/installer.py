@@ -213,7 +213,8 @@ def _hms(seconds):
     return ' '.join(parts)
 
 
-def _install_from_cache(pkg, cache_only, explicit, unsigned=False):
+def _install_from_cache(pkg, cache_only, explicit, unsigned=False,
+                        full_hash_match=False):
     """
     Extract the package from binary cache
 
@@ -229,8 +230,8 @@ def _install_from_cache(pkg, cache_only, explicit, unsigned=False):
         (bool) ``True`` if the package was extract from binary cache,
             ``False`` otherwise
     """
-    installed_from_cache = _try_install_from_binary_cache(pkg, explicit,
-                                                          unsigned)
+    installed_from_cache = _try_install_from_binary_cache(
+        pkg, explicit, unsigned=unsigned, full_hash_match=full_hash_match)
     pkg_id = package_id(pkg)
     if not installed_from_cache:
         pre = 'No binary for {0} found'.format(pkg_id)
@@ -335,7 +336,8 @@ def _process_binary_cache_tarball(pkg, binary_spec, explicit, unsigned,
     return True
 
 
-def _try_install_from_binary_cache(pkg, explicit, unsigned=False, full_hash_match=False):
+def _try_install_from_binary_cache(pkg, explicit, unsigned=False,
+                                   full_hash_match=False):
     """
     Try to extract the package from binary cache.
 
@@ -347,7 +349,9 @@ def _try_install_from_binary_cache(pkg, explicit, unsigned=False, full_hash_matc
     """
     pkg_id = package_id(pkg)
     tty.debug('Searching for binary cache of {0}'.format(pkg_id))
-    matches = binary_distribution.get_spec(pkg.spec, force=False, full_hash_match=full_hash_match)
+    matches = binary_distribution.get_spec(
+        pkg.spec, force=False, full_hash_match=full_hash_match)
+
     if not matches:
         return False
 
@@ -1049,6 +1053,7 @@ class PackageInstaller(object):
         unsigned = kwargs.get('unsigned', False)
         use_cache = kwargs.get('use_cache', True)
         verbose = kwargs.get('verbose', False)
+        full_hash_match = kwargs.get('full_hash_match', False)
 
         pkg = task.pkg
         pkg_id = package_id(pkg)
@@ -1060,7 +1065,8 @@ class PackageInstaller(object):
 
         # Use the binary cache if requested
         if use_cache and \
-                _install_from_cache(pkg, cache_only, explicit, unsigned):
+                _install_from_cache(pkg, cache_only, explicit, unsigned,
+                                    full_hash_match):
             self._update_installed(task)
             if task.compiler:
                 spack.compilers.add_compilers_to_config(
