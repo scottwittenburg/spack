@@ -1152,7 +1152,13 @@ def try_direct_fetch(spec, force=False, full_hash_match=False):
         fetched_spec = Spec.from_yaml(fetched_spec_yaml)
         fetched_spec._mark_concrete()
 
-        if lenient or fetched_spec.full_hash() == spec.full_hash():
+        # Do not recompute the full hash for the fetched spec, instead just
+        # read the property out of the yaml (since it doesn't result in the
+        # "_full_hash" property getting set on the spec).
+        fetched_spec_full_hash = syaml.load(fetched_spec_yaml)['full_hash']
+
+        if lenient or fetched_spec_full_hash == spec.full_hash():
+            print('  YES, {0} == {1}'.format(fetched_spec._full_hash, spec.full_hash()))
             found_specs.append({
                 'mirror_url': mirror.fetch_url,
                 'spec': fetched_spec,
@@ -1179,7 +1185,11 @@ def get_spec(spec=None, force=False, full_hash_match=False):
     def filter_candidates(possibles):
         filtered_candidates = []
         for candidate in possibles:
-            if lenient or spec.full_hash() == candidate['spec'].full_hash():
+            spec_full_hash = spec.full_hash()
+            candidate_full_hash = candidate['spec']._full_hash
+            print('spec full hash: {0}, candidate full hash: {1}'.format(
+                spec_full_hash, candidate_full_hash))
+            if lenient or spec_full_hash == candidate_full_hash:
                 filtered_candidates.append(candidate)
         return filtered_candidates
 
