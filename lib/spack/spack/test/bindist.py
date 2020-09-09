@@ -300,7 +300,6 @@ def test_default_rpaths_install_nondefault_layout(tmpdir,
     args = parser.parse_args(install_args)
     buildcache.buildcache(parser, args)
 
-    bindist._cached_specs = set()
     spack.stage.purge()
     margs = mparser.parse_args(
         ['rm', '--scope', 'site', 'test-mirror-def'])
@@ -356,7 +355,6 @@ def test_relative_rpaths_create_default_layout(tmpdir,
     uargs = uparser.parse_args(['-y', '--dependents', gspec.name])
     uninstall.uninstall(uparser, uargs)
 
-    bindist._cached_specs = set()
     spack.stage.purge()
 
 
@@ -393,7 +391,7 @@ def test_relative_rpaths_install_default_layout(tmpdir,
     buildcache.setup_parser(parser)
 
     # set default buildcache args
-    install_args = ['install', '-a', '-u',
+    install_args = ['install', '-a', '-u', '-f',
                     cspec.name]
 
     # install buildcache created with relativized rpaths
@@ -458,7 +456,7 @@ def test_relative_rpaths_install_nondefault(tmpdir,
     buildcache.setup_parser(parser)
 
     # Set default buildcache args
-    install_args = ['install', '-a', '-u', '%s' % cspec.name]
+    install_args = ['install', '-a', '-u', '-f', '%s' % cspec.name]
 
     # test install in non-default install path scheme and relative path
     args = parser.parse_args(install_args)

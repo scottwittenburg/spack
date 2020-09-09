@@ -54,13 +54,6 @@ class BinaryDistributionCacheManager(object):
 
     2. a cache of all the conrcrete built specs available on all the
     configured mirrors.
-
-    TODO:
-
-        - Use spack.util.FileCache for cached index files and contents.json (use transactions)
-        - implement the invalidate_built_spec_cache() method
-        - in update_local_index_cache(), finish handling mirros not yet in our cache
-        - decide when, aside from just on init, we will update the built_spec_cache from the cached indices
     """
 
     def __init__(self, cache_root=None):
@@ -78,7 +71,8 @@ class BinaryDistributionCacheManager(object):
         tty.debug('_init_local_index_cache')
         if not self._index_file_cache:
             tty.debug('_init_local_index_cache -> one time initialization')
-            self._index_file_cache = file_cache.FileCache(self._index_cache_root)
+            self._index_file_cache = file_cache.FileCache(
+                self._index_cache_root)
 
             cache_key = self._index_contents_key
             self._index_file_cache.init_entry(cache_key)
@@ -87,7 +81,8 @@ class BinaryDistributionCacheManager(object):
 
             self._local_index_cache = {}
             if os.path.exists(cache_path) and os.path.isfile(cache_path):
-                with self._index_file_cache.read_transaction(cache_key) as cache_file:
+                with self._index_file_cache.read_transaction(
+                        cache_key) as cache_file:
                     self._local_index_cache = json.load(cache_file)
 
     @property
@@ -109,16 +104,13 @@ class BinaryDistributionCacheManager(object):
 
         for mirror_url in self._local_index_cache:
             cache_entry = self._local_index_cache[mirror_url]
-            cached_index_hash = cache_entry['index_hash']
             cached_index_path = cache_entry['index_path']
 
-            tty.debug('Inserting built specs from cache key {0}'
-                  .format(cached_index_path))
+            tty.debug('Inserting built specs from cache key {0}'.format(
+                cached_index_path))
 
             self._associate_built_specs_with_mirror(cached_index_path,
                                                     mirror_url)
-
-        self._built_spec_cache_invalid = False
 
     def _associate_built_specs_with_mirror(self, cache_key, mirror_url):
         self._init_local_index_cache()
@@ -132,7 +124,7 @@ class BinaryDistributionCacheManager(object):
 
             self._index_file_cache.init_entry(cache_key)
             cache_path = self._index_file_cache.cache_path(cache_key)
-            with self._index_file_cache.read_transaction(cache_key) as cache_file:
+            with self._index_file_cache.read_transaction(cache_key):
                 db._read_from_file(cache_path)
 
             spec_list = db.query_local(installed=False)
@@ -170,16 +162,16 @@ class BinaryDistributionCacheManager(object):
             spec (Spec): Concrete spec to find
 
         Returns:
-            An list of objects containing the found specs mirror url where
-                each can be found:
+            An list of objects containing the found specs and mirror url where
+                each can be found, e.g.:
 
-                .. code-block:: JSON
+                .. code-block:: python
 
                     [
                         {
                             "spec": <concrete-spec>,
                             "mirror_url": <mirror-root-url>
-                        }, ...
+                        }
                     ]
         """
         find_hash = spec.dag_hash()
@@ -187,7 +179,6 @@ class BinaryDistributionCacheManager(object):
             return None
 
         return self._built_spec_cache[find_hash]
-
 
     def update_spec(self, spec, found_list):
         """
@@ -290,7 +281,8 @@ class BinaryDistributionCacheManager(object):
                 hash_fetch_url, 'text/plain')
             fetched_hash = codecs.getreader('utf-8')(fs).read()
         except (URLError, web_util.SpackWebError) as url_err:
-            tty.debug('Unable to read index hash {0}'.format(hash_fetch_url), url_err, 1)
+            tty.debug('Unable to read index hash {0}'.format(
+                hash_fetch_url), url_err, 1)
 
         # IF we were expecting some hash and found that we got it, we're done
         if expect_hash and fetched_hash == expect_hash:
@@ -306,7 +298,8 @@ class BinaryDistributionCacheManager(object):
                 index_fetch_url, 'application/json')
             index_object_str = codecs.getreader('utf-8')(fs).read()
         except (URLError, web_util.SpackWebError) as url_err:
-            tty.debug('Unable to read index {0}'.format(index_fetch_url), url_err, 1)
+            tty.debug('Unable to read index {0}'.format(index_fetch_url),
+                      url_err, 1)
             return
 
         locally_computed_hash = compute_hash(index_object_str)
@@ -329,8 +322,6 @@ class BinaryDistributionCacheManager(object):
             'index_hash': locally_computed_hash,
             'index_path': cache_key,
         }
-
-        self._built_spec_cache_invalid = True
 
 
 def _cache_manager():
@@ -821,7 +812,7 @@ def download_tarball(spec, url=None):
 
     if url:
         urls_to_try.append(url_util.join(
-                url, _build_cache_relative_path, tarball))
+            url, _build_cache_relative_path, tarball))
 
     for mirror in spack.mirror.MirrorCollection().values():
         if not url or url != mirror.fetch_url:
@@ -1122,10 +1113,6 @@ def extract_tarball(spec, filename, allow_root=False, unsigned=False,
             os.remove(filename)
 
 
-# Internal cache for downloaded specs
-_cached_specs = set()
-
-
 def try_direct_fetch(spec, force=False, full_hash_match=False):
     """
     Try to find the spec directly on the configured mirrors
@@ -1134,7 +1121,7 @@ def try_direct_fetch(spec, force=False, full_hash_match=False):
     lenient = not full_hash_match
     found_specs = []
 
-    print('looking for {0}, full_hash_match = {1}'.format(
+    tty.debug('looking for {0}, full_hash_match = {1}'.format(
         specfile_name, full_hash_match))
 
     for mirror in spack.mirror.MirrorCollection().values():
@@ -1159,7 +1146,8 @@ def try_direct_fetch(spec, force=False, full_hash_match=False):
         # Do not recompute the full hash for the fetched spec, instead just
         # read the property.
         if lenient or fetched_spec._full_hash == spec.full_hash():
-            print('  YES, {0} == {1}'.format(fetched_spec._full_hash, spec.full_hash()))
+            tty.debug('  {0} or {1} == {2}'.format(
+                lenient, fetched_spec._full_hash, spec.full_hash()))
             found_specs.append({
                 'mirror_url': mirror.fetch_url,
                 'spec': fetched_spec,
@@ -1188,26 +1176,27 @@ def get_spec(spec=None, force=False, full_hash_match=False):
         for candidate in possibles:
             spec_full_hash = spec.full_hash()
             candidate_full_hash = candidate['spec']._full_hash
-            print('spec full hash: {0}, candidate full hash: {1}'.format(
+            tty.debug('spec full hash: {0}, candidate full hash: {1}'.format(
                 spec_full_hash, candidate_full_hash))
             if lenient or spec_full_hash == candidate_full_hash:
                 filtered_candidates.append(candidate)
         return filtered_candidates
 
     candidates = cache_manager.find_built_spec(spec)
-    print('got {0} candidates'.format(len(candidates) if candidates is not None else 'no'))
+    tty.debug('got {0} candidates'.format(
+        len(candidates) if candidates is not None else 'no'))
     if candidates:
         results = filter_candidates(candidates)
-        print('filtering candidates left {0} results'.format(len(results)))
+        tty.debug('filtering candidates left {0} results'.format(len(results)))
 
     # Maybe we just didn't have the latest information from the mirror, so
     # try to fetch directly.
     if not results:
-        print('Since we did not get anything the first way, try the direct approach')
+        tty.debug('Got no results via the spec cache, try the direct approach')
         results = try_direct_fetch(spec,
                                    force=force,
                                    full_hash_match=full_hash_match)
-        print('direct approach yielded {0} results'.format(len(results)))
+        tty.debug('direct approach yielded {0} results'.format(len(results)))
         if results:
             cache_manager.update_spec(spec, results)
 
@@ -1218,10 +1207,8 @@ def get_specs():
     """
     Get concrete specs for build caches available on mirrors
     """
-    if not cache_manager.spec_cache:
-        cache_manager.update_local_index_cache()
-        cache_manager.regenerate_spec_cache()
-
+    cache_manager.update_local_index_cache()
+    cache_manager.regenerate_spec_cache()
     return cache_manager.get_all_built_specs()
 
 

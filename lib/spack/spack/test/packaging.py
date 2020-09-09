@@ -110,9 +110,16 @@ echo $PATH"""
 
     create_args.insert(create_args.index('-a'), '--rebuild-index')
 
+    print('buildcache create args: ', create_args)
+
     args = parser.parse_args(create_args)
     buildcache.buildcache(parser, args)
     # trigger overwrite warning
+    buildcache.buildcache(parser, args)
+
+    # do a listing of buildcaches
+    list_args = ['list', '-a', '-l']
+    args = parser.parse_args(list_args)
     buildcache.buildcache(parser, args)
 
     # Uninstall the package
@@ -121,6 +128,9 @@ echo $PATH"""
     install_args = ['install', '-a', '-f', pkghash]
     if not spack.util.gpg.Gpg.gpg():
         install_args.insert(install_args.index('-a'), '-u')
+
+    print('buildcache install args: ', install_args)
+
     args = parser.parse_args(install_args)
     # Test install
     buildcache.buildcache(parser, args)
