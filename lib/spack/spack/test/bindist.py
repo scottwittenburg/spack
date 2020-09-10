@@ -300,6 +300,7 @@ def test_default_rpaths_install_nondefault_layout(tmpdir,
     args = parser.parse_args(install_args)
     buildcache.buildcache(parser, args)
 
+    bindist.clear_spec_cache()
     spack.stage.purge()
     margs = mparser.parse_args(
         ['rm', '--scope', 'site', 'test-mirror-def'])
@@ -355,6 +356,7 @@ def test_relative_rpaths_create_default_layout(tmpdir,
     uargs = uparser.parse_args(['-y', '--dependents', gspec.name])
     uninstall.uninstall(uparser, uargs)
 
+    bindist.clear_spec_cache()
     spack.stage.purge()
 
 
@@ -475,7 +477,7 @@ def test_relative_rpaths_install_nondefault(tmpdir,
 @pytest.mark.nomockstage
 @pytest.mark.usefixtures('default_config', 'cache_directory',
                          'install_dir_non_default_layout')
-def test_some_other_stuff(tmpdir,
+def test_built_spec_cache(tmpdir,
                           install_mockery):
     """ Test what's the situation now """
     global mirror_path_rel
@@ -522,3 +524,9 @@ def test_some_other_stuff(tmpdir,
         assert(s._full_hash == full_hash_map[s.name])
         assert(result['mirror_url'] not in cspec_mirrors)
         cspec_mirrors[result['mirror_url']] = True
+
+    bindist.clear_spec_cache()
+
+    margs = mparser.parse_args(
+        ['rm', '--scope', 'site', 'test-mirror-rel'])
+    mirror.mirror(mparser, margs)

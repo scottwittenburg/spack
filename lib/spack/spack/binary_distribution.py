@@ -87,6 +87,9 @@ class BinaryDistributionCacheManager(object):
         """The cache of specs and mirrors they live on"""
         return self._built_spec_cache
 
+    def clear_spec_cache(self):
+        self._built_spec_cache = {}
+
     def _write_local_index_cache(self):
         self._init_local_index_cache()
         cache_key = self._index_contents_key
@@ -1179,6 +1182,10 @@ def get_specs():
     cache_manager.update_local_index_cache()
     cache_manager.regenerate_spec_cache()
     return cache_manager.get_all_built_specs()
+
+
+def clear_spec_cache():
+    cache_manager.clear_spec_cache()
 
 
 def get_keys(install=False, trust=False, force=False):

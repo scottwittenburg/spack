@@ -293,9 +293,6 @@ def match_downloaded_specs(pkgs, allow_multiple_matches=False, force=False,
     has_errors = False
 
     specs = bindist.get_specs()
-    tty.msg('in match_downloaded_specs()', pkgs)
-    tty.msg('bindist.get_specs() returned:')
-    tty.msg(specs)
     if not other_arch:
         arch = spack.architecture.default_arch().to_spec()
         specs = [s for s in specs if s.satisfies(arch)]
