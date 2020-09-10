@@ -57,7 +57,6 @@ class BinaryDistributionCacheManager(object):
     """
 
     def __init__(self, cache_root=None):
-        tty.debug('Constructing BinaryDistributionCacheManager')
         self._cache_root = default_manager_root
         if cache_root:
             self._cache_root = cache_root
@@ -68,9 +67,7 @@ class BinaryDistributionCacheManager(object):
         self._built_spec_cache = {}
 
     def _init_local_index_cache(self):
-        tty.debug('_init_local_index_cache')
         if not self._index_file_cache:
-            tty.debug('_init_local_index_cache -> one time initialization')
             self._index_file_cache = file_cache.FileCache(
                 self._index_cache_root)
 
@@ -91,24 +88,17 @@ class BinaryDistributionCacheManager(object):
         return self._built_spec_cache
 
     def _write_local_index_cache(self):
-        tty.debug('_write_local_index_cache')
         self._init_local_index_cache()
         cache_key = self._index_contents_key
         with self._index_file_cache.write_transaction(cache_key) as (old, new):
             json.dump(self._local_index_cache, new)
 
     def regenerate_spec_cache(self):
-        tty.debug('regenerate_spec_cache')
-
         self._init_local_index_cache()
 
         for mirror_url in self._local_index_cache:
             cache_entry = self._local_index_cache[mirror_url]
             cached_index_path = cache_entry['index_path']
-
-            tty.debug('Inserting built specs from cache key {0}'.format(
-                cached_index_path))
-
             self._associate_built_specs_with_mirror(cached_index_path,
                                                     mirror_url)
 
@@ -133,10 +123,14 @@ class BinaryDistributionCacheManager(object):
                 indexed_spec_dag_hash = indexed_spec.dag_hash()
                 if indexed_spec_dag_hash not in self._built_spec_cache:
                     self._built_spec_cache[indexed_spec_dag_hash] = []
-                self._built_spec_cache[indexed_spec_dag_hash].append({
-                    "mirror_url": mirror_url,
-                    "spec": indexed_spec,
-                })
+                for entry in self._built_spec_cache[indexed_spec_dag_hash]:
+                    if entry['mirror_url'] == mirror_url:
+                        break
+                else:
+                    self._built_spec_cache[indexed_spec_dag_hash].append({
+                        "mirror_url": mirror_url,
+                        "spec": indexed_spec,
+                    })
         finally:
             shutil.rmtree(tmpdir)
 
@@ -252,8 +246,7 @@ class BinaryDistributionCacheManager(object):
 
         self._write_local_index_cache()
 
-    def fetch_and_cache_index(self, mirror_url, expect_hash=None,
-                              update_spec_cache=True):
+    def fetch_and_cache_index(self, mirror_url, expect_hash=None):
         """ Fetch a buildcache index file from a remote mirror and cache it.
 
         If we already have a cached index from this mirror, then we first
@@ -264,8 +257,6 @@ class BinaryDistributionCacheManager(object):
             expect_hash (str): If provided, this hash will be compared against
                 the index hash we retrieve from the mirror, to determine if we
                 need to fetch the index or not.
-            update_spec_cache (bool): Whether or not to update the cache of
-                specs if we needed to fetch the index.
         """
         index_fetch_url = url_util.join(
             mirror_url, _build_cache_relative_path, 'index.json')
@@ -284,7 +275,7 @@ class BinaryDistributionCacheManager(object):
             tty.debug('Unable to read index hash {0}'.format(
                 hash_fetch_url), url_err, 1)
 
-        # IF we were expecting some hash and found that we got it, we're done
+        # If we were expecting some hash and found that we got it, we're done
         if expect_hash and fetched_hash == expect_hash:
             tty.debug('Cached index for {0} already up to date'.format(
                 mirror_url))
@@ -571,9 +562,6 @@ def generate_package_index(cache_prefix):
     cache_prefix.  This page contains a link for each binary package (*.yaml)
     and public key (*.key) under cache_prefix.
     """
-    # TODO: cnnsider that if cache_prefix points to mirror url we have locally
-    # TODO: configured, we could create a cache entry for the tndex we generate
-    # TODO: here, and save the need to fetch/cache it later.
     tmpdir = tempfile.mkdtemp()
     db_root_dir = os.path.join(tmpdir, 'db_root')
     db = spack_db.Database(None, db_dir=db_root_dir,
@@ -740,13 +728,6 @@ def build_tarball(spec, outdir, force=False, rel=False, unsigned=False,
         spec.prefix, spack.store.layout.root)
     buildinfo['relative_rpaths'] = rel
     spec_dict['buildinfo'] = buildinfo
-    # spec_dict['full_hash'] = spec.full_hash()
-
-    # tty.debug('The full_hash ({0}) of {1} will be written into {2}'.format(
-    #     spec_dict['full_hash'],
-    #     spec.name,
-    #     url_util.format(remote_specfile_path)))
-    # tty.debug(spec.tree())
 
     with open(specfile_path, 'w') as outfile:
         outfile.write(syaml.dump(spec_dict))
@@ -1121,9 +1102,6 @@ def try_direct_fetch(spec, force=False, full_hash_match=False):
     lenient = not full_hash_match
     found_specs = []
 
-    tty.debug('looking for {0}, full_hash_match = {1}'.format(
-        specfile_name, full_hash_match))
-
     for mirror in spack.mirror.MirrorCollection().values():
         buildcache_fetch_url = url_util.join(
             mirror.fetch_url, _build_cache_relative_path, specfile_name)
@@ -1146,8 +1124,6 @@ def try_direct_fetch(spec, force=False, full_hash_match=False):
         # Do not recompute the full hash for the fetched spec, instead just
         # read the property.
         if lenient or fetched_spec._full_hash == spec.full_hash():
-            tty.debug('  {0} or {1} == {2}'.format(
-                lenient, fetched_spec._full_hash, spec.full_hash()))
             found_specs.append({
                 'mirror_url': mirror.fetch_url,
                 'spec': fetched_spec,
@@ -1176,27 +1152,20 @@ def get_spec(spec=None, force=False, full_hash_match=False):
         for candidate in possibles:
             spec_full_hash = spec.full_hash()
             candidate_full_hash = candidate['spec']._full_hash
-            tty.debug('spec full hash: {0}, candidate full hash: {1}'.format(
-                spec_full_hash, candidate_full_hash))
             if lenient or spec_full_hash == candidate_full_hash:
                 filtered_candidates.append(candidate)
         return filtered_candidates
 
     candidates = cache_manager.find_built_spec(spec)
-    tty.debug('got {0} candidates'.format(
-        len(candidates) if candidates is not None else 'no'))
     if candidates:
         results = filter_candidates(candidates)
-        tty.debug('filtering candidates left {0} results'.format(len(results)))
 
     # Maybe we just didn't have the latest information from the mirror, so
     # try to fetch directly.
     if not results:
-        tty.debug('Got no results via the spec cache, try the direct approach')
         results = try_direct_fetch(spec,
                                    force=force,
                                    full_hash_match=full_hash_match)
-        tty.debug('direct approach yielded {0} results'.format(len(results)))
         if results:
             cache_manager.update_spec(spec, results)
 

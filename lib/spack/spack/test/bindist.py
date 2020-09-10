@@ -467,3 +467,58 @@ def test_relative_rpaths_install_nondefault(tmpdir,
     margs = mparser.parse_args(
         ['rm', '--scope', 'site', 'test-mirror-rel'])
     mirror.mirror(mparser, margs)
+
+
+@pytest.mark.requires_executables(*args)
+@pytest.mark.disable_clean_stage_check
+@pytest.mark.maybeslow
+@pytest.mark.nomockstage
+@pytest.mark.usefixtures('default_config', 'cache_directory',
+                         'install_dir_non_default_layout')
+def test_some_other_stuff(tmpdir,
+                          install_mockery):
+    """ Test what's the situation now """
+    global mirror_path_rel
+
+    mparser = argparse.ArgumentParser()
+    mirror.setup_parser(mparser)
+    margs = mparser.parse_args(
+        ['add', '--scope', 'site', 'test-mirror-rel', 'file://%s' % mirror_path_rel])
+    mirror.mirror(mparser, margs)
+
+    # setup argument parser
+    parser = argparse.ArgumentParser()
+    buildcache.setup_parser(parser)
+
+    list_args = ['list', '-a', '-l']
+    args = parser.parse_args(list_args)
+    buildcache.buildcache(parser, args)
+
+    gspec = Spec('garply')
+    gspec.concretize()
+
+    cspec = Spec('corge')
+    cspec.concretize()
+
+    full_hash_map = {
+        'garply': gspec.full_hash(),
+        'corge': cspec.full_hash(),
+    }
+
+    gspec_results = bindist.get_spec(gspec)
+
+    gspec_mirrors = {}
+    for result in gspec_results:
+        s = result['spec']
+        assert(s._full_hash == full_hash_map[s.name])
+        assert(result['mirror_url'] not in gspec_mirrors)
+        gspec_mirrors[result['mirror_url']] = True
+
+    cspec_results = bindist.get_spec(cspec, full_hash_match=True)
+
+    cspec_mirrors = {}
+    for result in cspec_results:
+        s = result['spec']
+        assert(s._full_hash == full_hash_map[s.name])
+        assert(result['mirror_url'] not in cspec_mirrors)
+        cspec_mirrors[result['mirror_url']] = True
