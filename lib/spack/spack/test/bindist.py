@@ -260,7 +260,7 @@ def test_default_rpaths_create_install_default_layout(tmpdir,
 
     args = parser.parse_args(['list', '-l', '-v'])
     buildcache.buildcache(parser, args)
-    bindist._cached_specs = set()
+    bindist.clear_spec_cache()
     spack.stage.purge()
     margs = mparser.parse_args(
         ['rm', '--scope', 'site', 'test-mirror-def'])
@@ -425,7 +425,7 @@ def test_relative_rpaths_install_default_layout(tmpdir,
     args = parser.parse_args(install_args)
     buildcache.buildcache(parser, args)
 
-    bindist._cached_specs = set()
+    bindist.clear_spec_cache()
     spack.stage.purge()
     margs = mparser.parse_args(
         ['rm', '--scope', 'site', 'test-mirror-rel'])
@@ -472,7 +472,7 @@ def test_relative_rpaths_install_nondefault(tmpdir,
     args = parser.parse_args(install_args)
     buildcache.buildcache(parser, args)
 
-    bindist._cached_specs = set()
+    bindist.clear_spec_cache()
     spack.stage.purge()
     margs = mparser.parse_args(
         ['rm', '--scope', 'site', 'test-mirror-rel'])
