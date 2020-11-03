@@ -1324,6 +1324,7 @@ def try_direct_fetch(spec, force=False, full_hash_match=False, mirrors=None):
     found_specs = []
 
     for mirror in spack.mirror.MirrorCollection(mirrors=mirrors).values():
+        tty.debug('try_direct_fetch on {0}'.format(mirror.fetch_url))
         buildcache_fetch_url = url_util.join(
             mirror.fetch_url, _build_cache_relative_path, specfile_name)
 
@@ -1360,6 +1361,12 @@ def get_mirrors_for_spec(spec=None, force=False, full_hash_match=False,
     """
     if spec is None:
         return []
+
+    tty.debug('get_mirrors_for_spec')
+    if mirrors_to_check:
+        tty.debug('asked to check specific mirrors')
+        for name, url in mirrors_to_check.items():
+            tty.debug('{0} -> {1}'.format(name, url))
 
     if not spack.mirror.MirrorCollection(mirrors=mirrors_to_check):
         tty.debug("No Spack mirrors are currently configured")
