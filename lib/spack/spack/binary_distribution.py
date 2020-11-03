@@ -1345,10 +1345,15 @@ def try_direct_fetch(spec, force=False, full_hash_match=False, mirrors=None):
         # Do not recompute the full hash for the fetched spec, instead just
         # read the property.
         if lenient or fetched_spec._full_hash == spec.full_hash():
+            tty.debug('Found {0} on {1}'.format(spec.name, mirror.fetch_url))
             found_specs.append({
                 'mirror_url': mirror.fetch_url,
                 'spec': fetched_spec,
             })
+        else:
+            tty.debug('{0} NOMATCH on {1}, local: {2}, remote: {3}'.format(
+                spec.name, mirror.fetch_url, spec.full_hash(),
+                fetched_spec._full_hash))
 
     return found_specs
 
