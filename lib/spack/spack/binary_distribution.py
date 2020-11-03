@@ -1323,6 +1323,10 @@ def try_direct_fetch(spec, force=False, full_hash_match=False, mirrors=None):
     lenient = not full_hash_match
     found_specs = []
 
+    spec_local_full_hash = spec.full_hash()
+    tty.debug('try_direct_fetch looking for {0}, full_hash = {1}'.format(
+        spec.name, spec_local_full_hash))
+
     for mirror in spack.mirror.MirrorCollection(mirrors=mirrors).values():
         tty.debug('try_direct_fetch on {0}'.format(mirror.fetch_url))
         buildcache_fetch_url = url_util.join(
@@ -1344,7 +1348,7 @@ def try_direct_fetch(spec, force=False, full_hash_match=False, mirrors=None):
 
         # Do not recompute the full hash for the fetched spec, instead just
         # read the property.
-        if lenient or fetched_spec._full_hash == spec.full_hash():
+        if lenient or fetched_spec._full_hash == spec_local_full_hash:
             tty.debug('Found {0} on {1}'.format(spec.name, mirror.fetch_url))
             found_specs.append({
                 'mirror_url': mirror.fetch_url,
@@ -1367,12 +1371,6 @@ def get_mirrors_for_spec(spec=None, force=False, full_hash_match=False,
     if spec is None:
         return []
 
-    tty.debug('get_mirrors_for_spec')
-    if mirrors_to_check:
-        tty.debug('asked to check specific mirrors')
-        for name, url in mirrors_to_check.items():
-            tty.debug('{0} -> {1}'.format(name, url))
-
     if not spack.mirror.MirrorCollection(mirrors=mirrors_to_check):
         tty.debug("No Spack mirrors are currently configured")
         return {}
@@ -1380,6 +1378,13 @@ def get_mirrors_for_spec(spec=None, force=False, full_hash_match=False,
     results = []
     lenient = not full_hash_match
     spec_full_hash = spec.full_hash()
+
+    tty.debug('get_mirrors_for_spec({0}), full_hash = {1}'.format(
+        spec.name, spec_full_hash))
+    if mirrors_to_check:
+        tty.debug('asked to check specific mirrors')
+        for name, url in mirrors_to_check.items():
+            tty.debug('{0} -> {1}'.format(name, url))
 
     def filter_candidates(candidate_list):
         filtered_candidates = []
