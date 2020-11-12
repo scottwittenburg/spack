@@ -726,6 +726,9 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
                                                  str(bs_arch),
                                                  build_group,
                                                  enable_artifacts_buildcache))
+                        else:
+                            tty.msg('Considered {0} for {1}, REJECTED'.format(
+                                bs['spec'], release_spec))
 
                 if enable_cdash_reporting:
                     cdash_build_name = get_cdash_build_name(
