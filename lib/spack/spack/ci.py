@@ -670,6 +670,7 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
                     'SPACK_ROOT_SPEC': format_root_spec(
                         root_spec, main_phase, strip_compilers),
                     'SPACK_JOB_SPEC_PKG_NAME': release_spec.name,
+                    'SPACK_JOB_SPEC_PKG_HASH': release_spec.dag_hash(7),
                     'SPACK_COMPILER_ACTION': compiler_action,
                     'SPACK_IS_PR_PIPELINE': str(is_pr_pipeline),
                 }
