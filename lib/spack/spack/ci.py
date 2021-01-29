@@ -42,6 +42,7 @@ JOB_RETRY_CONDITIONS = [
 ]
 
 SPACK_PR_MIRRORS_ROOT_URL = 's3://spack-pr-mirrors'
+TEMP_STORAGE_MIRROR_NAME = 'ci_temporary_mirror'
 
 spack_gpg = spack.main.SpackCommand('gpg')
 spack_compiler = spack.main.SpackCommand('compiler')
@@ -586,6 +587,10 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file, prune_dag=False,
     if 'rebuild-index' in gitlab_ci and gitlab_ci['rebuild-index'] is False:
         rebuild_index_enabled = False
 
+    temp_storage_url_prefix = None
+    if 'temporary-storage-url-prefix' in gitlab_ci:
+        temp_storage_url_prefix = gitlab_ci['temporary-storage-url-prefix']
+
     bootstrap_specs = []
     phases = []
     if 'bootstrap' in gitlab_ci:
@@ -928,9 +933,29 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file, prune_dag=False,
     ]
 
     if job_id > 0:
+        if temp_storage_url_prefix:
+            # There were some rebuild jobs scheduled, so we will need to
+            # schedule a job to clean up the temporary storage location
+            # associated with this pipeline.
+            stage_names.append('cleanup-temp-storage')
+            cleanup_job = {}
+
+            if service_job_config:
+                copy_attributes(default_attrs,
+                                service_job_config,
+                                cleanup_job)
+
+            cleanup_job['stage'] = 'cleanup-temp-storage'
+            cleanup_job['script'] = [
+                'spack mirror destroy {0}'.format(TEMP_STORAGE_MIRROR_NAME)
+            ]
+            cleanup_job['when'] = 'always'
+
+            output_object['cleanup'] = cleanup_job
+
         if rebuild_index_enabled and not is_pr_pipeline:
             # Add a final job to regenerate the index
-            final_stage = 'stage-rebuild-index'
+            stage_names.append('stage-rebuild-index')
             final_job = {}
 
             if service_job_config:
@@ -938,15 +963,14 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file, prune_dag=False,
                                 service_job_config,
                                 final_job)
 
-            final_script = 'spack buildcache update-index --keys'
-            final_script = '{0} -d {1}'.format(final_script, mirror_urls[0])
-
-            final_job['stage'] = final_stage
-            final_job['script'] = [final_script]
+            final_job['stage'] = 'stage-rebuild-index'
+            final_job['script'] = [
+                'spack buildcache update-index --keys -d {0}'.format(
+                    mirror_urls[0])
+            ]
             final_job['when'] = 'always'
 
             output_object['rebuild-index'] = final_job
-            stage_names.append(final_stage)
 
         output_object['stages'] = stage_names
 

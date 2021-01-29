@@ -7,7 +7,7 @@ import filecmp
 import json
 import os
 import pytest
-from jsonschema import validate
+from jsonschema import validate, ValidationError
 
 import spack
 import spack.ci as ci
@@ -20,6 +20,7 @@ import spack.paths as spack_paths
 import spack.repo as repo
 from spack.schema.buildcache_spec import schema as spec_yaml_schema
 from spack.schema.database_index import schema as db_idx_schema
+from spack.schema.gitlab_ci import schema as gitlab_ci_schema
 from spack.spec import Spec, CompilerSpec
 from spack.util.mock_package import MockPackageMultiRepo
 import spack.util.executable as exe
@@ -1271,3 +1272,43 @@ spack:
             output = ci_cmd('rebuild-index', output=str, fail_on_error=False)
             ex = 'spack ci rebuild-index requires an env containing a mirror'
             assert(ex in output)
+
+
+def test_ensure_only_one_temporary_storage():
+    """Make sure 'gitlab-ci' section of env does not allow specification of
+    both 'enable-artifacts-buildcache' and 'temporary-storage-url-prefix'."""
+    gitlab_ci_template = """
+  gitlab-ci:
+    {0}
+    mappings:
+      - match:
+          - notcheckedhere
+        runner-attributes:
+          tags:
+            - donotcare
+"""
+
+    enable_artifacts = 'enable-artifacts-buildcache: True'
+    temp_storage = 'temporary-storage-url-prefix: file:///temp/mirror'
+    specify_both = """{0}
+    {1}
+""".format(enable_artifacts, temp_storage)
+    specify_neither = ''
+
+    # User can specify "enable-artifacts-buildcache" (booelan)
+    yaml_obj = syaml.load(gitlab_ci_template.format(enable_artifacts))
+    validate(yaml_obj, gitlab_ci_schema)
+
+    # User can also specify "temporary-storage-url-prefix" (string)
+    yaml_obj = syaml.load(gitlab_ci_template.format(temp_storage))
+    validate(yaml_obj, gitlab_ci_schema)
+
+    # However, specifying both should fail to validate
+    yaml_obj = syaml.load(gitlab_ci_template.format(specify_both))
+    with pytest.raises(ValidationError):
+        validate(yaml_obj, gitlab_ci_schema)
+
+    # Specifying neither should be fine too, as neither of these properties
+    # should be required
+    yaml_obj = syaml.load(gitlab_ci_template.format(specify_neither))
+    validate(yaml_obj, gitlab_ci_schema)
