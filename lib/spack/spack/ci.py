@@ -787,7 +787,8 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
                     'retry': {
                         'max': 2,
                         'when': JOB_RETRY_CONDITIONS,
-                    }
+                    },
+                    'interruptible': True,
                 }
 
                 length_needs = len(job_dependencies)
@@ -836,7 +837,8 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
             'script': 'spack buildcache update-index --keys -d {0}'.format(
                 mirror_urls[0]),
             'tags': final_job_config['tags'],
-            'when': 'always'
+            'when': 'always',
+            'interruptible': True
         }
         if 'image' in final_job_config:
             final_job['image'] = final_job_config['image']
