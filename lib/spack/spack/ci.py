@@ -947,7 +947,7 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file, prune_dag=False,
 
             cleanup_job['stage'] = 'cleanup-temp-storage'
             cleanup_job['script'] = [
-                'spack mirror destroy {0}'.format(TEMP_STORAGE_MIRROR_NAME)
+                'spack mirror destroy -m {0}'.format(TEMP_STORAGE_MIRROR_NAME)
             ]
             cleanup_job['when'] = 'always'
 
