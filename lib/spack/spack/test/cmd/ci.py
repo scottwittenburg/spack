@@ -1312,3 +1312,58 @@ def test_ensure_only_one_temporary_storage():
     # should be required
     yaml_obj = syaml.load(gitlab_ci_template.format(specify_neither))
     validate(yaml_obj, gitlab_ci_schema)
+
+
+def test_ci_generate_temp_storage_url(tmpdir, mutable_mock_env_path,
+                                      env_deactivate, install_mockery,
+                                      mock_packages, monkeypatch):
+    """Verify correct behavior when using temporary-storage-url-prefix"""
+    filename = str(tmpdir.join('spack.yaml'))
+    with open(filename, 'w') as f:
+        f.write("""\
+spack:
+  specs:
+    - archive-files
+  mirrors:
+    some-mirror: https://my.fake.mirror
+  gitlab-ci:
+    temporary-storage-url-prefix: file:///work/temp/mirror
+    mappings:
+      - match:
+          - archive-files
+        runner-attributes:
+          tags:
+            - donotcare
+          image: donotcare
+""")
+
+    with tmpdir.as_cwd():
+        env_cmd('create', 'test', './spack.yaml')
+        outputfile = str(tmpdir.join('.gitlab-ci.yml'))
+
+        monkeypatch.setattr(
+            ci, 'SPACK_PR_MIRRORS_ROOT_URL', r"file:///fake/mirror")
+
+        with ev.read('test'):
+            ci_cmd('generate', '--output-file', outputfile)
+
+            with open(outputfile) as of:
+                pipeline_doc = syaml.load(of.read())
+
+                print(pipeline_doc)
+
+                assert('cleanup' in pipeline_doc)
+                cleanup_job = pipeline_doc['cleanup']
+
+                assert('script' in cleanup_job)
+                cleanup_task = cleanup_job['script'][0]
+
+                assert(cleanup_task.startswith('spack mirror destroy -m '))
+                assert(cleanup_task.endswith(ci.TEMP_STORAGE_MIRROR_NAME))
+
+                assert('stages' in pipeline_doc)
+                stages = pipeline_doc['stages']
+
+                # Cleanup job should be 2nd to last, just before rebuild-index
+                assert('stage' in cleanup_job)
+                assert(cleanup_job['stage'] == stages[-2])
