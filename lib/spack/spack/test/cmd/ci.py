@@ -186,10 +186,18 @@ def _validate_needs_graph(yaml_contents, needs_graph, artifacts):
         for needs_def_name, needs_list in needs_graph.items():
             if job_name.startswith(needs_def_name):
                 # check job needs against the expected needs definition
+                j_needs = job_def['needs']
+                print('job {0} needs:'.format(needs_def_name))
+                print([j['job'] for j in j_needs])
+                print('expected:')
+                print([nl for nl in needs_list])
                 assert all([job_needs['job'][:job_needs['job'].index('/')]
-                           in needs_list for job_needs in job_def['needs']])
+                           in needs_list for job_needs in j_needs])
+                assert(all([nl in
+                           [n['job'][:n['job'].index('/')] for n in j_needs]
+                           for nl in needs_list]))
                 assert all([job_needs['artifacts'] == artifacts
-                           for job_needs in job_def['needs']])
+                           for job_needs in j_needs])
                 break
 
 
@@ -379,7 +387,10 @@ spack:
             fake_token = 'notreallyatokenbutshouldnotmatter'
             os.environ['SPACK_CDASH_AUTH_TOKEN'] = fake_token
             copy_to_file = str(tmpdir.join('backup-ci.yml'))
-            output = ci_cmd('generate', '--copy-to', copy_to_file, output=str)
+            try:
+                output = ci_cmd('generate', '--copy-to', copy_to_file, output=str)
+            finally:
+                del os.environ['SPACK_CDASH_AUTH_TOKEN']
             # That fake token should still have resulted in being unable to
             # register build group with cdash, but the workload should
             # still have been generated.
@@ -583,7 +594,11 @@ spack:
             os.environ['SPACK_PR_BRANCH'] = 'fake-test-branch'
             monkeypatch.setattr(
                 ci, 'SPACK_PR_MIRRORS_ROOT_URL', r"file:///fake/mirror")
-            ci_cmd('generate', '--output-file', outputfile)
+            try:
+                ci_cmd('generate', '--output-file', outputfile)
+            finally:
+                del os.environ['SPACK_IS_PR_PIPELINE']
+                del os.environ['SPACK_PR_BRANCH']
 
         with open(outputfile) as f:
             contents = f.read()

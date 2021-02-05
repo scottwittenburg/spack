@@ -397,8 +397,6 @@ def compute_spec_deps(spec_list, check_index_only=False):
         # root_spec = get_spec_string(spec)
         root_spec = spec
 
-        rkey = spec_deps_key(spec)
-
         for s in spec.traverse(deptype=all):
             if s.external:
                 tty.msg('Will not stage external pkg: {0}'.format(s))
@@ -413,8 +411,6 @@ def compute_spec_deps(spec_list, check_index_only=False):
                 'root': root_spec,
                 'needs_rebuild': not up_to_date_mirrors,
             }
-
-            append_dep(rkey, skey)
 
             for d in s.dependencies(deptype=all):
                 dkey = spec_deps_key(d)
