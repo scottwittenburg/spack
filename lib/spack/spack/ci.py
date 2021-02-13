@@ -950,7 +950,7 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file, prune_dag=False,
 
             output_object['cleanup'] = cleanup_job
 
-        if rebuild_index_enabled and not is_pr_pipeline:
+        if rebuild_index_enabled:
             # Add a final job to regenerate the index
             stage_names.append('stage-rebuild-index')
             final_job = {}
@@ -960,10 +960,14 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file, prune_dag=False,
                                 service_job_config,
                                 final_job)
 
+            index_target_mirror = mirror_urls[0]
+            if is_pr_pipeline:
+                index_target_mirror = pr_mirror_url
+
             final_job['stage'] = 'stage-rebuild-index'
             final_job['script'] = [
                 'spack -d buildcache update-index --keys -d {0}'.format(
-                    mirror_urls[0])
+                    index_target_mirror)
             ]
             final_job['when'] = 'always'
 
