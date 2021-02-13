@@ -1310,7 +1310,7 @@ def test_ensure_only_one_temporary_storage():
 """.format(enable_artifacts, temp_storage)
     specify_neither = ''
 
-    # User can specify "enable-artifacts-buildcache" (booelan)
+    # User can specify "enable-artifacts-buildcache" (boolean)
     yaml_obj = syaml.load(gitlab_ci_template.format(enable_artifacts))
     validate(yaml_obj, gitlab_ci_schema)
 
