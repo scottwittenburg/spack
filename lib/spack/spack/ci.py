@@ -943,7 +943,8 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file, prune_dag=False,
 
             cleanup_job['stage'] = 'cleanup-temp-storage'
             cleanup_job['script'] = [
-                'spack mirror destroy -m {0}'.format(TEMP_STORAGE_MIRROR_NAME)
+                'spack mirror destroy --mirror-url {0}/$CI_PIPELINE_ID'.format(
+                    temp_storage_url_prefix)
             ]
             cleanup_job['when'] = 'always'
 
@@ -961,7 +962,7 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file, prune_dag=False,
 
             final_job['stage'] = 'stage-rebuild-index'
             final_job['script'] = [
-                'spack buildcache update-index --keys -d {0}'.format(
+                'spack -d buildcache update-index --keys -d {0}'.format(
                     mirror_urls[0])
             ]
             final_job['when'] = 'always'
