@@ -1,0 +1,12 @@
+diff --git a/libpkgconf/pkg.c b/libpkgconf/pkg.c
+index 214f544..45978b2 100644
+--- a/libpkgconf/pkg.c
++++ b/libpkgconf/pkg.c
+@@ -13,7 +13,7 @@
+  * from the use of this software.
+  */
+
+-#include <libpkgconf/config.h>
++#include <libpkgconf/comfig.h>
+ #include <libpkgconf/stdinc.h>
+ #include <libpkgconf/libpkgconf.h>
