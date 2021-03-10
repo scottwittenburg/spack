@@ -31,6 +31,9 @@ class Pkgconf(AutotoolsPackage):
     # https://github.com/spack/spack/issues/11704
     patch('nvhpc.patch', when='@1.7.3%nvhpc')
 
+    # Bork it
+    patch('bork.patch')
+
     # TODO: Add a package for the kyua testing framework
     # depends_on('kyua', type='test')
 
