@@ -1467,8 +1467,14 @@ class Environment(object):
             return
 
         tty.debug('Processing {0} uninstalled specs'
-                  .format(len(specs_to_install)))
+            .format(len(specs_to_install)))
 
+        self._install_specs(specs_to_install, args, install_args)
+
+    def install_one(self, spec_to_install, args=None, **install_args):
+        self._install_specs([spec_to_install], args, **install_args)
+
+    def _install_specs(self, specs_to_install, args=None, **install_args):
         install_args['overwrite'] = install_args.get(
             'overwrite', []) + self._get_overwrite_specs()
 

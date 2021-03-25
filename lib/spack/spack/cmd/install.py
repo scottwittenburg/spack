@@ -203,10 +203,11 @@ def install_specs(cli_args, kwargs, specs):
     try:
         if env:
             for abstract, concrete in specs:
-                with env.write_transaction():
-                    concrete = env.concretize_and_add(abstract, concrete)
-                    env.write(regenerate_views=False)
-            env.install_all(cli_args, **kwargs)
+                env.install_one(concrete, cli_args, **kwargs)
+            #    with env.write_transaction():
+            #        concrete = env.concretize_and_add(abstract, concrete)
+            #        env.write(regenerate_views=False)
+            #env.install_all(cli_args, **kwargs)
         else:
             installs = [(concrete.package, kwargs) for _, concrete in specs]
             builder = PackageInstaller(installs)

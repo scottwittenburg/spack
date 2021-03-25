@@ -4563,7 +4563,17 @@ class SpecParser(spack.parse.Parser):
         dag_hash = self.token.value
         matches = spack.store.db.get_by_hash(dag_hash)
         if not matches:
-            raise NoSuchHashError(dag_hash)
+            import spack.environment as ev
+            env = ev.get_env(None, None)
+            if env:
+                print('checking active environment for {0}'.format(dag_hash))
+                env_specs = [s for s in env.all_specs() if s.dag_hash().startswith(dag_hash)]
+                if len(env_specs) >= 1:
+                    return env_specs[0]
+                else:
+                    raise NoSuchHashError(dag_hash)
+            else:
+                raise NoSuchHashError(dag_hash)
 
         if len(matches) != 1:
             raise AmbiguousHashError(
