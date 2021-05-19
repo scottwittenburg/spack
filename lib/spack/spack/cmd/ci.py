@@ -273,304 +273,308 @@ def ci_rebuild(args):
     job_spec_yaml_file = '{0}.yaml'.format(job_spec_pkg_name)
     job_spec_yaml_path = os.path.join(repro_dir, job_spec_yaml_file)
 
-    # Everything above this line we can tolerate doing twice in the same job
-    # as a means to reduce code duplication.  Everything below this line should
-    # be done only once, either during build preparation or postprocessing, but
-    # not both.
+    # To provide logs, cdash reports, etc for developer download/perusal,
+    # these things have to be put into artifacts.  This means downstream
+    # jobs that "need" this job will get those artifacts too.  So here we
+    # need to clean out the artifacts we may have got from upstream jobs.
 
-    # Here we differentiate between preprocessing and postprocessing tasks
-    if args.pre_process:
-        # Do the preprocessing tasks to prepare for the build
+    cdash_report_dir = os.path.join(pipeline_artifacts_dir, 'cdash_report')
+    if os.path.exists(cdash_report_dir):
+        shutil.rmtree(cdash_report_dir)
 
-        # To provide logs, cdash reports, etc for developer download/perusal,
-        # these things have to be put into artifacts.  This means downstream
-        # jobs that "need" this job will get those artifacts too.  So here we
-        # need to clean out the artifacts we may have got from upstream jobs.
+    if os.path.exists(job_log_dir):
+        shutil.rmtree(job_log_dir)
 
-        cdash_report_dir = os.path.join(pipeline_artifacts_dir, 'cdash_report')
-        if os.path.exists(cdash_report_dir):
-            shutil.rmtree(cdash_report_dir)
+    if os.path.exists(repro_dir):
+        shutil.rmtree(repro_dir)
 
-        if os.path.exists(job_log_dir):
-            shutil.rmtree(job_log_dir)
+    # Now that we removed them if they existed, create the directories we
+    # need for storing artifacts.  The cdash_report directory will be
+    # created internally if needed.
+    os.makedirs(job_log_dir)
+    os.makedirs(repro_dir)
 
-        if os.path.exists(repro_dir):
-            shutil.rmtree(repro_dir)
+    # Copy the concrete environment files to the repro directory so we can
+    # expose them as artifacts and not conflict with the concrete environment
+    # files we got as artifacts from the upstream pipeline generation job.
+    # Try to cast a slightly wider net too, and hopefully get the generated
+    # pipeline yaml.  If we miss it, the user will still be able to go to the
+    # pipeline generation job and get it from there.
+    target_dirs = [
+        concrete_env_dir,
+        pipeline_artifacts_dir
+    ]
 
-        # Now that we removed them if they existed, create the directories we
-        # need for storing artifacts.  The cdash_report directory will be
-        # created internally if needed.
-        os.makedirs(job_log_dir)
-        os.makedirs(repro_dir)
+    for dir_to_list in target_dirs:
+        for file_name in os.listdir(dir_to_list):
+            src_file = os.path.join(dir_to_list, file_name)
+            if os.path.isfile(src_file):
+                dst_file = os.path.join(repro_dir, file_name)
+                shutil.copyfile(src_file, dst_file)
 
-        # Copy the concrete environment files to the repro directory so we can
-        # expose them as artifacts and not conflict with the concrete environment
-        # files we got as artifacts from the upstream pipeline generation job.
-        # Try to cast a slightly wider net too, and hopefully get the generated
-        # pipeline yaml.  If we miss it, the user will still be able to go to the
-        # pipeline generation job and get it from there.
-        target_dirs = [
-            concrete_env_dir,
-            pipeline_artifacts_dir
+    # If signing key was provided via "SPACK_SIGNING_KEY", then try to
+    # import it.
+    if signing_key:
+        spack_ci.import_signing_key(signing_key)
+
+    # Depending on the specifics of this job, we might need to turn on the
+    # "config:install_missing compilers" option (to build this job spec
+    # with a bootstrapped compiler), or possibly run "spack compiler find"
+    # (to build a bootstrap compiler or one of its deps in a
+    # compiler-agnostic way), or maybe do nothing at all (to build a spec
+    # using a compiler already installed on the target system).
+    spack_ci.configure_compilers(compiler_action)
+
+    # Write this job's spec yaml into the reproduction directory, and it will
+    # also be used in the generated "spack install" command to install the spec
+    tty.debug('job concrete spec path: {0}'.format(job_spec_yaml_path))
+    with open(job_spec_yaml_path, 'w') as fd:
+        fd.write(job_spec.to_yaml(hash=ht.build_hash))
+
+    # Write the concrete root spec yaml into the reproduction directory
+    root_spec_yaml_path = os.path.join(repro_dir, 'root.yaml')
+    with open(root_spec_yaml_path, 'w') as fd:
+        fd.write(spec_map['root'].to_yaml(hash=ht.build_hash))
+
+    # Write some other details to aid in reproduction into an artifact
+    repro_file = os.path.join(repro_dir, 'repro.json')
+    repro_details = {
+        'job_name': ci_job_name,
+        'job_spec_yaml': job_spec_yaml_file,
+        'root_spec_yaml': 'root.yaml'
+    }
+    with open(repro_file, 'w') as fd:
+        fd.write(json.dumps(repro_details))
+
+    # Write information about spack into an artifact in the repro dir
+    spack_info = spack_ci.get_spack_info()
+    spack_info_file = os.path.join(repro_dir, 'spack_info.txt')
+    with open(spack_info_file, 'w') as fd:
+        fd.write('\n{0}\n'.format(spack_info))
+
+    # If we decided there should be a temporary storage mechanism, add that
+    # mirror now so it's used when we check for a full hash match already
+    # built for this spec.
+    if pipeline_mirror_url:
+        spack_ci.add_mirror(
+            spack_ci.TEMP_STORAGE_MIRROR_NAME, pipeline_mirror_url)
+
+    cdash_build_id = None
+    cdash_build_stamp = None
+
+    # Check configured mirrors for a built spec with a matching full hash
+    matches = bindist.get_mirrors_for_spec(
+        job_spec, full_hash_match=True, index_only=False)
+
+    if matches:
+        # Got at full hash match on at least one configured mirror.  All
+        # matches represent the fully up-to-date spec, so should all be
+        # equivalent.  If artifacts mirror is enabled, we just pick one
+        # of the matches and download the buildcache files from there to
+        # the artifacts, so they're available to be used by dependent
+        # jobs in subsequent stages.
+        install_msg = 'No need to rebuild {0}'.format(job_spec_pkg_name)
+        tty.debug('No need to rebuild {0}'.format(job_spec_pkg_name))
+        if enable_artifacts_mirror:
+            matching_mirror = matches[0]['mirror_url']
+            build_cache_dir = os.path.join(local_mirror_dir, 'build_cache')
+            tty.debug('Getting {0} buildcache from {1}'.format(
+                job_spec_pkg_name, matching_mirror))
+            tty.debug('Downloading to {0}'.format(build_cache_dir))
+            buildcache.download_buildcache_files(
+                job_spec, build_cache_dir, True, matching_mirror)
+
+        # Write a no-op command to a shell script
+        with open('install.sh', 'w') as fd:
+            fd.write('#!/bin/bash\n\n')
+            fd.write('echo {0}\n'.format(install_msg))
+    else:
+        # No full hash match anywhere means we need to rebuild spec
+
+        # Build up common install arguments
+        install_args = [
+            '-d', '-v', '-k', 'install',
+            '--keep-stage',
+            '--require-full-hash-match',
         ]
 
-        for dir_to_list in target_dirs:
-            for file_name in os.listdir(dir_to_list):
-                src_file = os.path.join(dir_to_list, file_name)
-                if os.path.isfile(src_file):
-                    dst_file = os.path.join(repro_dir, file_name)
-                    shutil.copyfile(src_file, dst_file)
+        can_verify = spack_ci.can_verify_binaries()
+        verify_binaries = can_verify and spack_is_pr_pipeline is False
+        if not verify_binaries:
+            install_args.append('--no-check-signature')
 
-        # If signing key was provided via "SPACK_SIGNING_KEY", then try to
-        # import it.
-        if signing_key:
-            spack_ci.import_signing_key(signing_key)
+        # If CDash reporting is enabled, we first register this build with
+        # the specified CDash instance, then relate the build to those of
+        # its dependencies.
+        if enable_cdash:
+            tty.debug('CDash: Registering build')
+            (cdash_build_id,
+                cdash_build_stamp) = spack_ci.register_cdash_build(
+                cdash_build_name, cdash_base_url, cdash_project,
+                cdash_site, job_spec_buildgroup)
 
-        # Depending on the specifics of this job, we might need to turn on the
-        # "config:install_missing compilers" option (to build this job spec
-        # with a bootstrapped compiler), or possibly run "spack compiler find"
-        # (to build a bootstrap compiler or one of its deps in a
-        # compiler-agnostic way), or maybe do nothing at all (to build a spec
-        # using a compiler already installed on the target system).
-        spack_ci.configure_compilers(compiler_action)
+            cdash_upload_url = '{0}/submit.php?project={1}'.format(
+                cdash_base_url, cdash_project_enc)
 
-        # Write this job's spec yaml into the reproduction directory, and it will
-        # also be used in the generated "spack install" command to install the spec
-        tty.debug('job concrete spec path: {0}'.format(job_spec_yaml_path))
-        with open(job_spec_yaml_path, 'w') as fd:
-            fd.write(job_spec.to_yaml(hash=ht.build_hash))
+            install_args.extend([
+                '--cdash-upload-url', cdash_upload_url,
+                '--cdash-build', cdash_build_name,
+                '--cdash-site', cdash_site,
+                '--cdash-buildstamp', cdash_build_stamp,
+            ])
 
-        # Write the concrete root spec yaml into the reproduction directory
-        root_spec_yaml_path = os.path.join(repro_dir, 'root.yaml')
-        with open(root_spec_yaml_path, 'w') as fd:
-            fd.write(spec_map['root'].to_yaml(hash=ht.build_hash))
+            tty.debug('CDash: Relating build with dependency builds')
+            spack_ci.relate_cdash_builds(
+                spec_map, cdash_base_url, cdash_build_id, cdash_project,
+                [pipeline_mirror_url, pr_mirror_url, remote_mirror_url])
 
-        # Write some other details to aid in reproduction into an artifact
-        repro_file = os.path.join(repro_dir, 'repro.json')
-        repro_details = {
-            'job_name': ci_job_name,
-            'job_spec_yaml': job_spec_yaml_file,
-            'root_spec_yaml': 'root.yaml'
-        }
-        with open(repro_file, 'w') as fd:
-            fd.write(json.dumps(repro_details))
+            # store the cdash build id on disk for later
+            with open(cdash_id_path, 'w') as fd:
+                fd.write(cdash_build_id)
 
-        # Write information about spack into an artifact in the repro dir
-        spack_info = spack_ci.get_spack_info()
-        spack_info_file = os.path.join(repro_dir, 'spack_info.txt')
-        with open(spack_info_file, 'w') as fd:
-            fd.write('\n{0}\n'.format(spack_info))
+        # A compiler action of 'FIND_ANY' means we are building a bootstrap
+        # compiler or one of its deps.
+        # TODO: when compilers are dependencies, we should include --no-add
+        if compiler_action != 'FIND_ANY':
+            install_args.append('--no-add')
 
-        # If we decided there should be a temporary storage mechanism, add that
-        # mirror now so it's used when we check for a full hash match already
-        # built for this spec.
-        if pipeline_mirror_url:
-            spack_ci.add_mirror(
-                spack_ci.TEMP_STORAGE_MIRROR_NAME, pipeline_mirror_url)
+        # TODO: once we have the concrete spec registry, use the DAG hash
+        # to identify the spec to install, rather than the concrete spec
+        # yaml file.
+        install_args.extend(['-f', job_spec_yaml_path])
 
-        # Check configured mirrors for a built spec with a matching full hash
-        matches = bindist.get_mirrors_for_spec(
-            job_spec, full_hash_match=True, index_only=False)
+        tty.debug('Installing {0} from source'.format(job_spec.name))
+        tty.debug('spack install arguments: {0}'.format(
+            install_args))
 
-        if matches:
-            # Got at full hash match on at least one configured mirror.  All
-            # matches represent the fully up-to-date spec, so should all be
-            # equivalent.  If artifacts mirror is enabled, we just pick one
-            # of the matches and download the buildcache files from there to
-            # the artifacts, so they're available to be used by dependent
-            # jobs in subsequent stages.
-            install_msg = 'No need to rebuild {0}'.format(job_spec_pkg_name)
-            tty.debug('No need to rebuild {0}'.format(job_spec_pkg_name))
-            if enable_artifacts_mirror:
-                matching_mirror = matches[0]['mirror_url']
-                build_cache_dir = os.path.join(local_mirror_dir, 'build_cache')
-                tty.debug('Getting {0} buildcache from {1}'.format(
-                    job_spec_pkg_name, matching_mirror))
-                tty.debug('Downloading to {0}'.format(build_cache_dir))
-                buildcache.download_buildcache_files(
-                    job_spec, build_cache_dir, True, matching_mirror)
+        # Write the install command to a shell script
+        with open('install.sh', 'w') as fd:
+            fd.write('#!/bin/bash\n\n')
+            fd.write('\n# spack install command\n')
+            fd.write('spack ')
+            fd.write(' '.join(['"{0}"'.format(i) for i in install_args]))
+            fd.write(' || export SPACK_INSTALL_EXIT_ERROR=$?')
+            fd.write('\n\nspack -d ci rebuild --postprocess\n')
 
-            # Write a no-op command to a shell script
-            with open('install.sh', 'w') as fd:
-                fd.write('#!/bin/bash\n\n')
-                fd.write('echo {0}\n'.format(install_msg))
-        else:
-            # No full hash match anywhere means we need to rebuild spec
+    st = os.stat('install.sh')
+    os.chmod('install.sh', st.st_mode | stat.S_IEXEC)
 
-            # Build up common install arguments
-            install_args = [
-                '-d', '-v', '-k', 'install',
-                '--keep-stage',
-                '--require-full-hash-match',
-            ]
+    install_copy_path = os.path.join(repro_dir, 'install.sh')
+    shutil.copyfile('install.sh', install_copy_path)
 
-            can_verify = spack_ci.can_verify_binaries()
-            verify_binaries = can_verify and spack_is_pr_pipeline is False
-            if not verify_binaries:
-                install_args.append('--no-check-signature')
+    # Now run the generated install.sh shell script as if it were being run in
+    # a login shell.
 
-            # Add arguments to create + register a new build on CDash (if
-            # enabled)
-            cdash_build_id = None
-            cdash_build_stamp = None
+    try:
+        path_max_proc  = subprocess.Popen(['bash', '-l', './install.sh'],
+                                          stdout=subprocess.PIPE,
+                                          stderr=subprocess.STDOUT)
+        proc_output = str(path_max_proc.communicate()[0].decode())
+        install_exit_code = proc_output.returncode
+        sys_max_path_length = int(proc_output)
+    except (ValueError, subprocess.CalledProcessError, OSError):
+        tty.msg('Unable to find system max path length, using: {0}'.format(
+            sys_max_path_length))
 
-            # If CDash reporting is enabled, we first register this build with
-            # the specified CDash instance, then relate the build to those of
-            # its dependencies.
-            if enable_cdash:
-                tty.debug('CDash: Registering build')
-                (cdash_build_id,
-                    cdash_build_stamp) = spack_ci.register_cdash_build(
-                    cdash_build_name, cdash_base_url, cdash_project,
-                    cdash_site, job_spec_buildgroup)
 
-                cdash_upload_url = '{0}/submit.php?project={1}'.format(
-                    cdash_base_url, cdash_project_enc)
+    # Now do the post-install tasks
+    install_exit_code = int(os.environ.get('SPACK_INSTALL_EXIT_ERROR', 0))
+    tty.debug('spack install exited {0}'.format(install_exit_code))
 
-                install_args.extend([
-                    '--cdash-upload-url', cdash_upload_url,
-                    '--cdash-build', cdash_build_name,
-                    '--cdash-site', cdash_site,
-                    '--cdash-buildstamp', cdash_build_stamp,
-                ])
+    # If a spec fails to build in a spack develop pipeline, we add it to a
+    # list of known broken full hashes.  This allows spack PR pipelines to
+    # avoid wasting compute cycles attempting to build those hashes.
+    if install_exit_code != 0 and spack_is_develop_pipeline:
+        if 'broken-specs-url' in gitlab_ci:
+            broken_specs_url = gitlab_ci['broken-specs-url']
+            dev_fail_hash = job_spec.full_hash()
+            broken_spec_path = url_util.join(broken_specs_url, dev_fail_hash)
+            tmpdir = tempfile.mkdtemp()
+            empty_file_path = os.path.join(tmpdir, 'empty.txt')
 
-                tty.debug('CDash: Relating build with dependency builds')
-                spack_ci.relate_cdash_builds(
-                    spec_map, cdash_base_url, cdash_build_id, cdash_project,
-                    [pipeline_mirror_url, pr_mirror_url, remote_mirror_url])
+            try:
+                with open(empty_file_path, 'w') as efd:
+                    efd.write('')
+                web_util.push_to_url(
+                    empty_file_path,
+                    broken_spec_path,
+                    keep_original=False,
+                    extra_args={'ContentType': 'text/plain'})
+            except Exception as err:
+                # If we got some kind of S3 (access denied or other connection
+                # error), the first non boto-specific class in the exception
+                # hierarchy is Exception.  Just print a warning and return
+                msg = 'Error writing to broken specs list {0}: {1}'.format(
+                    broken_spec_path, err)
+                tty.warn(msg)
+            finally:
+                shutil.rmtree(tmpdir)
 
-                # store the cdash build id on disk for later
-                with open(cdash_id_path, 'w') as fd:
-                    fd.write(cdash_build_id)
+    # We generated the "spack install ..." command to "--keep-stage", copy
+    # any logs from the staging directory to artifacts now
+    spack_ci.copy_stage_logs_to_artifacts(job_spec, job_log_dir)
 
-            # A compiler action of 'FIND_ANY' means we are building a bootstrap
-            # compiler or one of its deps.
-            # TODO: when compilers are dependencies, we should include --no-add
-            if compiler_action != 'FIND_ANY':
-                install_args.append('--no-add')
-
-            # TODO: once we have the concrete spec registry, use the DAG hash
-            # to identify the spec to install, rather than the concrete spec
-            # yaml file.
-            install_args.extend(['-f', job_spec_yaml_path])
-
-            tty.debug('Installing {0} from source'.format(job_spec.name))
-            tty.debug('spack install arguments: {0}'.format(
-                install_args))
-
-            # Write the install command to a shell script
-            with open('install.sh', 'w') as fd:
-                fd.write('#!/bin/bash\n\n')
-                fd.write('\n# spack install command\n')
-                fd.write('spack ')
-                fd.write(' '.join(['"{0}"'.format(i) for i in install_args]))
-                fd.write(' || export SPACK_INSTALL_EXIT_ERROR=$?')
-                fd.write('\n\nspack -d ci rebuild --postprocess\n')
-
-        st = os.stat('install.sh')
-        os.chmod('install.sh', st.st_mode | stat.S_IEXEC)
-
-        install_copy_path = os.path.join(repro_dir, 'install.sh')
-        shutil.copyfile('install.sh', install_copy_path)
+    # Create buildcache on remote mirror, either on pr-specific mirror or
+    # on the main mirror defined in the gitlab-enabled spack environment
+    if spack_is_pr_pipeline:
+        buildcache_mirror_url = pr_mirror_url
     else:
-        # Instead, do the post-processing tasks
-        install_exit_code = int(os.environ.get('SPACK_INSTALL_EXIT_ERROR', 0))
-        tty.debug('spack install exited {0}'.format(install_exit_code))
+        buildcache_mirror_url = remote_mirror_url
 
-        # If a spec fails to build in a spack develop pipeline, we add it to a
-        # list of known broken full hashes.  This allows spack PR pipelines to
-        # avoid wasting compute cycles attempting to build those hashes.
-        if install_exit_code != 0 and spack_is_develop_pipeline:
-            if 'broken-specs-url' in gitlab_ci:
-                broken_specs_url = gitlab_ci['broken-specs-url']
-                dev_fail_hash = job_spec.full_hash()
-                broken_spec_path = url_util.join(broken_specs_url, dev_fail_hash)
-                tmpdir = tempfile.mkdtemp()
-                empty_file_path = os.path.join(tmpdir, 'empty.txt')
+    # If the install succeeded, create a buildcache entry for this job spec
+    # and push it to one or more mirrors.  If the install did not succeed,
+    # print out some instructions on how to reproduce this build failure
+    # outside of the pipeline environment.
+    if install_exit_code == 0:
+        can_sign = spack_ci.can_sign_binaries()
+        sign_binaries = can_sign and spack_is_pr_pipeline is False
 
-                try:
-                    with open(empty_file_path, 'w') as efd:
-                        efd.write('')
-                    web_util.push_to_url(
-                        empty_file_path,
-                        broken_spec_path,
-                        keep_original=False,
-                        extra_args={'ContentType': 'text/plain'})
-                except Exception as err:
-                    # If we got some kind of S3 (access denied or other connection
-                    # error), the first non boto-specific class in the exception
-                    # hierarchy is Exception.  Just print a warning and return
-                    msg = 'Error writing to broken specs list {0}: {1}'.format(
-                        broken_spec_path, err)
-                    tty.warn(msg)
-                finally:
-                    shutil.rmtree(tmpdir)
+        cdash_build_id = None
+        if enable_cdash:
+            with open(cdash_id_path) as fd:
+                cdash_build_id = fd.read()
 
-        # We generated the "spack install ..." command to "--keep-stage", copy
-        # any logs from the staging directory to artifacts now
-        spack_ci.copy_stage_logs_to_artifacts(job_spec, job_log_dir)
+        # Create buildcache in either the main remote mirror, or in the
+        # per-PR mirror, if this is a PR pipeline
+        spack_ci.push_mirror_contents(
+            env, job_spec, job_spec_yaml_path, buildcache_mirror_url,
+            cdash_build_id, sign_binaries)
 
-        # Create buildcache on remote mirror, either on pr-specific mirror or
-        # on the main mirror defined in the gitlab-enabled spack environment
-        if spack_is_pr_pipeline:
-            buildcache_mirror_url = pr_mirror_url
-        else:
-            buildcache_mirror_url = remote_mirror_url
+        # Create another copy of that buildcache in the per-pipeline
+        # temporary storage mirror (this is only done if either
+        # artifacts buildcache is enabled or a temporary storage url
+        # prefix is set)
+        spack_ci.push_mirror_contents(
+            env, job_spec, job_spec_yaml_path, pipeline_mirror_url,
+            cdash_build_id, sign_binaries)
+    else:
+        tty.debug('spack install exited non-zero, will not create buildcache')
 
-        # If the install succeeded, create a buildcache entry for this job spec
-        # and push it to one or more mirrors.  If the install did not succeed,
-        # print out some instructions on how to reproduce this build failure
-        # outside of the pipeline environment.
-        if install_exit_code == 0:
-            can_sign = spack_ci.can_sign_binaries()
-            sign_binaries = can_sign and spack_is_pr_pipeline is False
+        api_root_url = get_env_var('CI_API_V4_URL')
+        ci_project_id = get_env_var('CI_PROJECT_ID')
+        ci_job_id = get_env_var('CI_JOB_ID')
 
-            cdash_build_id = None
-            if enable_cdash:
-                with open(cdash_id_path) as fd:
-                    cdash_build_id = fd.read()
+        repro_job_url = '{0}/projects/{1}/jobs/{2}/artifacts'.format(
+            api_root_url, ci_project_id, ci_job_id)
 
-            # Create buildcache in either the main remote mirror, or in the
-            # per-PR mirror, if this is a PR pipeline
-            spack_ci.push_mirror_contents(
-                env, job_spec, job_spec_yaml_path, buildcache_mirror_url,
-                cdash_build_id, sign_binaries)
-
-            # Create another copy of that buildcache in the per-pipeline
-            # temporary storage mirror (this is only done if either
-            # artifacts buildcache is enabled or a temporary storage url
-            # prefix is set)
-            spack_ci.push_mirror_contents(
-                env, job_spec, job_spec_yaml_path, pipeline_mirror_url,
-                cdash_build_id, sign_binaries)
-        else:
-            tty.debug('spack install exited non-zero, will not create buildcache')
-
-            api_root_url = get_env_var('CI_API_V4_URL')
-            ci_project_id = get_env_var('CI_PROJECT_ID')
-            ci_job_id = get_env_var('CI_JOB_ID')
-
-            repro_job_url = '{0}/projects/{1}/jobs/{2}/artifacts'.format(
-                api_root_url, ci_project_id, ci_job_id)
-
-            reproduce_msg = """
+        reproduce_msg = """
 
 To reproduce this build locally, run:
 
-  spack ci reproduce-build {0} [--working-dir <dir>]
+    spack ci reproduce-build {0} [--working-dir <dir>]
 
 If this project does not have public pipelines, you will need to first:
 
-  export GITLAB_PRIVATE_TOKEN=<generated_token>
+    export GITLAB_PRIVATE_TOKEN=<generated_token>
 
 ... then follow the printed instructions.
 
 """.format(repro_job_url)
 
-            print(reproduce_msg)
+        print(reproduce_msg)
 
-        # Tie job success/failure to the success/failure of building the spec
-        sys.exit(install_exit_code)
+    # Tie job success/failure to the success/failure of building the spec
+    sys.exit(install_exit_code)
 
 
 def ci_reproduce(args):
