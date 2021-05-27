@@ -552,9 +552,10 @@ def ci_rebuild(args):
         repro_job_url = '{0}/projects/{1}/jobs/{2}/artifacts'.format(
             api_root_url, ci_project_id, ci_job_id)
 
+        # Control characters cause this to be printed in blue so it stands out
         reproduce_msg = """
 
-To reproduce this build locally, run:
+\033[34mTo reproduce this build locally, run:
 
     spack ci reproduce-build {0} [--working-dir <dir>]
 
@@ -562,7 +563,7 @@ If this project does not have public pipelines, you will need to first:
 
     export GITLAB_PRIVATE_TOKEN=<generated_token>
 
-... then follow the printed instructions.
+... then follow the printed instructions.\033[0;0m
 
 """.format(repro_job_url)
 
