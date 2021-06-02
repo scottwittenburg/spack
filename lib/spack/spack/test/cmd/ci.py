@@ -1728,7 +1728,13 @@ spack:
                      working_dir.strpath,
                      output=str)
 
+    print('spack ci reproduce-build')
+    print(rep_out)
+
     expect_out = 'docker run --rm -v {0}:{0} -ti {1}'.format(
         working_dir.strpath, image_name)
+
+    print('Expected output:')
+    print(expect_out)
 
     assert(expect_out in rep_out)

@@ -351,7 +351,8 @@ def ci_rebuild(args):
     repro_details = {
         'job_name': ci_job_name,
         'job_spec_yaml': job_spec_yaml_file,
-        'root_spec_yaml': 'root.yaml'
+        'root_spec_yaml': 'root.yaml',
+        'ci_project_dir': ci_project_dir
     }
     with open(repro_file, 'w') as fd:
         fd.write(json.dumps(repro_details))

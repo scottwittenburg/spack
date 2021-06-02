@@ -647,6 +647,20 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
     local_mirror_dir = os.path.join(pipeline_artifacts_dir, 'mirror')
     user_artifacts_dir = os.path.join(pipeline_artifacts_dir, 'user_data')
 
+    ci_project_dir = os.environ.get('CI_PROJECT_DIR')
+    rel_artifacts_root = make_path_relative_to(
+        pipeline_artifacts_dir, ci_project_dir)
+    rel_concrete_env_dir = make_path_relative_to(
+        concrete_env_dir, ci_project_dir)
+    rel_job_log_dir = make_path_relative_to(
+        job_log_dir, ci_project_dir)
+    rel_job_repro_dir = make_path_relative_to(
+        job_repro_dir, ci_project_dir)
+    rel_local_mirror_dir = make_path_relative_to(
+        local_mirror_dir, ci_project_dir)
+    rel_user_artifacts_dir = make_path_relative_to(
+        user_artifacts_dir, ci_project_dir)
+
     # Speed up staging by first fetching binary indices from all mirrors
     # (including the per-PR mirror we may have just added above).
     bindist.binary_index.update()
@@ -889,9 +903,9 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
                 variables.update(job_vars)
 
                 artifact_paths = [
-                    job_log_dir,
-                    job_repro_dir,
-                    user_artifacts_dir
+                    rel_job_log_dir,
+                    rel_job_repro_dir,
+                    rel_user_artifacts_dir
                 ]
 
                 if enable_artifacts_buildcache:
@@ -965,18 +979,6 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
             tty.warn('Problem populating buildgroup: {0}'.format(err))
     else:
         tty.warn('Unable to populate buildgroup without CDash credentials')
-
-    ci_project_dir = os.environ.get('CI_PROJECT_DIR')
-    rel_artifacts_root = make_path_relative_to(
-        pipeline_artifacts_dir, ci_project_dir)
-    rel_concrete_env_dir = make_path_relative_to(
-        concrete_env_dir, ci_project_dir)
-    rel_job_log_dir = make_path_relative_to(
-        job_log_dir, ci_project_dir)
-    rel_job_repro_dir = make_path_relative_to(
-        job_repro_dir, ci_project_dir)
-    rel_local_mirror_dir = make_path_relative_to(
-        local_mirror_dir, ci_project_dir)
 
     service_job_config = None
     if 'service-job-attributes' in gitlab_ci:
@@ -1620,9 +1622,8 @@ def reproduce_ci_job(url, work_dir):
         # more faithful reproducer if everything appears to run in the same
         # absolute path used during the CI build.
         mount_as_dir = '/work'
-        if pipeline_variables:
-            artifacts_root = pipeline_variables['SPACK_ARTIFACTS_ROOT']
-            mount_as_dir = os.path.dirname(artifacts_root)
+        if repro_details:
+            mount_as_dir = repro_details['ci_project_dir']
             mounted_repro_dir = os.path.join(mount_as_dir, rel_repro_dir)
 
         # We will also try to clone spack from your local checkout and
