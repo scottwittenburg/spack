@@ -514,6 +514,11 @@ def format_job_needs(phase_name, strip_compilers, dep_jobs,
     return needs_list
 
 
+def make_path_relative_to(target_path, base_path):
+    prefix = os.path.commonprefix([target_path, base_path])
+    return os.path.relpath(target_path, prefix)
+
+
 def generate_gitlab_ci_yaml(env, print_summary, output_file,
                             prune_dag=False, check_index_only=False,
                             run_optimizer=False, use_dependencies=False,
@@ -961,6 +966,18 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
     else:
         tty.warn('Unable to populate buildgroup without CDash credentials')
 
+    ci_project_dir = os.environ.get('CI_PROJECT_DIR')
+    rel_artifacts_root = make_path_relative_to(
+        pipeline_artifacts_dir, ci_project_dir)
+    rel_concrete_env_dir = make_path_relative_to(
+        concrete_env_dir, ci_project_dir)
+    rel_job_log_dir = make_path_relative_to(
+        job_log_dir, ci_project_dir)
+    rel_job_repro_dir = make_path_relative_to(
+        job_repro_dir, ci_project_dir)
+    rel_local_mirror_dir = make_path_relative_to(
+        local_mirror_dir, ci_project_dir)
+
     service_job_config = None
     if 'service-job-attributes' in gitlab_ci:
         service_job_config = gitlab_ci['service-job-attributes']
@@ -1042,14 +1059,14 @@ def generate_gitlab_ci_yaml(env, print_summary, output_file,
                 version_to_clone = spack_version
 
         output_object['variables'] = {
-            'SPACK_ARTIFACTS_ROOT': pipeline_artifacts_dir,
-            'SPACK_CONCRETE_ENV_DIR': concrete_env_dir,
+            'SPACK_ARTIFACTS_ROOT': rel_artifacts_root,
+            'SPACK_CONCRETE_ENV_DIR': rel_concrete_env_dir,
             'SPACK_VERSION': spack_version,
             'SPACK_CHECKOUT_VERSION': version_to_clone,
             'SPACK_REMOTE_MIRROR_URL': remote_mirror_url,
-            'SPACK_JOB_LOG_DIR': job_log_dir,
-            'SPACK_JOB_REPRO_DIR': job_repro_dir,
-            'SPACK_LOCAL_MIRROR_DIR': local_mirror_dir,
+            'SPACK_JOB_LOG_DIR': rel_job_log_dir,
+            'SPACK_JOB_REPRO_DIR': rel_job_repro_dir,
+            'SPACK_LOCAL_MIRROR_DIR': rel_local_mirror_dir,
             'SPACK_IS_PR_PIPELINE': str(is_pr_pipeline)
         }
 
