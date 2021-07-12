@@ -692,7 +692,11 @@ def test_ci_rebuild(tmpdir, mutable_mock_env_path, env_deactivate,
     mirror_url = 'file://{0}'.format(mirror_dir.strpath)
 
     broken_specs_path = os.path.join(working_dir.strpath, 'naughty-list')
-    broken_specs_url = url_util.join('file://', broken_specs_path)
+    broken_specs_url = 
+    
+    
+    
+    .join('file://', broken_specs_path)
     temp_storage_url = 'file:///path/to/per/pipeline/storage'
 
     ci_job_url = 'https://some.domain/group/project/-/jobs/42'
@@ -1625,7 +1629,10 @@ spack:
     broken-specs-url: "{0}"
     mappings:
       - match:
-          - archive-files
+          - a
+          - flatten-deps
+          - b
+          - dependency-install
         runner-attributes:
           tags:
             - donotcare

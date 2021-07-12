@@ -14,6 +14,7 @@ import tempfile
 from six.moves.urllib.parse import urlencode
 
 import llnl.util.tty as tty
+
 import spack.binary_distribution as bindist
 import spack.ci as spack_ci
 import spack.cmd.buildcache as buildcache
@@ -24,7 +25,6 @@ import spack.mirror
 import spack.util.spack_yaml as syaml
 import spack.util.url as url_util
 import spack.util.web as web_util
-
 
 description = "manage continuous integration pipelines"
 section = "build"
