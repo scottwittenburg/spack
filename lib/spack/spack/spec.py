@@ -1585,7 +1585,11 @@ class Spec(object):
 
     def dag_hash_bit_prefix(self, bits):
         """Get the first <bits> bits of the DAG hash as an integer type."""
-        return spack.util.hash.base32_prefix_bits(self.dag_hash(), bits)
+        return self.hash_bit_prefix(bits)
+
+    def hash_bit_prefix(self, bits, hash=ht.dag_hash):
+        return spack.util.hash.base32_prefix_bits(
+            self._cached_hash(hash=hash), bits)
 
     def to_node_dict(self, hash=ht.dag_hash):
         """Create a dictionary representing the state of this Spec.
