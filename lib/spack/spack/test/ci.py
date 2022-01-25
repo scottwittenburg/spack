@@ -93,9 +93,9 @@ def test_get_concrete_specs(config, mutable_mock_env_path, mock_packages):
 
     with e as active_env:
         for s in active_env.all_specs():
-            hash_dict[s.name] = s.build_hash()
+            hash_dict[s.name] = s.dag_hash()
             if s.name == 'dyninst':
-                dyninst_hash = s.build_hash()
+                dyninst_hash = s.dag_hash()
 
         assert(dyninst_hash)
 
@@ -105,11 +105,11 @@ def test_get_concrete_specs(config, mutable_mock_env_path, mock_packages):
         assert('root' in spec_map and 'deps' in spec_map)
 
         concrete_root = spec_map['root']
-        assert(concrete_root.build_hash() == dyninst_hash)
+        assert(concrete_root.dag_hash() == dyninst_hash)
 
         concrete_deps = spec_map['deps']
         for key, obj in concrete_deps.items():
-            assert(obj.build_hash() == hash_dict[key])
+            assert(obj.dag_hash() == hash_dict[key])
 
         s = spec.Spec('dyninst')
         print('nonconc spec name: {0}'.format(s.name))
@@ -183,9 +183,9 @@ def test_relate_cdash_builds(config, mutable_mock_env_path, mock_packages,
 
     with e as active_env:
         for s in active_env.all_specs():
-            hash_dict[s.name] = s.build_hash()
+            hash_dict[s.name] = s.dag_hash()
             if s.name == 'dyninst':
-                dyninst_hash = s.build_hash()
+                dyninst_hash = s.dag_hash()
 
         assert(dyninst_hash)
 
