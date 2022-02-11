@@ -7,7 +7,6 @@ import argparse
 import filecmp
 import os
 import re
-import shutil
 import time
 
 import pytest
