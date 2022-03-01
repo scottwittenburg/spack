@@ -332,20 +332,12 @@ def _report_suite_results(test_suite, args, constraints):
                 .format(results_desc, test_suite.name, matching))
 
         results = {}
-        tty.msg('test results')
         with open(test_suite.results_file, 'r') as f:
             for line in f:
                 pkg_id, status = line.split()
                 results[pkg_id] = status
-                tty.msg('  {0}'.format(pkg_id))
 
-        tty.msg('test specs:')
         for pkg_id in test_specs:
-            tty.msg('  {0}'.format(pkg_id))
-            # The test_hash_change method never finds the pkg_id among the
-            # restuls, here, because the pkg id is composed using the dag
-            # hash, and that test was changed to replace full_hash
-            # with dag_hash.
             if pkg_id in results:
                 status = results[pkg_id]
                 if args.failed and status != 'FAILED':
@@ -358,6 +350,7 @@ def _report_suite_results(test_suite, args, constraints):
                     if os.path.isfile(log_file):
                         with open(log_file, 'r') as f:
                             msg += '\n{0}'.format(''.join(f.readlines()))
+                tty.msg(msg)
     else:
         msg = "Test %s has no results.\n" % test_suite.name
         msg += "        Check if it is running with "
