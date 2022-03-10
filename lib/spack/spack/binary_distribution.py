@@ -762,6 +762,23 @@ def sign_tarball(key, force, specfile_path):
     spack.util.gpg.sign(key, specfile_path, '%s.asc' % specfile_path)
 
 
+def _fetch_spec_from_mirror(spec_url):
+    s = None
+    tty.debug('fetching {0}'.format(spec_url))
+    _, _, spec_file = web_util.read_from_url(spec_url)
+    spec_file_contents = codecs.getreader('utf-8')(spec_file).read()
+    # Need full spec.json name or this gets confused with index.json.
+    if spec_url.endswith('.json'):
+        s = Spec.from_json(spec_file_contents)
+    elif spec_url.endswith('.yaml'):
+        s = Spec.from_yaml(spec_file_contents)
+    return s
+
+
+def _read_specs_and_push_index():
+    pass
+
+
 def generate_package_index(cache_prefix):
     """Create the build cache index page.
 
@@ -797,23 +814,18 @@ def generate_package_index(cache_prefix):
                            record_fields=['spec', 'ref_count', 'in_buildcache'])
 
     try:
+        _read_specs_and_push_index(cache_prefix, db, db_root_dir)
         for file_path in file_list:
             try:
-                spec_url = url_util.join(cache_prefix, file_path)
-                tty.debug('fetching {0}'.format(spec_url))
-                _, _, spec_file = web_util.read_from_url(spec_url)
-                spec_file_contents = codecs.getreader('utf-8')(spec_file).read()
-                # Need full spec.json name or this gets confused with index.json.
-                if spec_url.endswith('.json'):
-                    s = Spec.from_json(spec_file_contents)
-                elif spec_url.endswith('.yaml'):
-                    s = Spec.from_yaml(spec_file_contents)
-                if s:
-                    db.add(s, None)
-                    db.mark(s, 'in_buildcache', True)
+                s = _fetch_spec_from_mirror(url_util.join(
+                    cache_prefix, file_path))
             except (URLError, web_util.SpackWebError) as url_err:
                 tty.error('Error reading specfile: {0}'.format(file_path))
                 tty.error(url_err)
+
+            if s:
+                db.add(s, None)
+                db.mark(s, 'in_buildcache', True)
 
         # Now generate the index, compute its hash, and push the two files to
         # the mirror.
