@@ -3,23 +3,24 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-import textwrap
-import sys
-import spack.report
-import spack.paths
-import spack.fetch_strategy
-import spack.environment as ev
-import spack.cmd.common.arguments as arguments
-import spack.cmd
-import spack.build_environment
-import shutil
-import os
-import llnl.util.tty as tty
-import llnl.util.filesystem as fs
 import argparse
-from spack.installer import PackageInstaller
-from spack.error import SpackError
+import os
+import shutil
+import sys
+import textwrap
 
+import llnl.util.filesystem as fs
+import llnl.util.tty as tty
+
+import spack.build_environment
+import spack.cmd
+import spack.cmd.common.arguments as arguments
+import spack.environment as ev
+import spack.fetch_strategy
+import spack.paths
+import spack.report
+from spack.error import SpackError
+from spack.installer import PackageInstaller
 
 
 description = "build and install packages"
