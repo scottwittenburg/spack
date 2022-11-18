@@ -16,8 +16,10 @@ pr_job:
   extends: [".pr"]
   script:
     - echo "third pass at PR job"
+    - echo $(uname -a)
 
 protected_job:
   extends: [".protected"]
   script:
     - echo "third pass at protected job"
+    - echo $(uname -a)
