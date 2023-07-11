@@ -1927,7 +1927,9 @@ def reproduce_ci_job(url, work_dir, autostart, gpg_url):
             ]
         ]
         autostart = autostart and setup_result
-        process_command("docker_start", docker_command, work_dir, run=autostart)
+        process_command(
+            "docker_start", docker_command, work_dir, run=autostart, exit_on_failure=False
+        )
 
         if not autostart:
             inst_list.append("\nTo run the docker reproducer:\n\n")
@@ -1954,7 +1956,7 @@ def reproduce_ci_job(url, work_dir, autostart, gpg_url):
     tty.msg("".join(inst_list))
 
 
-def process_command(name, commands, repro_dir, run=True):
+def process_command(name, commands, repro_dir, run=True, exit_on_failure=True):
     """
     Create a script for and run the command. Copy the script to the
     reproducibility directory.
@@ -1983,7 +1985,8 @@ def process_command(name, commands, repro_dir, run=True):
     with open(script, "w") as fd:
         fd.write("#!/bin/sh\n\n")
         fd.write("\n# spack {0} command\n".format(name))
-        fd.write("set -e\n")
+        if exit_on_failure:
+            fd.write("set -e\n")
         if os.environ.get("SPACK_VERBOSE_SCRIPT"):
             fd.write("set -x\n")
         fd.write(full_command)
