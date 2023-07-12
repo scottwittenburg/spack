@@ -168,6 +168,12 @@ through the SPACK_CONCRETE_ENVIRONMENT_PATH variable.""",
     )
     reproduce.add_argument("job_url", help="Url of job artifacts bundle")
     reproduce.add_argument(
+        "--runtime",
+        help="Container runtimer to use.",
+        default="docker",
+        choices=["docker", "podman"],
+    )
+    reproduce.add_argument(
         "--working-dir",
         help="Where to unpack artifacts",
         default=os.path.join(os.getcwd(), "ci_reproduction"),
@@ -745,6 +751,7 @@ def ci_reproduce(args):
     job_url = args.job_url
     work_dir = args.working_dir
     autostart = args.autostart
+    runtime = args.runtime
 
     # Allow passing GPG key for reprocuding protected CI jobs
     if args.gpg_file:
@@ -754,7 +761,7 @@ def ci_reproduce(args):
     else:
         gpg_key_url = None
 
-    return spack_ci.reproduce_ci_job(job_url, work_dir, autostart, gpg_key_url)
+    return spack_ci.reproduce_ci_job(job_url, work_dir, autostart, gpg_key_url, runtime)
 
 
 def ci(parser, args):
