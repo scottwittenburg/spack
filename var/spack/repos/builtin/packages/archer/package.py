@@ -39,7 +39,7 @@ class Archer(CMakePackage):
     def cmake_args(self):
         return [
             "-DCMAKE_C_COMPILER=clang",
-            "-DCMAKE_CXX_COMPILER=clang++",
+            "-DCMAKE_CXX_COMPILER=clang+++",
             "-DOMP_PREFIX:PATH=%s" % self.spec["llvm-openmp-ompt"].prefix,
         ]
 
