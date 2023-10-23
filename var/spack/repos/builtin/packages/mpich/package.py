@@ -593,6 +593,9 @@ with '-Wl,-commons,use_dylibs' and without
         if "+hcoll" in spec:
             config_args.append("--with-hcoll=" + spec["hcoll"].prefix)
 
+        # Force building with debug logging
+        config_args.append("--enable-g=dbg,log")
+
         return config_args
 
     @run_after("install")
