@@ -18,6 +18,7 @@ from typing import Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple
 from urllib.request import Request
 
 import llnl.util.lang
+import llnl.util.tty as tty
 
 import spack.config
 import spack.mirror
@@ -285,6 +286,16 @@ class OCIAuthHandler(urllib.request.BaseHandler):
         # so we can store multiple tokens for the same registry.
         self.cached_tokens[registry] = token
 
+        tty.msg(f"Caching new token for {registry}")
+
+        if "issued_at" in response_json:
+            issued = response_json["issued_at"]
+            tty.msg(f"  issued at: {issued}")
+
+        if "expires_in" in response_json:
+            expires = response_json["expires_in"]
+            tty.msg(f"  expires in: {expires}")
+
         return token
 
     def https_request(self, req: Request):
@@ -322,6 +333,7 @@ class OCIAuthHandler(urllib.request.BaseHandler):
             )
 
         header_value = headers["WWW-Authenticate"]
+        tty.msg(f"WWW-Authenticate = {header_value}")
 
         try:
             challenge = get_bearer_challenge(parse_www_authenticate(header_value))
