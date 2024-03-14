@@ -284,9 +284,13 @@ class OCIAuthHandler(urllib.request.BaseHandler):
         # Remember the last obtained token for this registry
         # Note: we should probably take into account realm, service and scope
         # so we can store multiple tokens for the same registry.
-        self.cached_tokens[registry] = token
 
-        tty.msg(f"Caching new token for {registry}")
+        if registry in self.cached_tokens:
+            tty.msg(f"Replacing existing token for {registry}")
+        else:
+            tty.msg(f"Caching new token for {registry}")
+
+        self.cached_tokens[registry] = token
 
         if "issued_at" in response_json:
             issued = response_json["issued_at"]
@@ -311,8 +315,13 @@ class OCIAuthHandler(urllib.request.BaseHandler):
         parsed = urllib.parse.urlparse(req.full_url)
         token = self.cached_tokens.get(parsed.netloc)
 
+        tty.msg(f"(https_request) Fetching cached token for {parsed.netloc}, url = {req.full_url}")
+
         if not token:
+            tty.msg("  did not have one")
             return req
+        else:
+            tty.msg("  found cached token")
 
         req.add_unredirected_header("Authorization", f"Bearer {token}")
         return req
@@ -333,7 +342,7 @@ class OCIAuthHandler(urllib.request.BaseHandler):
             )
 
         header_value = headers["WWW-Authenticate"]
-        tty.msg(f"WWW-Authenticate = {header_value}")
+        tty.msg(f"(http_error_401) WWW-Authenticate = {header_value}, url = {req.full_url}")
 
         try:
             challenge = get_bearer_challenge(parse_www_authenticate(header_value))
