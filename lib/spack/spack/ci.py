@@ -809,6 +809,10 @@ def generate_gitlab_ci_yaml(
         env_includes.extend(include_scopes)
         env_yaml_root["spack"]["include"] = env_includes
 
+        # TODO: We need this, or else we need windows image to run some copy-jobs
+        if copy_only_pipeline:
+            env_yaml_root["spack"]["include"] = [i.replace("\\", "/") for i in env_includes]
+
         if "gitlab-ci" in env_yaml_root["spack"] and "ci" not in env_yaml_root["spack"]:
             env_yaml_root["spack"]["ci"] = env_yaml_root["spack"].pop("gitlab-ci")
             translate_deprecated_config(env_yaml_root["spack"]["ci"])
@@ -1232,6 +1236,11 @@ def generate_gitlab_ci_yaml(
         # TODO: Remove this block in Spack 0.23
         if deprecated_mirror_config and remote_mirror_override:
             (output_object["variables"]["SPACK_REMOTE_MIRROR_OVERRIDE"]) = remote_mirror_override
+
+        # TODO: We need this, or else we need windows image to run some copy-jobs
+        if copy_only_pipeline:
+            ev_dir = output_object["variables"]["SPACK_CONCRETE_ENV_DIR"]
+            output_object["variables"]["SPACK_CONCRETE_ENV_DIR"] = ev_dir.replace("\\", "/")
 
         spack_stack_name = os.environ.get("SPACK_CI_STACK_NAME", None)
         if spack_stack_name:
