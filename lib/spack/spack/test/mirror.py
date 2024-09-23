@@ -328,9 +328,9 @@ def test_update_4():
 
 
 @pytest.mark.parametrize("direction", ["fetch", "push"])
-def test_update_connection_params(direction):
+def test_update_connection_params(direction, tmpdir, monkeypatch):
     """Test whether new connection params expand the mirror config to a dict."""
-    m = spack.mirror.Mirror("https://example.com")
+    m = spack.mirror.Mirror("https://example.com", "example")
 
     assert m.update(
         {
@@ -353,8 +353,59 @@ def test_update_connection_params(direction):
             "endpoint_url": "https://example.com",
         },
     }
-
     assert m.get_access_pair(direction) == ["username", "password"]
     assert m.get_access_token(direction) == "token"
     assert m.get_profile(direction) == "profile"
     assert m.get_endpoint_url(direction) == "https://example.com"
+
+    # User credentials file
+    monkeypatch.setattr(spack.paths, "user_credentials_path", tmpdir.join("credentials").strpath)
+    with open(tmpdir.join("credentials"), "w") as fd:
+        fd.write(
+            """\
+example:
+    access_pair:
+    - cred-username
+    - cred-password
+"""
+        )
+
+    # Drop the local configs access pair and use the credentials version
+    m._data[direction].pop("access_pair")
+
+    credentials = m.get_credentials(direction)
+    assert "access_pair" in credentials
+    pair = credentials["access_pair"]
+    assert pair == ["cred-username", "cred-password"]
+
+    # Expand environment variables
+    assert m.update(
+        {
+            "url": "http://example.org",
+            "access_pair": ["${_SPACK_TEST_PAIR_USERNAME}", "${_SPACK_TEST_PAIR_PASSWORD}"],
+            "access_token": "${_SPACK_TEST_TOKEN}",
+            "profile": "${_SPACK_TEST_PROFILE}",
+            "endpoint_url": "https://example.com",
+        },
+        direction,
+    )
+
+    assert m.to_dict() == {
+        "url": "https://example.com",
+        direction: {
+            "url": "http://example.org",
+            "access_pair": ["${_SPACK_TEST_PAIR_USERNAME}", "${_SPACK_TEST_PAIR_PASSWORD}"],
+            "access_token": "${_SPACK_TEST_TOKEN}",
+            "profile": "${_SPACK_TEST_PROFILE}",
+            "endpoint_url": "https://example.com",
+        },
+    }
+
+    os.environ["_SPACK_TEST_PAIR_USERNAME"] = "expanded_username"
+    os.environ["_SPACK_TEST_PAIR_PASSWORD"] = "expanded_password"
+    os.environ["_SPACK_TEST_TOKEN"] = "expanded_token"
+    os.environ["_SPACK_TEST_PROFILE"] = "expanded_profile"
+
+    assert m.get_access_pair(direction) == ["expanded_username", "expanded_password"]
+    assert m.get_access_token(direction) == "expanded_token"
+    assert m.get_profile(direction) == "expanded_profile"

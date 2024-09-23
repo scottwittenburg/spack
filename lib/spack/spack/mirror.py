@@ -18,7 +18,7 @@ import os.path
 import sys
 import traceback
 import urllib.parse
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import llnl.url
 import llnl.util.symlink
@@ -272,14 +272,51 @@ class Mirror:
 
         return _url_or_path_to_url(url)
 
+    def get_credentials(self, direction: str) -> Dict[str, Any]:
+        creddict = {}
+        # Try to get load the credentials for this mirror
+        if os.path.exists(spack.paths.user_credentials_path):
+            with open(spack.paths.user_credentials_path, "r") as fd:
+                credentials = syaml.load(fd)
+                data = credentials.get(self.name)
+                if data:
+                    for attribute in ("access_token", "access_pair", "profile"):
+                        # Either a string (url) or a dictionary, we care about the dict here.
+                        value = data.get(direction, {})
+
+                        # Return top-level entry if only a URL was set.
+                        if isinstance(value, str) or attribute not in value:
+                            if attribute in data:
+                                creddict.update({attribute: data[attribute]})
+
+                        elif attribute in value:
+                            creddict.update({attribute: value[attribute]})
+
+        access_token = self.get_access_token(direction)
+        if access_token:
+            creddict["access_token"] = access_token
+
+        access_pair = self.get_access_pair(direction)
+        if access_pair:
+            creddict["access_pair"] = access_pair
+
+        profile = self.get_profile(direction)
+        if profile:
+            creddict["profile"] = profile
+
+        return creddict
+
     def get_access_token(self, direction: str) -> Optional[str]:
-        return self._get_value("access_token", direction)
+        tok = self._get_value("access_token", direction)
+        return os.path.expandvars(tok) if tok else None
 
     def get_access_pair(self, direction: str) -> Optional[List]:
-        return self._get_value("access_pair", direction)
+        pair = self._get_value("access_pair", direction)
+        return list(map(os.path.expandvars, pair)) if pair else None
 
     def get_profile(self, direction: str) -> Optional[str]:
-        return self._get_value("profile", direction)
+        profile = self._get_value("profile", direction)
+        return os.path.expandvars(profile) if profile else None
 
     def get_endpoint_url(self, direction: str) -> Optional[str]:
         return self._get_value("endpoint_url", direction)
