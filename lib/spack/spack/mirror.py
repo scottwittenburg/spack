@@ -18,7 +18,7 @@ import os.path
 import sys
 import traceback
 import urllib.parse
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import llnl.url
 import llnl.util.symlink
@@ -273,25 +273,20 @@ class Mirror:
         return _url_or_path_to_url(url)
 
     def get_credentials(self, direction: str) -> Dict[str, Any]:
+        """Get the mirror credentials from the mirror config
+
+        Args:
+            direction: fetch or push mirror config
+
+        Returns:
+            Dictionary from credential type string to value
+
+            Credential Type Map:
+                access_token -> str
+                access_pair  -> tuple(str,str)
+                profile      -> str
+        """
         creddict = {}
-        # Try to get load the credentials for this mirror
-        if os.path.exists(spack.paths.user_credentials_path):
-            with open(spack.paths.user_credentials_path, "r") as fd:
-                credentials = syaml.load(fd)
-                data = credentials.get(self.name)
-                if data:
-                    for attribute in ("access_token", "access_pair", "profile"):
-                        # Either a string (url) or a dictionary, we care about the dict here.
-                        value = data.get(direction, {})
-
-                        # Return top-level entry if only a URL was set.
-                        if isinstance(value, str) or attribute not in value:
-                            if attribute in data:
-                                creddict.update({attribute: data[attribute]})
-
-                        elif attribute in value:
-                            creddict.update({attribute: value[attribute]})
-
         access_token = self.get_access_token(direction)
         if access_token:
             creddict["access_token"] = access_token
@@ -306,17 +301,21 @@ class Mirror:
 
         return creddict
 
+    @staticmethod
+    def _extract_credential_value(tok):
+        return os.environ.get(tok["variable"]) if isinstance(tok, dict) else tok
+
     def get_access_token(self, direction: str) -> Optional[str]:
         tok = self._get_value("access_token", direction)
-        return os.path.expandvars(tok) if tok else None
+        return self._extract_credential_value(tok) if tok else None
 
-    def get_access_pair(self, direction: str) -> Optional[List]:
+    def get_access_pair(self, direction: str) -> Optional[Tuple[str, str]]:
         pair = self._get_value("access_pair", direction)
-        return list(map(os.path.expandvars, pair)) if pair else None
+        return tuple(map(self._extract_credential_value, pair)) if pair else None
 
     def get_profile(self, direction: str) -> Optional[str]:
         profile = self._get_value("profile", direction)
-        return os.path.expandvars(profile) if profile else None
+        return self._extract_credential_value(profile) if profile else None
 
     def get_endpoint_url(self, direction: str) -> Optional[str]:
         return self._get_value("endpoint_url", direction)

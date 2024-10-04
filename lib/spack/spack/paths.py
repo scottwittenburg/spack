@@ -117,20 +117,11 @@ default_misc_cache_path = os.path.join(user_cache_path, "cache")
 # - `SPACK_USER_CONFIG_PATH`: override `~/.spack` location (for config and caches)
 # - `SPACK_SYSTEM_CONFIG_PATH`: override `/etc/spack` configuration scope.
 # - `SPACK_DISABLE_LOCAL_CONFIG`: disable both of these locations.
-# - `SPACK_CREDENTIALS_PATH`: override `~/.spack` location.
 
 
 # User configuration and caches in $HOME/.spack
 def _get_user_config_path():
     return os.path.expanduser(os.getenv("SPACK_USER_CONFIG_PATH") or "~%s.spack" % os.sep)
-
-
-# User configuration and caches in $HOME/.spack
-def _get_user_credentials_path():
-    return os.path.join(
-        os.path.expanduser(os.getenv("SPACK_CREDENTIALS_PATH") or "~%s.spack" % os.sep),
-        "credentials",
-    )
 
 
 # Configuration in /etc/spack on the system
@@ -142,9 +133,6 @@ def _get_system_config_path():
 
 #: User configuration location
 user_config_path = _get_user_config_path()
-
-#: User credentials location
-user_credentials_path = _get_user_credentials_path()
 
 #: System configuration location
 system_config_path = _get_system_config_path()
