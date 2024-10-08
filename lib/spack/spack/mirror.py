@@ -307,11 +307,23 @@ class Mirror:
 
     def get_access_token(self, direction: str) -> Optional[str]:
         tok = self._get_value("access_token", direction)
-        return self._extract_credential_value(tok) if tok else None
+        if tok:
+            return self._extract_credential_value(tok)
+        tok = self._get_value("access_token_variable", direction)
+        if tok:
+            return os.environ.get(tok)
+        return None
 
     def get_access_pair(self, direction: str) -> Optional[Tuple[str, str]]:
         pair = self._get_value("access_pair", direction)
-        return tuple(map(self._extract_credential_value, pair)) if pair else None
+        if isinstance(pair, list):
+            return tuple(map(self._extract_credential_value, pair))
+        elif isinstance(pair, dict):
+            id_ = os.environ.get(pair["id_variable"]) if "id_variable" in pair else pair["id"]
+            secret = os.environ.get(pair["secret_variable"])
+            return tuple(id_, secret)
+        else:
+            return None
 
     def get_profile(self, direction: str) -> Optional[str]:
         profile = self._get_value("profile", direction)

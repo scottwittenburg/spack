@@ -8,26 +8,30 @@
 .. literalinclude:: _spack_root/lib/spack/spack/schema/mirrors.py
    :lines: 13-
 """
-from functools import lru_cache
 from typing import Any, Dict
 
-from llnl.util.lang import union_dicts
 
+string_or_variable = {
+    "oneOf": [
+        {
+            "type": "object",
+            "required": ["variable"],
+            "additionalProperties": False,
+            "properties": {"variable": {"type": "string"}},
+        },
+        {"type": "string"},
+    ]
+}
 
-@lru_cache(maxsize=2)
-def credential_schema(allow_plain_text: bool = False):
-    """Get the schema for a mirror crednetial field"""
-    return {
-        "oneOf": [
-            {
-                "type": "object",
-                "required": "variable",
-                "additionalProperties": False,
-                "properties": {"variable": {"type": "string"}},
-            },
-            {"type": "string"},
-        ]
-    }
+deprecate_access_token = {
+    "deprecatedProperties": [
+        {
+            "names": ["access_token"],
+            "message": "Spack no longer supportes plain text access_token in mirror configs",
+            "error": False,
+        }
+    ]
+}
 
 
 #: Common properties for connection specification
@@ -35,18 +39,27 @@ connection = {
     "url": {"type": "string"},
     # todo: replace this with named keys "username" / "password" or "id" / "secret"
     "access_pair": {
-        "type": "array",
-        "prefixItems": [
-            # The first item in the list should always be allowed as plain text (username)
-            credential_schema(allow_plain_text=True),
-            credential_schema(),
-        ],
-        "items": {"minItems": 2, "maxItems": 2, "type": credential_schema()},
+        "oneOf": [
+            {"type": "array", "items": {"minItems": 2, "maxItems": 2, "type": string_or_variable}},
+            {
+                "type": "object",
+                "required": ["secret_variable"],
+                # Only allow id or id_variable to be set, not both
+                "oneOf": [{"required": ["id"]}, {"required": ["id_variable"]}],
+                "properties": {
+                    "id": {"type": "string"},
+                    "id_variable": {"type": "string"},
+                    "secret_variable": {"type": "string"},
+                },
+            },
+        ]
     },
-    "access_token": credential_schema(),
-    "profile": credential_schema(allow_plain_text=True),
+    "access_token": {"type": ["string", "null"]},  # deprecated
+    "access_token_variable": {"type": ["string", "null"]},
+    "profile": {"type": ["string", "null"]},
     "endpoint_url": {"type": ["string", "null"]},
 }
+
 
 #: Mirror connection inside pull/push keys
 fetch_and_push = {
@@ -56,6 +69,7 @@ fetch_and_push = {
             "type": "object",
             "additionalProperties": False,
             "properties": {**connection},  # type: ignore
+            **deprecate_access_token,
         },
     ]
 }
@@ -74,6 +88,7 @@ mirror_entry = {
         "autopush": {"type": "boolean"},
         **connection,  # type: ignore
     },
+    **deprecate_access_token,
 }
 
 #: Properties for inclusion in other schemas
