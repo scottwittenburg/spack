@@ -46,6 +46,9 @@ class Diffutils(AutotoolsPackage, GNUMirrorPackage):
         if self.spec.satisfies("%fj"):
             env.append_flags("CFLAGS", "-Qunused-arguments")
 
+        if self.spec.satisfies("+notopt"):
+            env.append_flags("CFLAGS", "-Wall")
+
     @classmethod
     def determine_version(cls, exe):
         output = Executable(exe)("--version", output=str, error=str)
