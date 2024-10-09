@@ -1210,7 +1210,10 @@ def generate_gitlab_ci_yaml(
             final_job["when"] = "always"
             final_job["retry"] = service_job_retries
             final_job["interruptible"] = True
-            final_job["dependencies"] = []
+            #final_job["dependencies"] = []
+            final_job["needs"] = {
+                "job": generate_job_name, "pipeline": f"{parent_pipeline_id}"
+            }
 
             output_object["rebuild-index"] = final_job
 
