@@ -321,7 +321,7 @@ class Mirror:
         elif isinstance(pair, dict):
             id_ = os.environ.get(pair["id_variable"]) if "id_variable" in pair else pair["id"]
             secret = os.environ.get(pair["secret_variable"])
-            return tuple(id_, secret)
+            return (id_, secret)
         else:
             return None
 

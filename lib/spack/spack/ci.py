@@ -1204,7 +1204,7 @@ def generate_gitlab_ci_yaml(
                 target_mirror = buildcache_destination.push_url
             final_job["script"] = _unpack_script(
                 final_job["script"],
-                op=lambda cmd: cmd.replace("{index_target_mirror}", target_mirror),
+                op=lambda cmd: cmd.replace("{index_target_mirror}", "buildcache-destination"),
             )
 
             final_job["when"] = "always"
