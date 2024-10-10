@@ -227,6 +227,7 @@ def blob_exists(
     """Checks if a blob exists in an OCI registry"""
     try:
         _urlopen = _urlopen or spack.oci.opener.urlopen
+        tty.msg(f"Checking blob exists: {ref.blob_url(digest)}")
         response = _urlopen(Request(url=ref.blob_url(digest), method="HEAD"))
         return response.status == 200
     except urllib.error.HTTPError as e:
