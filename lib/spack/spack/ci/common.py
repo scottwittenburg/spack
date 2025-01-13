@@ -166,18 +166,6 @@ def write_pipeline_manifest(specs, src_prefix, dest_prefix, output_file):
                     bindist.tarball_name(release_spec, ".spec.json.sig"),
                 ),
             },
-            {
-                "src": url_util.join(
-                    src_prefix,
-                    bindist.build_cache_relative_path(),
-                    bindist.tarball_path_name(release_spec, ".spack"),
-                ),
-                "dest": url_util.join(
-                    dest_prefix,
-                    bindist.build_cache_relative_path(),
-                    bindist.tarball_path_name(release_spec, ".spack"),
-                ),
-            },
         ]
 
     target_dir = os.path.dirname(output_file)

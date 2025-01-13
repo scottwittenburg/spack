@@ -630,29 +630,95 @@ def save_specfile_fn(args):
     )
 
 
-def copy_buildcache_file(src_url, dest_url, local_path=None):
-    """Copy from source url to destination url"""
+def copy_buildcache_entry(spec_src_url, spec_dest_url, local_path=None):
+    """Copy buildcache entry from src to dest
+
+    Buildcache entry is identified by url to spec.json[.sig] file.  Fetch
+    spec to read checksum hash and algorithm.  Use hash and algorithm to
+    find compressed tarball on the same mirror as the spec.  Finally, fetch
+    the compressed tarball and push the tarball, followed by the spec, to
+    the destination.
+    """
     tmpdir = None
+    spec_stage = None
+    tarball_stage = None
 
     if not local_path:
         tmpdir = tempfile.mkdtemp()
-        local_path = os.path.join(tmpdir, os.path.basename(src_url))
+        local_dir = tmpdir
+        local_spec_path = os.path.join(local_dir, os.path.basename(spec_src_url))
+    else:
+        local_dir = os.path.dirname(local_path)
+        local_spec_path = local_path
 
-    try:
-        temp_stage = spack.stage.Stage(src_url, path=os.path.dirname(local_path))
-        try:
-            temp_stage.create()
-            temp_stage.fetch()
-            web_util.push_to_url(local_path, dest_url, keep_original=True)
-        except spack.error.FetchError as e:
-            # Expected, since we have to try all the possible extensions
-            tty.debug("no such file: {0}".format(src_url))
-            tty.debug(e)
-        finally:
-            temp_stage.destroy()
-    finally:
+    def _cleanup():
+        if spec_stage:
+            spec_stage.destroy()
+        if tarball_stage:
+            tarball_stage.destroy()
         if tmpdir and os.path.exists(tmpdir):
             shutil.rmtree(tmpdir)
+
+    base_src_url, *_ = spec_src_url.split(bindist.build_cache_relative_path())
+    base_dest_url, *_ = spec_dest_url.split(bindist.build_cache_relative_path())
+    spec_stage = spack.stage.Stage(spec_src_url, path=os.path.dirname(local_spec_path))
+
+    # Fetch the spec file, or else cleanup and exit early
+    try:
+        spec_stage.create()
+        spec_stage.fetch()
+    except spack.error.FetchError as e:
+        # Expected, since we have to try all the possible extensions
+        tty.debug("no such file: {0}".format(spec_src_url))
+        tty.debug(e)
+        _cleanup()
+        return
+
+    # Check spec file for validity and read it, or else cleanup and exit early
+    try:
+        spec_dict, _ = bindist._get_valid_spec_file(
+            local_spec_path, bindist.CURRENT_BUILD_CACHE_LAYOUT_VERSION)
+    except bindist.InvalidMetadataFile as e:
+        tty.warn(f"Spec fetched from {spec_src_url} is not valid: {e}")
+        _cleanup()
+        return
+
+    # Retrieve the alg and hash from the spec dict, use them to build the path to
+    # the tarball.
+    bchecksum = spec_dict["binary_cache_checksum"]
+    balgorithm = bchecksum["hash_algorithm"]
+    bhash = bchecksum["hash"]
+    rel_tarball_path = bindist.buildcache_relative_tarball_path(balgorithm, bhash)
+    tarball_src_url = url_util.join(base_src_url, rel_tarball_path)
+    local_tarball_path = os.path.join(local_dir, "compressed_tarball.tgz")
+    tarball_stage = spack.stage.Stage(tarball_src_url, path=local_tarball_path)
+
+    # Fetch the tarball, or else cleanup and exit early
+    try:
+        tarball_stage.create()
+        tarball_stage.fetch()
+    except spack.error.FetchError as e:
+        tty.warn(f"Unable to fetch tarball ({tarball_src_url}) corresponding with spec ({spec_src_url})")
+        _cleanup()
+        return
+
+    tarball_dest_url = url_util.join(base_dest_url, rel_tarball_path)
+
+    # Try to push the tarball
+    try:
+        web_util.push_to_url(local_tarball_path, tarball_dest_url, keep_original=True)
+    except:
+        tty.warn(f"Failed to push {local_tarball_path} to {tarball_dest_url}")
+        _cleanup()
+        return
+
+    # Finally try to push the spec file
+    try:
+        web_util.push_to_url(local_spec_path, spec_dest_url, keep_original=True)
+    except:
+        tty.warn(f"Failed to push {local_tarball_path} to {tarball_dest_url}")
+
+    _cleanup()
 
 
 def sync_fn(args):
@@ -701,10 +767,8 @@ def sync_fn(args):
 
         buildcache_rel_paths.extend(
             [
-                os.path.join(build_cache_dir, bindist.tarball_path_name(s, ".spack")),
                 os.path.join(build_cache_dir, bindist.tarball_name(s, ".spec.json.sig")),
                 os.path.join(build_cache_dir, bindist.tarball_name(s, ".spec.json")),
-                os.path.join(build_cache_dir, bindist.tarball_name(s, ".spec.yaml")),
             ]
         )
 
@@ -717,7 +781,7 @@ def sync_fn(args):
             dest_url = url_util.join(dest_mirror_url, rel_path)
 
             tty.debug("Copying {0} to {1} via {2}".format(src_url, dest_url, local_path))
-            copy_buildcache_file(src_url, dest_url, local_path=local_path)
+            copy_buildcache_entry(src_url, dest_url, local_path=local_path)
     finally:
         shutil.rmtree(tmpdir)
 
@@ -746,7 +810,7 @@ def manifest_copy(manifest_file_list, dest_mirror=None):
                 )
                 dest = url_util.join(dest_mirror.push_url, src_relative_path)
             tty.debug("copying {0} to {1}".format(copy_file["src"], dest))
-            copy_buildcache_file(copy_file["src"], dest)
+            copy_buildcache_entry(copy_file["src"], dest)
 
 
 def update_index(mirror: spack.mirrors.mirror.Mirror, update_keys=False):
