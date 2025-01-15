@@ -2093,9 +2093,7 @@ def download_tarball(spec, unsigned: Optional[bool] = False, mirrors_for_spec=No
 
             else:
                 ext = "json.sig" if try_signed else "json"
-                specfile_path = url_util.join(
-                    fetch_url, BUILD_CACHE_RELATIVE_PATH, specfile_prefix
-                )
+                specfile_path = url_util.join(fetch_url, specfile_prefix)
                 specfile_url = f"{specfile_path}.{ext}"
                 local_specfile_stage = try_fetch(specfile_url)
                 if local_specfile_stage:
