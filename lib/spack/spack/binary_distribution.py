@@ -2612,6 +2612,9 @@ def try_direct_fetch(spec, mirrors=None):
     """
     specfile_name = tarball_name(spec, ".spec.json")
     signed_specfile_name = tarball_name(spec, ".spec.json.sig")
+
+    tty.msg(f"try_direct_fetch({spec.name})")
+
     specfile_is_signed = False
     found_specs = []
 
@@ -2680,7 +2683,12 @@ def get_mirrors_for_spec(spec=None, mirrors_to_check=None, index_only=False):
         tty.debug("No Spack mirrors are currently configured")
         return {}
 
+    tty.msg(f"Looking for mirrors that have {spec.name}, index_only={index_only}")
+
     results = BINARY_INDEX.find_built_spec(spec, mirrors_to_check=mirrors_to_check)
+
+    tty.msg(f"Got {len(results)} results")
+    tty.msg(results)
 
     # The index may be out-of-date. If we aren't only considering indices, try
     # to fetch directly since we know where the file should be.
