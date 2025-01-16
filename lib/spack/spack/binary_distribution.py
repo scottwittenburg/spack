@@ -129,7 +129,7 @@ class FetchCacheError(Exception):
         super().__init__(self.message)
 
 
-class MirrorURLAndVersion():
+class MirrorURLAndVersion:
     url: str
     version: int
 
@@ -161,6 +161,7 @@ class MirrorForSpec:
     def __init__(self, url_and_version: MirrorURLAndVersion, spec: spack.spec.Spec):
         self.url_and_version = url_and_version
         self.spec = spec
+
 
 class BinaryCacheIndex:
     """
@@ -253,7 +254,9 @@ class BinaryCacheIndex:
             cached_index_path = cache_entry["index_path"]
             cached_index_hash = cache_entry["index_hash"]
             if cached_index_hash not in self._specs_already_associated:
-                self._associate_built_specs_with_mirror(cached_index_path, MirrorURLAndVersion.from_string(url_and_version))
+                self._associate_built_specs_with_mirror(
+                    cached_index_path, MirrorURLAndVersion.from_string(url_and_version)
+                )
                 self._specs_already_associated.add(cached_index_hash)
 
     def _associate_built_specs_with_mirror(self, cache_key, url_and_version: MirrorURLAndVersion):
@@ -292,10 +295,15 @@ class BinaryCacheIndex:
                     # A binary mirror can only have one spec per DAG hash, so
                     # if we already have an entry under this DAG hash for this
                     # mirror url/layout version, we're done.
-                    if entry.url_and_version.url == mirror_url and entry.url_and_version.version == layout_version:
+                    if (
+                        entry.url_and_version.url == mirror_url
+                        and entry.url_and_version.version == layout_version
+                    ):
                         break
                 else:
-                    self._mirrors_for_spec[dag_hash].append(MirrorForSpec(url_and_version, indexed_spec))
+                    self._mirrors_for_spec[dag_hash].append(
+                        MirrorForSpec(url_and_version, indexed_spec)
+                    )
         finally:
             shutil.rmtree(tmpdir)
 
@@ -534,7 +542,9 @@ class BinaryCacheIndex:
         scheme = urllib.parse.urlparse(mirror_url).scheme
 
         if scheme != "oci" and not web_util.url_exists(
-            url_util.join(mirror_url, BUILD_CACHE_RELATIVE_PATH, f"v{layout_version}", "index.json")
+            url_util.join(
+                mirror_url, BUILD_CACHE_RELATIVE_PATH, f"v{layout_version}", "index.json"
+            )
         ):
             return False
 
@@ -660,15 +670,17 @@ def tarball_directory_name(spec):
     return spec.format_path("{architecture}/{compiler.name}-{compiler.version}/{name}-{version}")
 
 
-def buildcache_relative_spec_path(spec: spack.spec.Spec, ext: str, layout_version: int = CURRENT_BUILD_CACHE_LAYOUT_VERSION):
+def buildcache_relative_spec_path(
+    spec: spack.spec.Spec, ext: str, layout_version: int = CURRENT_BUILD_CACHE_LAYOUT_VERSION
+) -> str:
     """
     Return the name of the tarfile according to the convention
     <package>-<version>-<dag_hash><ext>
     """
-    spec_formatted = spec.format_path(
-        "{name}-{version}-{hash}"
+    spec_formatted = spec.format_path("{name}-{version}-{hash}")
+    return os.path.join(
+        build_cache_relative_path(), f"v{layout_version}", f"{spec_formatted}{ext}"
     )
-    return os.path.join(build_cache_relative_path(), f"v{layout_version}", f"{spec_formatted}{ext}")
 
 
 def tarball_name(spec, ext):
@@ -688,13 +700,7 @@ def tarball_path_name(spec, ext):
 
 
 def buildcache_relative_tarball_path(algorithm: str, checksum: str) -> str:
-    return os.path.join(
-        build_cache_relative_path(),
-        "blobs",
-        algorithm,
-        checksum[:2],
-        checksum
-    )
+    return os.path.join(build_cache_relative_path(), "blobs", algorithm, checksum[:2], checksum)
 
 
 def select_signing_key() -> str:
@@ -1118,17 +1124,18 @@ class BuildcacheFiles:
         self.remote = remote
         self.spec = spec
 
-    def remote_specfile(self, signed: bool, layout_version: int = CURRENT_BUILD_CACHE_LAYOUT_VERSION) -> str:
+    def remote_specfile(
+        self, signed: bool, layout_version: int = CURRENT_BUILD_CACHE_LAYOUT_VERSION
+    ) -> str:
         return url_util.join(
             self.remote,
-            buildcache_relative_spec_path(self.spec, ".spec.json.sig" if signed else ".spec.json", layout_version),
+            buildcache_relative_spec_path(
+                self.spec, ".spec.json.sig" if signed else ".spec.json", layout_version
+            ),
         )
 
     def remote_tarball(self, algorithm: str, checksum: str) -> str:
-        return url_util.join(
-            self.remote,
-            buildcache_relative_tarball_path(algorithm, checksum)
-        )
+        return url_util.join(self.remote, buildcache_relative_tarball_path(algorithm, checksum))
 
     def local_specfile(self) -> str:
         return os.path.join(self.local, f"{self.spec.dag_hash()}.spec.json")
@@ -1141,8 +1148,12 @@ def _exists_in_buildcache(spec: spack.spec.Spec, tmpdir: str, out_url: str) -> E
     """returns a tuple of bools (signed, unsigned, tarball) indicating whether specfiles/tarballs
     exist in the buildcache"""
     files = BuildcacheFiles(spec, tmpdir, out_url)
-    signed_url = files.remote_specfile(signed=True, layout_version=CURRENT_BUILD_CACHE_LAYOUT_VERSION)
-    unsigned_url = files.remote_specfile(signed=False, layout_version=CURRENT_BUILD_CACHE_LAYOUT_VERSION)
+    signed_url = files.remote_specfile(
+        signed=True, layout_version=CURRENT_BUILD_CACHE_LAYOUT_VERSION
+    )
+    unsigned_url = files.remote_specfile(
+        signed=False, layout_version=CURRENT_BUILD_CACHE_LAYOUT_VERSION
+    )
     signed = web_util.url_exists(signed_url)
     unsigned = web_util.url_exists(unsigned_url)
     fetch_url = signed_url if signed else unsigned_url
@@ -1204,7 +1215,9 @@ def _url_upload_tarball_and_specfile(
         web_util.remove_url(files.remote_specfile(signed=True))
     if exists.unsigned:
         web_util.remove_url(files.remote_specfile(signed=False))
-    web_util.push_to_url(tarball, files.remote_tarball(hash_algorithm, checksum), keep_original=False)
+    web_util.push_to_url(
+        tarball, files.remote_tarball(hash_algorithm, checksum), keep_original=False
+    )
 
     specfile = files.local_specfile()
     with open(specfile, "w", encoding="utf-8") as f:
@@ -2031,7 +2044,11 @@ def download_tarball(spec, unsigned: Optional[bool] = False, mirrors_for_spec=No
     # we need was in an un-indexed mirror.  No need to check any
     # mirror for the spec twice though.
     try_first = [i.url_and_version for i in mirrors_for_spec] if mirrors_for_spec else []
-    try_next = [MirrorURLAndVersion(i.fetch_url, CURRENT_BUILD_CACHE_LAYOUT_VERSION) for i in configured_mirrors if i.fetch_url not in try_first]
+    try_next = [
+        MirrorURLAndVersion(i.fetch_url, CURRENT_BUILD_CACHE_LAYOUT_VERSION)
+        for i in configured_mirrors
+        if i.fetch_url not in try_first
+    ]
     urls_and_versions = try_first + try_next
 
     # TODO: turn `mirrors_for_spec` into a list of Mirror instances, instead of doing that here.
@@ -2055,7 +2072,9 @@ def download_tarball(spec, unsigned: Optional[bool] = False, mirrors_for_spec=No
             # Override mirror's default if
             currently_unsigned = unsigned if unsigned is not None else not mirror.signed
 
-            specfile_prefix = buildcache_relative_spec_path(spec, ".spec", layout_version=layout_version)
+            specfile_prefix = buildcache_relative_spec_path(
+                spec, ".spec", layout_version=layout_version
+            )
 
             # If it's an OCI index, do things differently, since we cannot compose URLs.
             fetch_url = mirror.fetch_url
@@ -2161,10 +2180,13 @@ def download_tarball(spec, unsigned: Optional[bool] = False, mirrors_for_spec=No
                         #     1. user asked for --no-check-signature
                         #     2. user didn't ask for --no-check-signature, but we
                         #     found a spec.json.sig and verified the signature already
-                        spackfile_url = url_util.join(fetch_url, buildcache_relative_tarball_path(
-                            spec_dict["binary_cache_checksum"]["hash_algorithm"],
-                            spec_dict["binary_cache_checksum"]["hash"]
-                        ))
+                        spackfile_url = url_util.join(
+                            fetch_url,
+                            buildcache_relative_tarball_path(
+                                spec_dict["binary_cache_checksum"]["hash_algorithm"],
+                                spec_dict["binary_cache_checksum"]["hash"],
+                            ),
+                        )
                         tarball_stage = try_fetch(spackfile_url)
                         if tarball_stage:
                             return {
@@ -2460,9 +2482,7 @@ def extract_tarball(spec, download_result, force=False, timer=timer.NULL_TIMER):
     if local_checksum != expected:
         size, contents = fsys.filesummary(tarfile_path)
         _delete_staged_downloads(download_result)
-        raise NoChecksumException(
-            tarfile_path, size, contents, "sha256", expected, local_checksum
-        )
+        raise NoChecksumException(tarfile_path, size, contents, "sha256", expected, local_checksum)
     try:
         extract_buildcache_tarball(tarfile_path, destination=spec.prefix)
     except Exception:
@@ -2623,7 +2643,7 @@ def try_direct_fetch(spec, mirrors=None):
     specfile_name = buildcache_relative_spec_path(spec, ".spec.json")
     signed_specfile_name = buildcache_relative_spec_path(spec, ".spec.json.sig")
     specfile_is_signed = False
-    found_specs : List[MirrorForSpec] = []
+    found_specs: List[MirrorForSpec] = []
 
     binary_mirrors = spack.mirrors.mirror.MirrorCollection(mirrors=mirrors, binary=True).values()
 
@@ -2664,7 +2684,9 @@ def try_direct_fetch(spec, mirrors=None):
             fetched_spec = spack.spec.Spec.from_json(specfile_contents)
         fetched_spec._mark_concrete()
 
-        found_specs.append(MirrorForSpec(MirrorURLAndVersion(mirror.fetch_url, layout_version), fetched_spec))
+        found_specs.append(
+            MirrorForSpec(MirrorURLAndVersion(mirror.fetch_url, layout_version), fetched_spec)
+        )
 
     return found_specs
 
@@ -2998,7 +3020,9 @@ class DefaultIndexFetcher:
 
     def get_remote_hash(self):
         # Failure to fetch index.json.hash is not fatal
-        url_index_hash = url_util.join(self.url, BUILD_CACHE_RELATIVE_PATH, f"v{self.layout_version}", "index.json.hash")
+        url_index_hash = url_util.join(
+            self.url, BUILD_CACHE_RELATIVE_PATH, f"v{self.layout_version}", "index.json.hash"
+        )
         try:
             response = self.urlopen(urllib.request.Request(url_index_hash, headers=self.headers))
         except (TimeoutError, urllib.error.URLError):
@@ -3019,7 +3043,9 @@ class DefaultIndexFetcher:
             return FetchIndexResult(etag=None, hash=None, data=None, fresh=True)
 
         # Otherwise, download index.json
-        url_index = url_util.join(self.url, BUILD_CACHE_RELATIVE_PATH, f"v{self.layout_version}", "index.json")
+        url_index = url_util.join(
+            self.url, BUILD_CACHE_RELATIVE_PATH, f"v{self.layout_version}", "index.json"
+        )
 
         try:
             response = self.urlopen(urllib.request.Request(url_index, headers=self.headers))
@@ -3064,7 +3090,9 @@ class EtagIndexFetcher:
 
     def conditional_fetch(self) -> FetchIndexResult:
         # Just do a conditional fetch immediately
-        url = url_util.join(self.url, BUILD_CACHE_RELATIVE_PATH, f"v{self.layout_version}", "index.json")
+        url = url_util.join(
+            self.url, BUILD_CACHE_RELATIVE_PATH, f"v{self.layout_version}", "index.json"
+        )
         headers = {"User-Agent": web_util.SPACK_USER_AGENT, "If-None-Match": f'"{self.etag}"'}
 
         try:

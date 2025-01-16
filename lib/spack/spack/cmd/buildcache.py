@@ -677,7 +677,8 @@ def copy_buildcache_entry(spec_src_url, spec_dest_url, local_path=None):
     # Check spec file for validity and read it, or else cleanup and exit early
     try:
         spec_dict, _ = bindist._get_valid_spec_file(
-            local_spec_path, bindist.CURRENT_BUILD_CACHE_LAYOUT_VERSION)
+            local_spec_path, bindist.CURRENT_BUILD_CACHE_LAYOUT_VERSION
+        )
     except bindist.InvalidMetadataFile as e:
         tty.warn(f"Spec fetched from {spec_src_url} is not valid: {e}")
         _cleanup()
@@ -698,7 +699,9 @@ def copy_buildcache_entry(spec_src_url, spec_dest_url, local_path=None):
         tarball_stage.create()
         tarball_stage.fetch()
     except spack.error.FetchError as e:
-        tty.warn(f"Unable to fetch tarball ({tarball_src_url}) corresponding with spec ({spec_src_url})")
+        tty.warn(
+            f"Unable to fetch tarball ({tarball_src_url}) corresponding with spec ({spec_src_url})"
+        )
         _cleanup()
         return
 

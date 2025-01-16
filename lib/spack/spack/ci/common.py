@@ -165,7 +165,7 @@ def write_pipeline_manifest(specs, src_prefix, dest_prefix, output_file):
                     bindist.build_cache_relative_path(),
                     bindist.tarball_name(release_spec, ".spec.json.sig"),
                 ),
-            },
+            }
         ]
 
     target_dir = os.path.dirname(output_file)
