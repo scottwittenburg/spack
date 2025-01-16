@@ -87,8 +87,8 @@ BUILD_CACHE_RELATIVE_PATH = "build_cache"
 BUILD_CACHE_KEYS_RELATIVE_PATH = "_pgp"
 
 #: The build cache layout version that this version of Spack creates.
-#: Version 2: includes parent directories of the package prefix in the tarball
-CURRENT_BUILD_CACHE_LAYOUT_VERSION = 2
+#: Version 3: Introduces content-addressable tarballs
+CURRENT_BUILD_CACHE_LAYOUT_VERSION = 3
 
 
 class BuildCacheDatabase(spack_db.Database):
@@ -129,9 +129,29 @@ class FetchCacheError(Exception):
         super().__init__(self.message)
 
 
-class MirrorURLAndVersion(NamedTuple):
+class MirrorURLAndVersion():
     url: str
     version: int
+
+    def __init__(self, url: str, version: int):
+        self.url = url
+        self.version = version
+
+    def __str__(self):
+        return f"{self.url}__v{self.version}"
+
+    def __eq__(self, other):
+        if isinstance(other, MirrorURLAndVersion):
+            return self.url == other.url and self.version == other.version
+        return False
+
+    def __hash__(self):
+        return hash((self.url, self.version))
+
+    @classmethod
+    def from_string(cls, s: str):
+        parts = s.split("__v")
+        return cls(parts[0], int(parts[1]))
 
 
 class MirrorForSpec:
@@ -170,8 +190,8 @@ class BinaryCacheIndex:
         # a FileCache instance storing copies of remote binary cache indices
         self._index_file_cache: Optional[file_cache.FileCache] = None
 
-        # stores a map of mirror URL to index hash and cache key (index path)
-        self._local_index_cache: Optional[dict[MirrorURLAndVersion, object]] = None
+        # stores a map of mirror URL and version layout to index hash and cache key (index path)
+        self._local_index_cache: Optional[dict[str, object]] = None
 
         # hashes of remote indices already ingested into the concrete spec
         # cache (_mirrors_for_spec)
@@ -233,7 +253,7 @@ class BinaryCacheIndex:
             cached_index_path = cache_entry["index_path"]
             cached_index_hash = cache_entry["index_hash"]
             if cached_index_hash not in self._specs_already_associated:
-                self._associate_built_specs_with_mirror(cached_index_path, url_and_version)
+                self._associate_built_specs_with_mirror(cached_index_path, MirrorURLAndVersion.from_string(url_and_version))
                 self._specs_already_associated.add(cached_index_hash)
 
     def _associate_built_specs_with_mirror(self, cache_key, url_and_version: MirrorURLAndVersion):
@@ -404,9 +424,10 @@ class BinaryCacheIndex:
         ttl = spack.config.get("config:binary_index_ttl", 600)
         now = time.time()
 
-        for urlAndVersion in self._local_index_cache:
+        for local_index_cache_key in self._local_index_cache:
+            urlAndVersion = MirrorURLAndVersion.from_string(local_index_cache_key)
             cached_mirror_url = urlAndVersion.url
-            cache_entry = self._local_index_cache[urlAndVersion]
+            cache_entry = self._local_index_cache[local_index_cache_key]
             cached_index_path = cache_entry["index_path"]
             if urlAndVersion in configured_mirrors:
                 # Only do a fetch if the last fetch was longer than TTL ago
@@ -440,7 +461,7 @@ class BinaryCacheIndex:
                 # No longer have this mirror, cached index should be removed
                 items_to_remove.append(
                     {
-                        "url": urlAndVersion,
+                        "url": local_index_cache_key,
                         "cache_key": os.path.join(self._index_cache_root, cached_index_path),
                     }
                 )
@@ -460,7 +481,7 @@ class BinaryCacheIndex:
         # already have in our cache must be fetched, stored, and represented
         # locally.
         for urlAndVersion in configured_mirrors:
-            if urlAndVersion in self._local_index_cache:
+            if str(urlAndVersion) in self._local_index_cache:
                 continue
 
             # Need to fetch the index and update the local caches
@@ -540,7 +561,7 @@ class BinaryCacheIndex:
         with self._index_file_cache.write_transaction(cache_key) as (old, new):
             new.write(result.data)
 
-        self._local_index_cache[url_and_version] = {
+        self._local_index_cache[str(url_and_version)] = {
             "index_hash": result.hash,
             "index_path": cache_key,
             "etag": result.etag,
@@ -2000,8 +2021,6 @@ def download_tarball(spec, unsigned: Optional[bool] = False, mirrors_for_spec=No
     if not configured_mirrors:
         tty.die("Please add a spack mirror to allow download of pre-compiled packages.")
 
-    specfile_prefix = buildcache_relative_spec_path(spec, ".spec")
-
     # Note on try_first and try_next:
     # mirrors_for_spec mostly likely came from spack caching remote
     # mirror indices locally and adding their specs to a local data
@@ -2035,6 +2054,8 @@ def download_tarball(spec, unsigned: Optional[bool] = False, mirrors_for_spec=No
 
             # Override mirror's default if
             currently_unsigned = unsigned if unsigned is not None else not mirror.signed
+
+            specfile_prefix = buildcache_relative_spec_path(spec, ".spec", layout_version=layout_version)
 
             # If it's an OCI index, do things differently, since we cannot compose URLs.
             fetch_url = mirror.fetch_url
