@@ -130,6 +130,132 @@ class FetchCacheError(Exception):
         super().__init__(self.message)
 
 
+class URLBuildcacheEntryV3:
+    """Provide temporary local access to remote specs, both metadata and compressed archive"""
+
+    def __init__(
+        self,
+        spec: spack.spec.Spec,
+        mirror_url: str,
+        layout_version: int = CURRENT_BUILD_CACHE_LAYOUT_VERSION,
+    ):
+        """Lazily initialize the object, spec must be concrete"""
+        self.spec = spec
+        self.mirror_url = mirror_url
+        self.layout_version = layout_version
+
+        url_prefix = url_util.join(mirror_url, buildcache_relative_spec_path(spec, ".spec"))
+        remote_spec_url_signed = url_util.join(url_prefix, ".json.sig")
+        remote_spec_url_unsigned = url_util.join(url_prefix, ".json")
+        self.signed = False
+
+        if web_util.url_exists(remote_spec_url_signed):
+            self.remote_spec_url = remote_spec_url_signed
+            self.signed = True
+        elif web_util.url_exists(remote_spec_url_unsigned):
+            self.remote_spec_url = remote_spec_url_unsigned
+            self.signed = False
+        else:
+            raise BuildcacheEntryError(f"Mirror is missing spec metadata: {e}")
+
+        self.local_specfile_path = None
+        self.spec_stage = None
+        self.archive_stage = None
+        self.local_archive_path = None
+        self.remote_archive_url = None
+        self.tmpdir = None
+        self.spec_dict = None
+
+    @contextmanager
+    def fetch_metadata(self):
+        """Retrieve metadata for the spec, yields the validated spec+ dict"""
+        self.tmpdir = tempfile.mkdtemp()
+        local_spec_path = os.path.join(self.tmpdir, os.path.basename(self.remote_spec_url))
+        self.spec_stage = spack.stage.Stage(self.remote_spec_url, path=os.path.dirname(local_spec_path))
+
+        # Fetch the spec file, or else cleanup and exit early
+        try:
+            self.spec_stage.create()
+            self.spec_stage.fetch()
+        except spack.error.FetchError as e:
+            self._cleanup()
+            raise BuildcacheEntryError(f"Unable to fetch spec metadata: {e}")
+
+        assert local_spec_path == self.spec_stage.save_filename
+        self.local_specfile_path = self.spec_stage.save_filename
+
+        # Check spec file for validity and read it, or else cleanup and exit early
+        try:
+            self.spec_dict, _ = _get_valid_spec_file(
+                self.local_specfile_path, self.layout_version
+            )
+        except InvalidMetadataFile as e:
+            self._cleanup()
+            raise BuildcacheEntryError(f"Invalid spec metadata: {e}")
+
+        # Retrieve the alg and hash from the spec dict, use them to build the path to
+        # the tarball.
+        bchecksum = self.spec_dict["binary_cache_checksum"]
+        balgorithm = bchecksum["hash_algorithm"]
+        bhash = bchecksum["hash"]
+        rel_tarball_path = buildcache_relative_tarball_path(balgorithm, bhash)
+
+        self.remote_archive_url = url_util.join(self.mirror_url, rel_tarball_path)
+
+        try:
+            yield self.spec_dict
+        finally:
+            self._cleanup()
+
+    @contextmanager
+    def fetch_archive(self):
+        """Retrieve the archive file, yields the local archive file path"""
+        if not self.spec_dict:
+            raise BuildcacheEntryError(f"Cannot fetch archive without first fetching valid metadata: {e}")
+
+        self.local_archive_path = os.path.join(self.tmpdir, "compressed_tarball.tgz")
+        self.archive_stage = spack.stage.Stage(self.remote_archive_url, path=self.local_archive_path)
+
+        # Fetch the archive file, or else cleanup and exit early
+        try:
+            self.archive_stage.create()
+            self.archive_stage.fetch()
+        except spack.error.FetchError as e:
+            self._cleanup()
+            raise BuildcacheEntryError(f"Unable to fetch compressed archive: {e}")
+
+        try:
+            yield self.local_archive_path
+        finally:
+            self._cleanup()
+
+    def get_local_spec_path(self):
+        return self.local_specfile_path
+
+    def get_remote_spec_url(self):
+        return self.remote_spec_url
+
+    def get_local_archive_path(self):
+        return self.local_archive_path
+
+    def get_remote_archive_url(self):
+        return self.remote_archive_url
+
+    def is_signed(self):
+        return self.signed
+
+    def get_spec_dict(self):
+        return self.spec_dict
+
+    def _cleanup(self):
+        if self.spec_stage:
+            self.spec_stage.destroy()
+        if self.archive_stage:
+            self.archive_stage.destroy()
+        if self.tmpdir and os.path.exists(self.tmpdir):
+            shutil.rmtree(self.tmpdir)
+
+
 class MirrorURLAndVersion:
     url: str
     version: int
@@ -3275,3 +3401,7 @@ class CannotListKeys(GenerateIndexError):
 
 class PushToBuildCacheError(spack.error.SpackError):
     """Raised when unable to push objects to binary mirror"""
+
+
+class BuildcacheEntryError(spack.error.SpackError):
+    """Raised for problems finding or accessing binary cache entry on mirror"""
