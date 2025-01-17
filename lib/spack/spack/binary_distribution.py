@@ -6,6 +6,7 @@ import codecs
 import collections
 import concurrent.futures
 import copy
+import datetime
 import hashlib
 import io
 import itertools
@@ -22,7 +23,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import warnings
-from contextlib import closing
+from contextlib import closing, contextmanager
 from typing import IO, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Union
 
 import llnl.util.filesystem as fsys
@@ -433,6 +434,7 @@ class BinaryCacheIndex:
         now = time.time()
 
         for local_index_cache_key in self._local_index_cache:
+            tty.msg(f"local_index_cache_key={local_index_cache_key}")
             urlAndVersion = MirrorURLAndVersion.from_string(local_index_cache_key)
             cached_mirror_url = urlAndVersion.url
             cache_entry = self._local_index_cache[local_index_cache_key]
@@ -1208,6 +1210,8 @@ def _url_upload_tarball_and_specfile(
     hash_algorithm = "sha256"
     spec_dict["buildcache_layout_version"] = CURRENT_BUILD_CACHE_LAYOUT_VERSION
     spec_dict["binary_cache_checksum"] = {"hash_algorithm": hash_algorithm, "hash": checksum}
+    spec_dict["archive_size"] = os.stat(tarball).st_size
+    spec_dict["archive_timestamp"] = datetime.datetime.now().astimezone().isoformat()
 
     if exists.tarball:
         web_util.remove_url(files.remote_tarball(hash_algorithm, checksum))
@@ -2047,9 +2051,8 @@ def download_tarball(spec, unsigned: Optional[bool] = False, mirrors_for_spec=No
     try_next = [
         MirrorURLAndVersion(i.fetch_url, CURRENT_BUILD_CACHE_LAYOUT_VERSION)
         for i in configured_mirrors
-        if i.fetch_url not in try_first
     ]
-    urls_and_versions = try_first + try_next
+    urls_and_versions = try_first + [uv for uv in try_next if uv not in try_first]
 
     # TODO: turn `mirrors_for_spec` into a list of Mirror instances, instead of doing that here.
     def fetch_url_to_mirror(url_and_version):
@@ -2938,7 +2941,12 @@ def download_buildcache_entry(file_descriptions, mirror_url=None):
     return False
 
 
-def download_single_spec(concrete_spec, destination, mirror_url=None):
+def download_single_spec(
+    concrete_spec,
+    destination,
+    mirror_url=None,
+    layout_version: int = CURRENT_BUILD_CACHE_LAYOUT_VERSION,
+):
     """Download the buildcache files for a single concrete spec.
 
     Args:
